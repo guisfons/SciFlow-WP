@@ -7,16 +7,19 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+#[AllowDynamicProperties]
 class SciFlow_Submission
 {
 
     private $status_manager;
     private $email;
+    private $woocommerce;
 
-    public function __construct(SciFlow_Status_Manager $status_manager, SciFlow_Email $email)
+    public function __construct(SciFlow_Status_Manager $status_manager, SciFlow_Email $email, SciFlow_WooCommerce $woocommerce = null)
     {
         $this->status_manager = $status_manager;
         $this->email = $email;
+        $this->woocommerce = $woocommerce;
     }
 
     /**
@@ -32,6 +35,12 @@ class SciFlow_Submission
             return new WP_Error('not_logged_in', __('Você precisa estar logado.', 'sciflow-wp'));
         }
 
+        // Check for paid registration if WooCommerce is active and not a draft.
+        $is_draft = !empty($data['is_draft']);
+        if (!$is_draft && $this->woocommerce && !$this->woocommerce->has_paid_registration($user_id)) {
+            return new WP_Error('payment_required', __('Você precisa ter uma inscrição paga para submeter um trabalho.', 'sciflow-wp'));
+        }
+
         // Validate event.
         $event = sanitize_text_field($data['event'] ?? '');
         $post_type = SciFlow_Status_Manager::get_post_type_for_event($event);
@@ -39,35 +48,42 @@ class SciFlow_Submission
             return new WP_Error('invalid_event', __('Evento inválido.', 'sciflow-wp'));
         }
 
-        // Max 2 submissions per author.
-        if ($this->count_submissions_by_author($user_id) >= 2) {
-            return new WP_Error('max_submissions', __('Limite de 2 resumos por autor atingido.', 'sciflow-wp'));
+        // Max 2 submissions per author per event.
+        if (empty($data['post_id']) && $this->count_submissions_by_author($user_id, $event) >= 2) {
+            return new WP_Error('max_submissions', sprintf(__('Limite de 2 resumos para o evento %s atingido.', 'sciflow-wp'), ucfirst($event)));
         }
 
-        // Validate content length (3000-4000 chars).
+        $is_draft = !empty($data['is_draft']);
+
+        // Validate content length (3000-4000 chars). Skip if it's a draft.
         $title = sanitize_text_field($data['title'] ?? '');
         $content = wp_kses_post($data['content'] ?? '');
-        $full_text = $title . ' ' . wp_strip_all_tags($content);
 
-        // Include authors in char count.
-        $authors_text = sanitize_text_field($data['authors_text'] ?? '');
-        $full_text .= ' ' . $authors_text;
+        if (!$is_draft) {
+            $full_text = $title . ' ' . wp_strip_all_tags($content);
 
-        $char_count = mb_strlen($full_text);
-        if ($char_count < 3000 || $char_count > 4000) {
-            return new WP_Error(
-                'char_limit',
-                sprintf(
-                    __('O texto deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'),
-                    $char_count
-                )
-            );
-        }
+            // Include authors in char count.
+            $authors_text = sanitize_text_field($data['authors_text'] ?? '');
+            $full_text .= ' ' . $authors_text;
 
-        // Validate keywords (3-5).
-        $keywords = array_filter(array_map('sanitize_text_field', (array) ($data['keywords'] ?? array())));
-        if (count($keywords) < 3 || count($keywords) > 5) {
-            return new WP_Error('keywords', __('Informe de 3 a 5 palavras-chave.', 'sciflow-wp'));
+            $char_count = mb_strlen($full_text);
+            if ($char_count < 3000 || $char_count > 4000) {
+                return new WP_Error(
+                    'char_limit',
+                    sprintf(
+                        __('O texto deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'),
+                        $char_count
+                    )
+                );
+            }
+
+            // Validate keywords (3-5).
+            $keywords = array_filter(array_map('sanitize_text_field', (array) ($data['keywords'] ?? array())));
+            if (count($keywords) < 3 || count($keywords) > 5) {
+                return new WP_Error('keywords', __('Informe de 3 a 5 palavras-chave.', 'sciflow-wp'));
+            }
+        } else {
+            $keywords = array_filter(array_map('sanitize_text_field', (array) ($data['keywords'] ?? array())));
         }
 
         // Validate co-authors (max 8 on the form, max 6 total authors including main).
@@ -83,27 +99,64 @@ class SciFlow_Submission
             $language = 'pt';
         }
 
-        // Create the post.
-        $post_id = wp_insert_post(array(
+        // Create or Update the post.
+        $post_data = array(
             'post_type' => $post_type,
             'post_title' => $title,
             'post_content' => $content,
-            'post_status' => 'publish',
+            'post_status' => $is_draft ? 'draft' : 'publish',
             'post_author' => $user_id,
-        ), true);
+        );
+
+        if (!empty($data['post_id'])) {
+            $existing_post = get_post($data['post_id']);
+            if (!$existing_post || (int) $existing_post->post_author !== (int) $user_id) {
+                return new WP_Error('invalid_post', __('Você não tem permissão para editar este trabalho.', 'sciflow-wp'));
+            }
+
+            // ONLY permit updates if the status is 'rascunho' or in a correction phase.
+            $current_status = get_post_meta($data['post_id'], '_sciflow_status', true);
+            $allowed_edit_statuses = array('rascunho', 'em_correcao', 'aprovado_com_consideracoes', 'reprovado');
+            if (!in_array($current_status, $allowed_edit_statuses, true)) {
+                return new WP_Error('already_submitted', __('Este trabalho já foi submetido e não pode ser editado.', 'sciflow-wp'));
+            }
+
+            // If it was in correction, we'll notify the editor after update.
+            $was_in_correction = in_array($current_status, array('em_correcao', 'aprovado_com_consideracoes', 'reprovado'), true);
+
+            $post_data['ID'] = $data['post_id'];
+            $post_id = wp_update_post($post_data, true);
+        } else {
+            $post_id = wp_insert_post($post_data, true);
+        }
+
+
 
         if (is_wp_error($post_id)) {
             return $post_id;
         }
 
         // Save meta.
-        update_post_meta($post_id, '_sciflow_status', 'aguardando_pagamento');
+        if ($is_draft) {
+            update_post_meta($post_id, '_sciflow_status', 'rascunho');
+        } else {
+            update_post_meta($post_id, '_sciflow_status', 'submetido');
+        }
+
         update_post_meta($post_id, '_sciflow_event', $event);
+
         update_post_meta($post_id, '_sciflow_author_id', $user_id);
         update_post_meta($post_id, '_sciflow_coauthors', $coauthors);
         update_post_meta($post_id, '_sciflow_keywords', $keywords);
         update_post_meta($post_id, '_sciflow_language', $language);
-        update_post_meta($post_id, '_sciflow_payment_status', 'pending');
+        update_post_meta($post_id, '_sciflow_payment_status', 'confirmed');
+
+        // If resubmitting from correction, add a system message and notify editor.
+        if (!empty($was_in_correction) && !$is_draft) {
+            $editorial = new SciFlow_Editorial($this->status_manager, $this->email);
+            $editorial->add_message($post_id, 'autor', __('O autor enviou as correções solicitadas.', 'sciflow-wp'));
+            $this->email->send_new_submission($post_id, $event);
+        }
 
         /**
          * Fires after a new submission is created.
@@ -180,12 +233,16 @@ class SciFlow_Submission
     }
 
     /**
-     * Count submissions by a specific author across both CPTs.
+     * Count submissions by a specific author for a specific event.
      */
-    private function count_submissions_by_author($user_id)
+    private function count_submissions_by_author($user_id, $event = null)
     {
         $count = 0;
-        foreach (array('enfrute_trabalhos', 'senco_trabalhos') as $pt) {
+        $post_types = $event ? array(SciFlow_Status_Manager::get_post_type_for_event($event)) : array('enfrute_trabalhos', 'senco_trabalhos');
+
+        foreach ($post_types as $pt) {
+            if (!$pt)
+                continue;
             $query = new WP_Query(array(
                 'post_type' => $pt,
                 'author' => $user_id,

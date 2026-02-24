@@ -353,7 +353,7 @@ class SciFlow_Admin
             echo '<td>' . $pos . '</td>';
             echo '<td><strong>' . esc_html($post->post_title) . '</strong></td>';
             echo '<td>' . number_format($score, 2, ',', '') . '</td>';
-            echo '<td>' . esc_html($sm->get_status_label($status)) . '</td>';
+            echo '<td>' . $sm->get_status_badge($status) . '</td>';
             echo '<td>' . ($selected ? '✅' : '—') . '</td>';
             echo '<td>' . ($confirmed ? '✅' : '—') . '</td>';
             echo '<td>' . ($payment === 'confirmed' ? '✅' : '⏳');
@@ -488,7 +488,7 @@ class SciFlow_Admin
         $score = get_post_meta($post->ID, '_sciflow_ranking_score', true);
         $keywords = get_post_meta($post->ID, '_sciflow_keywords', true);
 
-        echo '<p><strong>' . esc_html__('Status:', 'sciflow-wp') . '</strong> ' . esc_html($sm->get_status_label($status)) . '</p>';
+        echo '<p><strong>' . esc_html__('Status:', 'sciflow-wp') . '</strong> ' . $sm->get_status_badge($status) . '</p>';
         echo '<p><strong>' . esc_html__('Evento:', 'sciflow-wp') . '</strong> ' . esc_html(ucfirst($event)) . '</p>';
         echo '<p><strong>' . esc_html__('Pagamento:', 'sciflow-wp') . '</strong> ' . ($payment === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente') . '</p>';
 

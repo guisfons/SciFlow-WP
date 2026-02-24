@@ -28,6 +28,8 @@ class SciFlow_Loader
     private $poster_upload;
     private $payment;
     private $woocommerce;
+    private $access;
+    private $redirection;
 
     /**
      * Instantiate all modules and register hooks.
@@ -41,13 +43,21 @@ class SciFlow_Loader
         $this->enfrute_cpt = new SciFlow_Enfrute_CPT();
         $this->senco_cpt = new SciFlow_Senco_CPT();
 
+        // Self-repair roles if missing capabilities.
+        $senco_editor = get_role('sciflow_senco_editor');
+        if ($senco_editor && !$senco_editor->has_cap('manage_sciflow')) {
+            $roles = new SciFlow_Roles();
+            $roles->add_roles();
+            $roles->add_caps();
+        }
+
         // Meta fields.
         $this->meta = new SciFlow_Meta();
 
         // Workflow.
         $this->status_manager = new SciFlow_Status_Manager();
         $this->email = new SciFlow_Email();
-        $this->submission = new SciFlow_Submission($this->status_manager, $this->email);
+        $this->submission = new SciFlow_Submission($this->status_manager, $this->email, $this->woocommerce);
         $this->review = new SciFlow_Review($this->status_manager, $this->email);
         $this->editorial = new SciFlow_Editorial($this->status_manager, $this->email);
 
@@ -67,25 +77,30 @@ class SciFlow_Loader
             $this->editorial,
             $this->ranking,
             $this->poster_upload,
-            $this->payment
+            $this->payment,
+            $this->woocommerce
         );
         $this->ajax = new SciFlow_Ajax_Handler(
             $this->submission,
             $this->review,
             $this->editorial,
             $this->poster_upload,
-            $this->payment
+            $this->payment,
+            $this->woocommerce
         );
 
         // Admin.
         if (is_admin()) {
             $this->admin = new SciFlow_Admin($this->payment);
+            $this->access = new SciFlow_Access();
         }
 
-        // WooCommerce integration (role assignment on purchase).
         if (class_exists('WooCommerce')) {
             $this->woocommerce = new SciFlow_WooCommerce();
         }
+
+        // Redirection logic.
+        $this->redirection = new SciFlow_Redirection($this->woocommerce);
 
         // Enqueue assets.
         add_action('wp_enqueue_scripts', array($this, 'enqueue_public_assets'));

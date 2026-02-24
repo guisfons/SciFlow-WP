@@ -79,9 +79,12 @@ class SciFlow_Sicredi_Pix implements SciFlow_Payment_Gateway_Interface
             return false;
         }
 
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        if (empty($body['access_token'])) {
-            error_log('SciFlow Sicredi Token Error: No access_token in response');
+        $body_content = wp_remote_retrieve_body($response);
+        $body = json_decode($body_content, true);
+        $code = wp_remote_retrieve_response_code($response);
+
+        if ($code !== 200 || empty($body['access_token'])) {
+            error_log('SciFlow Sicredi Token Error: HTTP ' . $code . ' - Response: ' . $body_content);
             return false;
         }
 

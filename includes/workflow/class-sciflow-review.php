@@ -36,7 +36,7 @@ class SciFlow_Review
         }
 
         $current = $this->status_manager->get_status($post_id);
-        if ($current !== 'em_avaliacao') {
+        if (!in_array($current, array('em_avaliacao', 'em_correcao', 'submetido'), true)) {
             return new WP_Error('invalid_status', __('O trabalho não está em fase de avaliação.', 'sciflow-wp'));
         }
 
@@ -48,7 +48,7 @@ class SciFlow_Review
 
         // Validate decision.
         $decision = sanitize_text_field($data['decision'] ?? '');
-        if (!in_array($decision, array('approved', 'approved_restricted', 'rejected'), true)) {
+        if (!in_array($decision, array('approved', 'approved_with_considerations', 'rejected'), true)) {
             return new WP_Error('invalid_decision', __('Decisão do revisor inválida.', 'sciflow-wp'));
         }
 
@@ -59,15 +59,23 @@ class SciFlow_Review
         update_post_meta($post_id, '_sciflow_reviewer_decision', $decision);
         update_post_meta($post_id, '_sciflow_reviewer_notes', $notes);
 
+        // Add to history.
+        $editorial = new SciFlow_Editorial($this->status_manager, $this->email);
+        $editorial->add_message($post_id, 'revisor', $notes);
+
         // Calculate and store ranking score.
         $ranking_score = $this->calculate_average($scores);
         update_post_meta($post_id, '_sciflow_ranking_score', $ranking_score);
 
-        // Transition to aguardando_decisao.
-        $result = $this->status_manager->transition($post_id, 'aguardando_decisao');
+        // Transition to aguardando_decisao if in evaluation or newly resubmitted phase.
+        if (in_array($current, array('em_avaliacao', 'submetido'), true)) {
+            $result = $this->status_manager->transition($post_id, 'aguardando_decisao');
 
-        if (!is_wp_error($result)) {
-            $this->email->send_review_complete($post_id);
+            if (!is_wp_error($result)) {
+                $this->email->send_review_complete($post_id);
+            }
+        } else {
+            $result = true;
         }
 
         return $result;

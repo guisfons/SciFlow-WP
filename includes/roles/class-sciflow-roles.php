@@ -29,6 +29,28 @@ class SciFlow_Roles
         add_role('sciflow_editor', __('Editor (SciFlow)', 'sciflow-wp'), array(
             'read' => true,
         ));
+
+        // --- NEW ROLES ---
+
+        // Senco Editor
+        add_role('sciflow_senco_editor', __('Editor Senco (SciFlow)', 'sciflow-wp'), array(
+            'read' => true,
+        ));
+
+        // Senco Revisor
+        add_role('sciflow_senco_revisor', __('Revisor Senco (SciFlow)', 'sciflow-wp'), array(
+            'read' => true,
+        ));
+
+        // Enfrute Editor
+        add_role('sciflow_enfrute_editor', __('Editor Enfrute (SciFlow)', 'sciflow-wp'), array(
+            'read' => true,
+        ));
+
+        // Enfrute Revisor
+        add_role('sciflow_enfrute_revisor', __('Revisor Enfrute (SciFlow)', 'sciflow-wp'), array(
+            'read' => true,
+        ));
     }
 
     /**
@@ -78,6 +100,46 @@ class SciFlow_Roles
             $editor->add_cap('upload_files');
         }
 
+        // ---------- Senco Editor ----------
+        $senco_editor = get_role('sciflow_senco_editor');
+        if ($senco_editor) {
+            foreach ($this->get_post_type_caps('senco_trabalho') as $cap) {
+                $senco_editor->add_cap($cap);
+            }
+            $senco_editor->add_cap('sciflow_review');
+            $senco_editor->add_cap('assign_sciflow_reviewers');
+            $senco_editor->add_cap('manage_sciflow'); // Needed for some dashboard checks
+            $senco_editor->add_cap('upload_files');
+        }
+
+        // ---------- Senco Revisor ----------
+        $senco_revisor = get_role('sciflow_senco_revisor');
+        if ($senco_revisor) {
+            $senco_revisor->add_cap('read_senco_trabalhos');
+            $senco_revisor->add_cap('read_private_senco_trabalhos');
+            $senco_revisor->add_cap('sciflow_review');
+        }
+
+        // ---------- Enfrute Editor ----------
+        $enfrute_editor = get_role('sciflow_enfrute_editor');
+        if ($enfrute_editor) {
+            foreach ($this->get_post_type_caps('enfrute_trabalho') as $cap) {
+                $enfrute_editor->add_cap($cap);
+            }
+            $enfrute_editor->add_cap('sciflow_review');
+            $enfrute_editor->add_cap('assign_sciflow_reviewers');
+            $enfrute_editor->add_cap('manage_sciflow');
+            $enfrute_editor->add_cap('upload_files');
+        }
+
+        // ---------- Enfrute Revisor ----------
+        $enfrute_revisor = get_role('sciflow_enfrute_revisor');
+        if ($enfrute_revisor) {
+            $enfrute_revisor->add_cap('read_enfrute_trabalhos');
+            $enfrute_revisor->add_cap('read_private_enfrute_trabalhos');
+            $enfrute_revisor->add_cap('sciflow_review');
+        }
+
         // ---------- Administrator ----------
         $admin = get_role('administrator');
         if ($admin) {
@@ -101,6 +163,10 @@ class SciFlow_Roles
         remove_role('sciflow_inscrito');
         remove_role('sciflow_revisor');
         remove_role('sciflow_editor');
+        remove_role('sciflow_senco_editor');
+        remove_role('sciflow_senco_revisor');
+        remove_role('sciflow_enfrute_editor');
+        remove_role('sciflow_enfrute_revisor');
     }
 
     /**

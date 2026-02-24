@@ -96,9 +96,7 @@ $events = array(
                                     <?php echo $author ? esc_html($author->display_name) : '—'; ?>
                                 </td>
                                 <td>
-                                    <span class="sciflow-badge sciflow-badge--<?php echo esc_attr($status); ?>">
-                                        <?php echo esc_html($status_label); ?>
-                                    </span>
+                                    <?php echo $status_manager->get_status_badge($status); ?>
                                 </td>
                                 <td>
                                     <?php echo $reviewer ? esc_html($reviewer->display_name) : '—'; ?>
@@ -127,36 +125,76 @@ $events = array(
                                         </div>
                                     <?php endif; ?>
 
-                                    <?php if ($status === 'aguardando_decisao'): ?>
-                                        <!-- Editorial decision -->
-                                        <?php if ($rev_notes): ?>
-                                            <div class="sciflow-reviewer-notes">
-                                                <small><strong>
-                                                        <?php esc_html_e('Parecer do Revisor:', 'sciflow-wp'); ?>
-                                                    </strong>
-                                                    <?php echo wp_kses_post($rev_notes); ?>
-                                                </small>
+                                    <?php if ($status === 'aguardando_decisao' || $status === 'em_correcao' || $status === 'em_avaliacao'):
+                                        $history = SciFlow_Editorial::get_message_history($post->ID);
+                                        ?>
+                                        <!-- Editorial History -->
+                                        <?php if (!empty($history)): ?>
+                                            <div class="sciflow-message-history sciflow-message-history--admin">
+                                                <h6><?php esc_html_e('Histórico de Mensagens/Pareceres', 'sciflow-wp'); ?></h6>
+                                                <div class="sciflow-messages">
+                                                    <?php foreach ($history as $msg): ?>
+                                                        <div class="sciflow-message sciflow-message--<?php echo esc_attr($msg['role']); ?>">
+                                                            <div class="sciflow-message__header">
+                                                                <span
+                                                                    class="sciflow-message__author"><?php echo esc_html(ucfirst($msg['role'])); ?></span>
+                                                                <span
+                                                                    class="sciflow-message__date"><?php echo date_i18n('d/m/Y H:i', strtotime($msg['timestamp'])); ?></span>
+                                                            </div>
+                                                            <div class="sciflow-message__content">
+                                                                <?php echo wp_kses_post($msg['content']); ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
                                             </div>
                                         <?php endif; ?>
-                                        <div class="sciflow-decision-form" data-post-id="<?php echo esc_attr($post->ID); ?>">
-                                            <textarea class="sciflow-field__textarea sciflow-decision-notes"
-                                                placeholder="<?php esc_attr_e('Observações para o autor...', 'sciflow-wp'); ?>"
-                                                rows="2"></textarea>
-                                            <div class="sciflow-decision-buttons">
-                                                <button class="sciflow-btn sciflow-btn--success sciflow-btn--sm sciflow-decision-btn"
-                                                    data-decision="approve">
-                                                    <?php esc_html_e('Aprovar', 'sciflow-wp'); ?>
-                                                </button>
-                                                <button class="sciflow-btn sciflow-btn--warning sciflow-btn--sm sciflow-decision-btn"
-                                                    data-decision="return_to_author">
-                                                    <?php esc_html_e('Devolver', 'sciflow-wp'); ?>
-                                                </button>
-                                                <button class="sciflow-btn sciflow-btn--danger sciflow-btn--sm sciflow-decision-btn"
-                                                    data-decision="reject">
-                                                    <?php esc_html_e('Reprovar', 'sciflow-wp'); ?>
-                                                </button>
+
+                                        <?php if ($status === 'aguardando_decisao'): ?>
+                                            <!-- Reviewer Recommendation -->
+                                            <?php if ($rev_decision): ?>
+                                                <div class="sciflow-reviewer-recommendation mb-2">
+                                                    <strong><?php esc_html_e('Recomendação do Revisor:', 'sciflow-wp'); ?></strong>
+                                                    <?php
+                                                    $recs = array(
+                                                        'approved' => __('Aprovar', 'sciflow-wp'),
+                                                        'approved_with_considerations' => __('Aprovar com Considerações', 'sciflow-wp'),
+                                                        'rejected' => __('Reprovar', 'sciflow-wp'),
+                                                    );
+                                                    echo esc_html($recs[$rev_decision] ?? $rev_decision);
+                                                    ?>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <!-- Editorial decision form -->
+                                            <div class="sciflow-decision-form" data-post-id="<?php echo esc_attr($post->ID); ?>">
+                                                <textarea class="sciflow-field__textarea sciflow-decision-notes"
+                                                    placeholder="<?php esc_attr_e('Observações para o autor (serão anexadas ao histórico)...', 'sciflow-wp'); ?>"
+                                                    rows="2"></textarea>
+                                                <div class="sciflow-decision-buttons">
+                                                    <button class="sciflow-btn sciflow-btn--success sciflow-btn--sm sciflow-decision-btn"
+                                                        data-decision="approve">
+                                                        <?php esc_html_e('Aprovar', 'sciflow-wp'); ?>
+                                                    </button>
+                                                    <button class="sciflow-btn sciflow-btn--info sciflow-btn--sm sciflow-decision-btn"
+                                                        data-decision="approved_with_considerations">
+                                                        <?php esc_html_e('Aprovar com Considerações', 'sciflow-wp'); ?>
+                                                    </button>
+                                                    <button class="sciflow-btn sciflow-btn--warning sciflow-btn--sm sciflow-decision-btn"
+                                                        data-decision="return_to_author">
+                                                        <?php esc_html_e('Devolver', 'sciflow-wp'); ?>
+                                                    </button>
+                                                    <button class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm sciflow-decision-btn"
+                                                        data-decision="return_to_reviewer">
+                                                        <?php esc_html_e('Voltar para Revisão', 'sciflow-wp'); ?>
+                                                    </button>
+                                                    <button class="sciflow-btn sciflow-btn--danger sciflow-btn--sm sciflow-decision-btn"
+                                                        data-decision="reject">
+                                                        <?php esc_html_e('Reprovar', 'sciflow-wp'); ?>
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>

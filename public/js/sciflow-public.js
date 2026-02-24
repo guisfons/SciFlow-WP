@@ -18,8 +18,13 @@
     }
 
     function ajaxPost(action, data, $btn) {
-        data.action = action;
-        data.nonce = ajax.nonce;
+        if (typeof data === 'string') {
+            data += '&action=' + encodeURIComponent(action);
+            data += '&nonce=' + encodeURIComponent(ajax.nonce);
+        } else {
+            data.action = action;
+            data.nonce = ajax.nonce;
+        }
 
         const origText = $btn ? $btn.text() : '';
         if ($btn) {
@@ -117,10 +122,20 @@
             .done(function (res) {
                 if (res.success) {
                     showMessage('#sciflow-form-messages', res.data.message, 'success');
-                    $form[0].reset();
-                    // Auto-trigger payment.
+                    // Update hidden post_id field so next save/submit updates this post
                     if (res.data.post_id) {
-                        triggerPayment(res.data.post_id);
+                        $('#sciflow_post_id').val(res.data.post_id);
+                    }
+
+                    if (!res.data.is_draft) {
+                        $form[0].reset();
+                        $('#sciflow_post_id').val('');
+                        if (res.data.redirect_url) {
+                            window.location.href = res.data.redirect_url;
+                        }
+                    } else {
+                        // Hide draft button after success
+                        $('#sciflow-draft-btn').fadeOut(200);
                     }
                 } else {
                     showMessage('#sciflow-form-messages', res.data.message, 'error');
@@ -129,6 +144,57 @@
             .fail(function () {
                 showMessage('#sciflow-form-messages', 'Erro de conexão.', 'error');
             });
+    });
+
+    $(document).on('click', '#sciflow-draft-btn', function (e) {
+        const $btn = $(this);
+        const $form = $('#sciflow-submit-form');
+
+        // Sync TinyMCE.
+        if (typeof tinyMCE !== 'undefined') {
+            const editor = tinyMCE.get('sciflow_content');
+            if (editor) editor.save();
+        }
+
+        const formData = $form.serialize() + '&is_draft=1';
+
+        ajaxPost('sciflow_submit', formData, $btn)
+            .done(function (res) {
+                if (res.success) {
+                    showMessage('#sciflow-form-messages', res.data.message, 'success');
+                    // Update hidden post_id field
+                    if (res.data.post_id) {
+                        $('#sciflow_post_id').val(res.data.post_id);
+                    }
+                    // Hide draft button after success
+                    $('#sciflow-draft-btn').fadeOut(200);
+                } else {
+                    showMessage('#sciflow-form-messages', res.data.message, 'error');
+                }
+            })
+            .fail(function () {
+                showMessage('#sciflow-form-messages', 'Erro de conexão.', 'error');
+            });
+    });
+
+    // Change detection to show draft button again
+    $(document).on('input change', '#sciflow-submit-form input, #sciflow-submit-form select, #sciflow-submit-form textarea', function () {
+        $('#sciflow-draft-btn').fadeIn(200);
+    });
+
+    // Also detect TinyMCE changes
+    $(document).ready(function () {
+        if (typeof tinyMCE !== 'undefined') {
+            const waitForEditor = setInterval(function () {
+                const editor = tinyMCE.get('sciflow_content');
+                if (editor) {
+                    clearInterval(waitForEditor);
+                    editor.on('input change keyup', function () {
+                        $('#sciflow-draft-btn').fadeIn(200);
+                    });
+                }
+            }, 500);
+        }
     });
 
     // ─── Payment ───
@@ -213,6 +279,7 @@
                 if (res.success) {
                     showMessage('#sciflow-reviewer-messages', res.data.message, 'success');
                     $form.find('input, select, textarea, button').prop('disabled', true);
+                    location.reload(); // Force reload to show locked state correctly
                 } else {
                     showMessage('#sciflow-reviewer-messages', res.data.message, 'error');
                 }
@@ -270,7 +337,13 @@
         const decision = $btn.data('decision');
         const notes = $form.find('.sciflow-decision-notes').val();
 
-        const labels = { approve: 'aprovar', reject: 'reprovar', return_to_author: 'devolver' };
+        const labels = {
+            approve: 'aprovar',
+            reject: 'reprovar',
+            return_to_author: 'devolver',
+            approved_with_considerations: 'aprovar com considerações',
+            return_to_reviewer: 'mandar de volta para o revisor'
+        };
         if (!confirm('Tem certeza que deseja ' + (labels[decision] || decision) + ' este trabalho?')) return;
 
         ajaxPost('sciflow_editorial_decision', { post_id: postId, decision: decision, notes: notes }, $btn)

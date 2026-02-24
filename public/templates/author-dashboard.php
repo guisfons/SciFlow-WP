@@ -28,7 +28,13 @@ if (!defined('ABSPATH'))
         <div class="sciflow-works-list">
             <?php foreach ($submissions as $post):
                 $status = $status_manager->get_status($post->ID);
-                $label = $status_manager->get_status_label($status);
+
+                // Agrupa status internos como "Em Avaliação" para não confundir o autor
+                $display_status = $status;
+                if (in_array($status, array('submetido', 'apto_revisao', 'aguardando_decisao'), true)) {
+                    $display_status = 'em_avaliacao';
+                }
+
                 $event = get_post_meta($post->ID, '_sciflow_event', true);
                 $payment = get_post_meta($post->ID, '_sciflow_payment_status', true);
                 $poster_id = get_post_meta($post->ID, '_sciflow_poster_id', true);
@@ -44,9 +50,7 @@ if (!defined('ABSPATH'))
                         <h3 class="sciflow-work-card__title">
                             <?php echo esc_html($post->post_title); ?>
                         </h3>
-                        <span class="sciflow-badge sciflow-badge--<?php echo esc_attr($status); ?>">
-                            <?php echo esc_html($label); ?>
-                        </span>
+                        <?php echo $status_manager->get_status_badge($display_status); ?>
                     </div>
 
                     <div class="sciflow-work-card__meta">
@@ -84,27 +88,54 @@ if (!defined('ABSPATH'))
                         </div>
                     <?php endif; ?>
 
-                    <?php if ($ed_notes && $status === 'em_correcao'): ?>
-                        <div class="sciflow-notice sciflow-notice--warning">
-                            <strong>
-                                <?php esc_html_e('Observações do Editor:', 'sciflow-wp'); ?>
-                            </strong><br>
-                            <?php echo wp_kses_post($ed_notes); ?>
+                    <?php
+                    $history = SciFlow_Editorial::get_message_history($post->ID);
+                    $show_history_statuses = array('em_correcao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'poster_enviado', 'aguardando_confirmacao', 'confirmado');
+
+                    if (!empty($history) && in_array($status, $show_history_statuses, true)): ?>
+                        <div class="sciflow-message-history">
+                            <h4 class="sciflow-message-history__title">
+                                <?php esc_html_e('Histórico de Considerações:', 'sciflow-wp'); ?>
+                            </h4>
+                            <div class="sciflow-messages">
+                                <?php foreach ($history as $msg):
+                                    $role_label = array(
+                                    $role_label = array(
+                                        'revisor' => __('Comitê Científico', 'sciflow-wp'),
+                                        'editor' => __('Comitê Científico', 'sciflow-wp'),
+                                        'autor' => __('Você', 'sciflow-wp'),
+                                        'sistema' => __('Sistema', 'sciflow-wp'),
+                                    );
+                                    $role_class = $msg['role'];
+                                    ?>
+                                    <div class="sciflow-message sciflow-message--<?php echo esc_attr($role_class); ?>">
+                                        <div class="sciflow-message__header">
+                                            <span
+                                                class="sciflow-message__author"><?php echo esc_html($role_label[$msg['role']] ?? $msg['role']); ?></span>
+                                            <span
+                                                class="sciflow-message__date"><?php echo date_i18n('d/m/Y H:i', strtotime($msg['timestamp'])); ?></span>
+                                        </div>
+                                        <div class="sciflow-message__content">
+                                            <?php echo wp_kses_post($msg['content']); ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
                     <?php endif; ?>
 
                     <div class="sciflow-work-card__actions">
-                        <?php if ($status === 'aguardando_pagamento'): ?>
-                            <button class="sciflow-btn sciflow-btn--primary sciflow-btn--sm sciflow-payment-btn"
-                                data-post-id="<?php echo esc_attr($post->ID); ?>">
-                                <?php esc_html_e('Pagar via Pix', 'sciflow-wp'); ?>
-                            </button>
-                        <?php endif; ?>
 
-                        <?php if ($status === 'em_correcao'): ?>
+                        <?php if (in_array($status, array('rascunho', 'em_correcao', 'aprovado_com_consideracoes', 'reprovado'), true)): ?>
                             <button class="sciflow-btn sciflow-btn--primary sciflow-btn--sm sciflow-edit-btn"
                                 data-post-id="<?php echo esc_attr($post->ID); ?>">
-                                <?php esc_html_e('Editar e Reenviar', 'sciflow-wp'); ?>
+                                <?php
+                                if ($status === 'rascunho') {
+                                    esc_html_e('Ver/Editar', 'sciflow-wp');
+                                } else {
+                                    esc_html_e('Editar e Reenviar', 'sciflow-wp');
+                                }
+                                ?>
                             </button>
                         <?php endif; ?>
 

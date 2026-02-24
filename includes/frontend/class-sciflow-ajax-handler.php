@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+#[AllowDynamicProperties]
 class SciFlow_Ajax_Handler
 {
 
@@ -15,19 +16,22 @@ class SciFlow_Ajax_Handler
     private $editorial;
     private $poster_upload;
     private $payment;
+    private $woocommerce;
 
     public function __construct(
         SciFlow_Submission $submission,
         SciFlow_Review $review,
         SciFlow_Editorial $editorial,
         SciFlow_Poster_Upload $poster_upload,
-        SciFlow_Sicredi_Pix $payment
+        SciFlow_Sicredi_Pix $payment,
+        ?SciFlow_WooCommerce $woocommerce = null
     ) {
         $this->submission = $submission;
         $this->review = $review;
         $this->editorial = $editorial;
         $this->poster_upload = $poster_upload;
         $this->payment = $payment;
+        $this->woocommerce = $woocommerce;
 
         // Submission.
         add_action('wp_ajax_sciflow_submit', array($this, 'handle_submit'));
@@ -48,6 +52,7 @@ class SciFlow_Ajax_Handler
         // Payment.
         add_action('wp_ajax_sciflow_create_payment', array($this, 'handle_create_payment'));
         add_action('wp_ajax_sciflow_check_payment', array($this, 'handle_check_payment'));
+        add_action('wp_ajax_sciflow_confirm_payment_admin', array($this, 'handle_confirm_payment_admin'));
 
         // Confirmation.
         add_action('wp_ajax_sciflow_confirm_presentation', array($this, 'handle_confirm_presentation'));
@@ -82,18 +87,23 @@ class SciFlow_Ajax_Handler
             'keywords' => array_map('sanitize_text_field', (array) ($_POST['keywords'] ?? array())),
             'coauthors' => $_POST['coauthors'] ?? array(),
             'language' => sanitize_text_field($_POST['language'] ?? 'pt'),
+            'is_draft' => !empty($_POST['is_draft']),
+            'post_id' => !empty($_POST['post_id']) ? absint($_POST['post_id']) : 0,
         );
-
         $result = $this->submission->create($data);
 
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
+        $is_draft = !empty($_POST['is_draft']);
         wp_send_json_success(array(
-            'message' => __('Trabalho submetido com sucesso! Aguardando pagamento.', 'sciflow-wp'),
+            'message' => $is_draft ? __('Rascunho salvo com sucesso!', 'sciflow-wp') : __('Trabalho submetido com sucesso! Redirecionando...', 'sciflow-wp'),
             'post_id' => $result,
+            'is_draft' => $is_draft,
+            'redirect_url' => home_url('/meus-artigos/')
         ));
+
     }
 
     /**
@@ -118,7 +128,10 @@ class SciFlow_Ajax_Handler
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
-        wp_send_json_success(array('message' => __('Trabalho reenviado com sucesso!', 'sciflow-wp')));
+        wp_send_json_success(array(
+            'message' => __('Trabalho reenviado com sucesso! Redirecionando...', 'sciflow-wp'),
+            'redirect_url' => home_url('/meus-artigos/')
+        ));
     }
 
     /**
@@ -254,6 +267,30 @@ class SciFlow_Ajax_Handler
                 ? __('Pagamento confirmado!', 'sciflow-wp')
                 : __('Pagamento ainda não confirmado.', 'sciflow-wp'),
         ));
+    }
+
+    /**
+     * Handle manual payment confirmation by an admin/editor.
+     */
+    public function handle_confirm_payment_admin()
+    {
+        $this->verify_request();
+
+        if (!current_user_can('administrator')) {
+            wp_send_json_error(array('message' => __('Permissão insuficiente. Somente administradores podem confirmar pagamentos manualmente.', 'sciflow-wp')));
+        }
+
+        $post_id = absint($_POST['post_id'] ?? 0);
+        $current_payment = get_post_meta($post_id, '_sciflow_payment_status', true);
+
+        if ($current_payment !== 'confirmed') {
+            $result = $this->submission->confirm_payment($post_id);
+            if (is_wp_error($result)) {
+                wp_send_json_error(array('message' => $result->get_error_message()));
+            }
+        }
+
+        wp_send_json_success(array('message' => __('Pagamento confirmado com sucesso!', 'sciflow-wp')));
     }
 
     /**

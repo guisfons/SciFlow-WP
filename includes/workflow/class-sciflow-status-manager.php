@@ -25,10 +25,13 @@ class SciFlow_Status_Manager
             'aguardando_pagamento' => __('Aguardando Pagamento', 'sciflow-wp'),
             'submetido' => __('Submetido', 'sciflow-wp'),
             'em_avaliacao' => __('Em Avaliação', 'sciflow-wp'),
-            'aguardando_decisao' => __('Aguardando Decisão Editorial', 'sciflow-wp'),
+            'aguardando_decisao' => __('Aguardando Parecer do Editor', 'sciflow-wp'),
             'em_correcao' => __('Em Correção', 'sciflow-wp'),
             'aprovado' => __('Aprovado', 'sciflow-wp'),
             'reprovado' => __('Reprovado', 'sciflow-wp'),
+            'aprovado_com_consideracoes' => __('Aprovado com Considerações', 'sciflow-wp'),
+            'apto_revisao' => __('Apto para Revisão', 'sciflow-wp'),
+            'apto_publicacao' => __('Apto para Publicação', 'sciflow-wp'),
             'poster_enviado' => __('Pôster Enviado', 'sciflow-wp'),
             'aguardando_confirmacao' => __('Aguardando Confirmação', 'sciflow-wp'),
             'confirmado' => __('Confirmado', 'sciflow-wp'),
@@ -41,11 +44,15 @@ class SciFlow_Status_Manager
     private function get_transitions()
     {
         return array(
-            'rascunho' => array('aguardando_pagamento'),
+            'rascunho' => array('aguardando_pagamento', 'submetido'),
             'aguardando_pagamento' => array('submetido'),
-            'submetido' => array('em_avaliacao'),
+            'submetido' => array('em_avaliacao', 'apto_revisao', 'aguardando_decisao'),
+            'apto_revisao' => array('em_avaliacao'),
             'em_avaliacao' => array('aguardando_decisao'),
-            'aguardando_decisao' => array('em_correcao', 'aprovado', 'reprovado'),
+            'aguardando_decisao' => array('em_correcao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'apto_revisao', 'apto_publicacao', 'em_avaliacao'),
+            'aprovado_com_consideracoes' => array('submetido'), // Permite correção
+            'reprovado' => array('submetido'), // Conforme solicitado: pode fazer ajustes
+            'apto_publicacao' => array('aprovado'),
             'em_correcao' => array('submetido'),
             'aprovado' => array('poster_enviado', 'aguardando_confirmacao'),
             'aguardando_confirmacao' => array('confirmado'),
@@ -103,6 +110,46 @@ class SciFlow_Status_Manager
     {
         $statuses = $this->get_statuses();
         return isset($statuses[$status]) ? $statuses[$status] : $status;
+    }
+
+    /**
+     * Get Bootstrap color class for a status.
+     */
+    public function get_status_color($status)
+    {
+        $colors = array(
+            'rascunho' => 'secondary',
+            'aguardando_pagamento' => 'warning',
+            'submetido' => 'primary',
+            'em_avaliacao' => 'info',
+            'aguardando_decisao' => 'warning',
+            'em_correcao' => 'warning',
+            'aprovado' => 'success',
+            'reprovado' => 'danger',
+            'aprovado_com_consideracoes' => 'success',
+            'apto_revisao' => 'primary',
+            'apto_publicacao' => 'success',
+            'poster_enviado' => 'success',
+            'aguardando_confirmacao' => 'warning',
+            'confirmado' => 'success',
+        );
+
+        return isset($colors[$status]) ? $colors[$status] : 'secondary';
+    }
+
+    /**
+     * Get HTML badge for a status.
+     */
+    public function get_status_badge($status)
+    {
+        $label = $this->get_status_label($status);
+        $color = $this->get_status_color($status);
+
+        return sprintf(
+            '<span class="badge bg-%s text-white rounded-pill px-3 py-2">%s</span>',
+            esc_attr($color),
+            esc_html($label)
+        );
     }
 
     /**

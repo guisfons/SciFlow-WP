@@ -256,19 +256,19 @@
 }
 
 /* ── Co-author row ── */
-.sciflow-coauthor-row {
+.sciflow-coauthor-row, .sciflow-coauthor-item {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr auto;
     gap: 8px;
     margin-bottom: 10px;
-    align-items: end;
+    align-items: center;
 }
 
 .sciflow-coauthor-row input {
     margin-bottom: 0;
 }
 
-.sciflow-coauthor-remove {
+.sciflow-coauthor-remove, .sciflow-remove-coauthor {
     background: var(--sciflow-danger);
     color: #fff;
     border: none;

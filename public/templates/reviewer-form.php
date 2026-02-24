@@ -46,9 +46,7 @@ $criteria = array(
                     <h3>
                         <?php echo esc_html($post->post_title); ?>
                     </h3>
-                    <span class="sciflow-badge sciflow-badge--<?php echo esc_attr($status); ?>">
-                        <?php echo esc_html($label); ?>
-                    </span>
+                    <?php echo $status_manager->get_status_badge($status); ?>
                 </div>
 
                 <div class="sciflow-work-card__meta">
@@ -100,8 +98,8 @@ $criteria = array(
                                 <option value="approved">
                                     <?php esc_html_e('Aprovar', 'sciflow-wp'); ?>
                                 </option>
-                                <option value="approved_restricted">
-                                    <?php esc_html_e('Aprovar com Restrição', 'sciflow-wp'); ?>
+                                <option value="approved_with_considerations">
+                                    <?php esc_html_e('Aprovado com Considerações', 'sciflow-wp'); ?>
                                 </option>
                                 <option value="rejected">
                                     <?php esc_html_e('Reprovar', 'sciflow-wp'); ?>
@@ -129,7 +127,7 @@ $criteria = array(
                         <?php
                         $decisions = array(
                             'approved' => __('Aprovado', 'sciflow-wp'),
-                            'approved_restricted' => __('Aprovado com Restrição', 'sciflow-wp'),
+                            'approved_with_considerations' => __('Aprovado com Considerações', 'sciflow-wp'),
                             'rejected' => __('Reprovado', 'sciflow-wp'),
                         );
                         echo esc_html($decisions[$prev_decision] ?? $prev_decision);
@@ -140,6 +138,10 @@ $criteria = array(
                             </strong>
                             <?php echo number_format(get_post_meta($post->ID, '_sciflow_ranking_score', true), 2, ',', ''); ?>
                         <?php endif; ?>
+                        <p class="mt-2 text-muted small">
+                            <em><i class="dashicons dashicons-lock"></i>
+                                <?php esc_html_e('Esta avaliação está bloqueada para o revisor. Apenas o editor pode reabri-la.', 'sciflow-wp'); ?></em>
+                        </p>
                     </div>
                 <?php endif; ?>
             </div>

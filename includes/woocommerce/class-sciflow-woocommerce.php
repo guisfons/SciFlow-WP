@@ -96,4 +96,46 @@ class SciFlow_WooCommerce
             do_action('sciflow_role_assigned_via_woo', $user_id, $order_id);
         }
     }
+
+    /**
+     * Check if a user has a paid registration (completed order for inscription product).
+     *
+     * @param int $user_id User ID.
+     * @return bool True if paid, false otherwise.
+     */
+    public function has_paid_registration($user_id)
+    {
+        if (!$user_id) {
+            return false;
+        }
+
+        $product_ids = $this->get_inscription_product_ids();
+        if (empty($product_ids)) {
+            return true; // If no products are defined, assume it's open (or we can't check).
+        }
+
+        // Check for completed or processing orders.
+        $orders = wc_get_orders(array(
+            'customer' => $user_id,
+            'status' => array('wc-completed', 'wc-processing'),
+            'limit' => -1,
+        ));
+
+        foreach ($orders as $order) {
+            foreach ($order->get_items() as $item) {
+                $pid = $item->get_product_id();
+                if (in_array($pid, $product_ids, true)) {
+                    return true;
+                }
+
+                // Variation check.
+                $vid = $item->get_variation_id();
+                if ($vid && in_array($vid, $product_ids, true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

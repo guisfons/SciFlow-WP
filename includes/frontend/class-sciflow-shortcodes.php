@@ -7,9 +7,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+#[AllowDynamicProperties]
 class SciFlow_Shortcodes
 {
-
+    private $woocommerce;
     private $submission;
     private $review;
     private $editorial;
@@ -23,7 +24,8 @@ class SciFlow_Shortcodes
         SciFlow_Editorial $editorial,
         SciFlow_Ranking $ranking,
         SciFlow_Poster_Upload $poster_upload,
-        SciFlow_Sicredi_Pix $payment
+        SciFlow_Sicredi_Pix $payment,
+        SciFlow_WooCommerce $woocommerce = null
     ) {
         $this->submission = $submission;
         $this->review = $review;
@@ -31,6 +33,7 @@ class SciFlow_Shortcodes
         $this->ranking = $ranking;
         $this->poster_upload = $poster_upload;
         $this->payment = $payment;
+        $this->woocommerce = $woocommerce;
 
         add_shortcode('sciflow_submission_form', array($this, 'submission_form'));
         add_shortcode('sciflow_author_dashboard', array($this, 'author_dashboard'));
@@ -50,6 +53,17 @@ class SciFlow_Shortcodes
                 . __('Você precisa estar logado para submeter um trabalho.', 'sciflow-wp')
                 . ' <a href="' . esc_url(wp_login_url(get_permalink())) . '">'
                 . __('Fazer login', 'sciflow-wp') . '</a></div>';
+        }
+
+        $user_id = get_current_user_id();
+        if ($this->woocommerce && !$this->woocommerce->has_paid_registration($user_id)) {
+            $registration_page = get_pages(array('meta_key' => '_wp_page_template', 'meta_value' => 'page-templates/template-home-inscription.php'));
+            $registration_url = !empty($registration_page) ? get_permalink($registration_page[0]->ID) : home_url('/inscricao');
+
+            return '<div class="sciflow-notice sciflow-notice--error">'
+                . __('Você precisa ter uma inscrição paga para submeter um trabalho.', 'sciflow-wp')
+                . ' <a href="' . esc_url($registration_url) . '">'
+                . __('Ir para página de inscrição', 'sciflow-wp') . '</a></div>';
         }
 
         ob_start();

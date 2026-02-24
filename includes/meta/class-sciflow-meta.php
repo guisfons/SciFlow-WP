@@ -101,7 +101,7 @@ class SciFlow_Meta
             ),
             '_sciflow_reviewer_decision' => array(
                 'type' => 'string',
-                'description' => 'Reviewer decision: approved, approved_restricted, rejected',
+                'description' => 'Reviewer decision: approved, approved_with_considerations, rejected',
                 'single' => true,
                 'sanitize_callback' => 'sanitize_text_field',
                 'show_in_rest' => false,

@@ -29,8 +29,8 @@ class SciFlow_Editorial
         }
 
         $current = $this->status_manager->get_status($post_id);
-        if ($current !== 'submetido') {
-            return new WP_Error('invalid_status', __('O trabalho precisa estar com status "Submetido".', 'sciflow-wp'));
+        if (!in_array($current, array('submetido', 'apto_revisao'), true)) {
+            return new WP_Error('invalid_status', __('O trabalho precisa estar com status "Submetido" ou "Apto para Revisão".', 'sciflow-wp'));
         }
 
         // Verify reviewer role.
@@ -39,7 +39,7 @@ class SciFlow_Editorial
             return new WP_Error('invalid_user', __('Usuário não encontrado.', 'sciflow-wp'));
         }
 
-        $allowed_roles = array('sciflow_revisor', 'sciflow_editor', 'administrator');
+        $allowed_roles = array('sciflow_revisor', 'sciflow_editor', 'administrator', 'sciflow_senco_revisor', 'sciflow_enfrute_revisor');
         if (!array_intersect($allowed_roles, $user->roles)) {
             return new WP_Error('not_reviewer', __('O usuário não tem papel de revisor.', 'sciflow-wp'));
         }
@@ -70,12 +70,20 @@ class SciFlow_Editorial
             return new WP_Error('invalid_status', __('O trabalho não está aguardando decisão.', 'sciflow-wp'));
         }
 
-        update_post_meta($post_id, '_sciflow_editorial_notes', wp_kses_post($notes));
+        if (!empty($notes)) {
+            $this->add_message($post_id, 'editor', $notes);
+        }
+
+        update_post_meta($post_id, '_sciflow_editorial_notes', wp_kses_post($notes)); // Keep for BC for now
 
         $status_map = array(
             'approve' => 'aprovado',
             'reject' => 'reprovado',
             'return_to_author' => 'em_correcao',
+            'approved_with_considerations' => 'aprovado_com_consideracoes',
+            'return_to_reviewer' => 'em_avaliacao',
+            'apto_revisao' => 'apto_revisao',
+            'apto_publicacao' => 'apto_publicacao',
         );
 
         if (!isset($status_map[$decision])) {
@@ -125,6 +133,35 @@ class SciFlow_Editorial
 
         $query = new WP_Query($args);
         return $query->posts;
+    }
+
+    /**
+     * Add a message to the history.
+     */
+    public function add_message($post_id, $role, $content)
+    {
+        $history = get_post_meta($post_id, '_sciflow_message_history', true);
+        if (!is_array($history)) {
+            $history = array();
+        }
+
+        $history[] = array(
+            'role' => $role,
+            'content' => wp_kses_post($content),
+            'timestamp' => current_time('mysql'),
+            'user_id' => get_current_user_id(),
+        );
+
+        update_post_meta($post_id, '_sciflow_message_history', $history);
+    }
+
+    /**
+     * Get message history.
+     */
+    public static function get_message_history($post_id)
+    {
+        $history = get_post_meta($post_id, '_sciflow_message_history', true);
+        return is_array($history) ? $history : array();
     }
 
     /**

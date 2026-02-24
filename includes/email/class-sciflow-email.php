@@ -189,9 +189,8 @@ class SciFlow_Email
             $vars['decision_label']
         );
 
-        if (!empty($notes)) {
-            $vars['message'] .= '<br><br><strong>' . __('Observações:', 'sciflow-wp') . '</strong><br>' . wp_kses_post($notes);
-        }
+        // The editor's notes are meant for the reviewer, not the author.
+
 
         $subject = sprintf(__('[%s] Decisão Editorial: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
