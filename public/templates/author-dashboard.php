@@ -137,6 +137,15 @@ if (!defined('ABSPATH'))
                                 }
                                 ?>
                             </button>
+                        <?php else: ?>
+                            <?php
+                            $detail_page = get_pages(array('meta_key' => '_wp_page_template', 'meta_value' => 'page-templates/template-article-detail.php'));
+                            $detail_url = !empty($detail_page) ? get_permalink($detail_page[0]->ID) : home_url('/avaliar-artigo');
+                            $view_url = add_query_arg('article_id', $post->ID, $detail_url);
+                            ?>
+                            <a href="<?php echo esc_url($view_url); ?>" class="sciflow-btn sciflow-btn--light sciflow-btn--sm">
+                                <i class="bi bi-eye me-1"></i> <?php esc_html_e('Ver Detalhes', 'sciflow-wp'); ?>
+                            </a>
                         <?php endif; ?>
 
                         <?php if (in_array($status, array('aprovado', 'poster_enviado'), true)): ?>

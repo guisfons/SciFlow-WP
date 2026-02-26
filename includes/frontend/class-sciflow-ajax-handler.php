@@ -23,7 +23,7 @@ class SciFlow_Ajax_Handler
         SciFlow_Review $review,
         SciFlow_Editorial $editorial,
         SciFlow_Poster_Upload $poster_upload,
-        SciFlow_Sicredi_Pix $payment,
+        SciFlow_PayGo_Gateway $payment,
         ?SciFlow_WooCommerce $woocommerce = null
     ) {
         $this->submission = $submission;

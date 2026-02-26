@@ -101,6 +101,61 @@ if (!is_array($coauthors)) $coauthors = array();
             </select>
         </div>
 
+        <!-- Cultura -->
+        <div class="sciflow-field">
+            <label class="sciflow-field__label">
+                <?php esc_html_e( 'Cultura *', 'sciflow-wp' ); ?>
+            </label>
+            <?php $cultura = $edit_post ? get_post_meta($post_id, '_sciflow_cultura', true) : ''; ?>
+            <select name="cultura" required class="sciflow-field__select">
+                <option value=""><?php esc_html_e('Selecione uma cultura...', 'sciflow-wp'); ?></option>
+                <optgroup label="Frutas de clima temperado">
+                    <option value="Figo" <?php selected($cultura, 'Figo'); ?>>Figo</option>
+                    <option value="Frutas de caroço" <?php selected($cultura, 'Frutas de caroço'); ?>>Frutas de caroço</option>
+                    <option value="Goiaba/Caqui" <?php selected($cultura, 'Goiaba/Caqui'); ?>>Goiaba/Caqui</option>
+                    <option value="Maçã/Pera" <?php selected($cultura, 'Maçã/Pera'); ?>>Maçã/Pera</option>
+                    <option value="Pequenas frutas" <?php selected($cultura, 'Pequenas frutas'); ?>>Pequenas frutas</option>
+                    <option value="Frutas nativas" <?php selected($cultura, 'Frutas nativas'); ?>>Frutas nativas</option>
+                    <option value="Uva" <?php selected($cultura, 'Uva'); ?>>Uva</option>
+                    <option value="Outras (Frutas)" <?php selected($cultura, 'Outras (Frutas)'); ?>>Outras</option>
+                </optgroup>
+                <optgroup label="Olerícolas">
+                    <option value="Alho" <?php selected($cultura, 'Alho'); ?>>Alho</option>
+                    <option value="Cebola" <?php selected($cultura, 'Cebola'); ?>>Cebola</option>
+                    <option value="Tomate" <?php selected($cultura, 'Tomate'); ?>>Tomate</option>
+                    <option value="Morango" <?php selected($cultura, 'Morango'); ?>>Morango</option>
+                    <option value="Aipim/mandioca" <?php selected($cultura, 'Aipim/mandioca'); ?>>Aipim/mandioca</option>
+                    <option value="Cenoura" <?php selected($cultura, 'Cenoura'); ?>>Cenoura</option>
+                    <option value="Pimentão" <?php selected($cultura, 'Pimentão'); ?>>Pimentão</option>
+                    <option value="Folhosas" <?php selected($cultura, 'Folhosas'); ?>>Folhosas</option>
+                    <option value="Outras (Olerícolas)" <?php selected($cultura, 'Outras (Olerícolas)'); ?>>Outras</option>
+                </optgroup>
+            </select>
+        </div>
+
+        <!-- Área de Conhecimento -->
+        <div class="sciflow-field">
+            <label class="sciflow-field__label">
+                <?php esc_html_e( 'Área de Conhecimento *', 'sciflow-wp' ); ?>
+            </label>
+            <?php $knowledge_area = $edit_post ? get_post_meta($post_id, '_sciflow_knowledge_area', true) : ''; ?>
+            <select name="knowledge_area" required class="sciflow-field__select">
+                <option value=""><?php esc_html_e('Selecione uma área...', 'sciflow-wp'); ?></option>
+                <option value="Biotecnologia/Genética e Melhoramento" <?php selected($knowledge_area, 'Biotecnologia/Genética e Melhoramento'); ?>>Biotecnologia/Genética e Melhoramento</option>
+                <option value="Botânica e Fisiologia" <?php selected($knowledge_area, 'Botânica e Fisiologia'); ?>>Botânica e Fisiologia</option>
+                <option value="Colheita e Pós-Colheita" <?php selected($knowledge_area, 'Colheita e Pós-Colheita'); ?>>Colheita e Pós-Colheita</option>
+                <option value="Fitossanidade" <?php selected($knowledge_area, 'Fitossanidade'); ?>>Fitossanidade</option>
+                <option value="Economia/Estatística" <?php selected($knowledge_area, 'Economia/Estatística'); ?>>Economia/Estatística</option>
+                <option value="Fitotecnia" <?php selected($knowledge_area, 'Fitotecnia'); ?>>Fitotecnia</option>
+                <option value="Irrigação" <?php selected($knowledge_area, 'Irrigação'); ?>>Irrigação</option>
+                <option value="Processamento (Química e Bioquímica)" <?php selected($knowledge_area, 'Processamento (Química e Bioquímica)'); ?>>Processamento (Química e Bioquímica)</option>
+                <option value="Propagação" <?php selected($knowledge_area, 'Propagação'); ?>>Propagação</option>
+                <option value="Sementes" <?php selected($knowledge_area, 'Sementes'); ?>>Sementes</option>
+                <option value="Solos e Nutrição de Plantas" <?php selected($knowledge_area, 'Solos e Nutrição de Plantas'); ?>>Solos e Nutrição de Plantas</option>
+                <option value="Outros" <?php selected($knowledge_area, 'Outros'); ?>>Outros</option>
+            </select>
+        </div>
+
         <!-- Title -->
         <div class="sciflow-field">
             <label for="sciflow-title" class="sciflow-field__label">
@@ -112,14 +167,27 @@ if (!is_array($coauthors)) $coauthors = array();
                    placeholder="<?php esc_attr_e( 'Título do trabalho científico', 'sciflow-wp' ); ?>">
         </div>
 
-        <!-- Main Author (read-only) -->
+        <!-- Main Author -->
         <div class="sciflow-field">
             <label class="sciflow-field__label">
                 <?php esc_html_e( 'Autor Principal', 'sciflow-wp' ); ?>
             </label>
             <input type="text" value="<?php echo esc_attr( $current_user->display_name ); ?>"
-                   class="sciflow-field__input" readonly disabled>
+                   class="sciflow-field__input" style="margin-bottom: 10px;" readonly disabled>
             <input type="hidden" name="authors_text" id="sciflow-authors-text" value="<?php echo esc_attr( $current_user->display_name ); ?>">
+            
+            <?php 
+            $main_author_instituicao = $edit_post ? get_post_meta($post_id, '_sciflow_main_author_instituicao', true) : '';
+            $main_author_cpf = $edit_post ? get_post_meta($post_id, '_sciflow_main_author_cpf', true) : '';
+            $main_author_email = $edit_post ? get_post_meta($post_id, '_sciflow_main_author_email', true) : $current_user->user_email;
+            $main_author_telefone = $edit_post ? get_post_meta($post_id, '_sciflow_main_author_telefone', true) : '';
+            ?>
+            <div class="sciflow-author-details" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <input type="text" name="main_author_instituicao" value="<?php echo esc_attr($main_author_instituicao); ?>" placeholder="Instituição *" class="sciflow-field__input" required>
+                <input type="text" name="main_author_cpf" value="<?php echo esc_attr($main_author_cpf); ?>" placeholder="CPF *" class="sciflow-field__input" required>
+                <input type="email" name="main_author_email" value="<?php echo esc_attr($main_author_email); ?>" placeholder="E-mail *" class="sciflow-field__input" required>
+                <input type="text" name="main_author_telefone" value="<?php echo esc_attr($main_author_telefone); ?>" placeholder="Telefone *" class="sciflow-field__input" required>
+            </div>
         </div>
 
         <!-- Co-authors (dynamic) -->
@@ -133,14 +201,37 @@ if (!is_array($coauthors)) $coauthors = array();
                         <input type="text" name="coauthors[<?php echo $index; ?>][name]" value="<?php echo esc_attr($coauthor['name'] ?? ''); ?>" placeholder="Nome" required>
                         <input type="email" name="coauthors[<?php echo $index; ?>][email]" value="<?php echo esc_attr($coauthor['email'] ?? ''); ?>" placeholder="E-mail" required>
                         <input type="text" name="coauthors[<?php echo $index; ?>][institution]" value="<?php echo esc_attr($coauthor['institution'] ?? ''); ?>" placeholder="Instituição" required>
+                        <input type="text" name="coauthors[<?php echo $index; ?>][telefone]" value="<?php echo esc_attr($coauthor['telefone'] ?? ''); ?>" placeholder="Telefone" required>
                         <button type="button" class="sciflow-remove-coauthor">&times;</button>
                     </div>
                 <?php endforeach; ?>
             </div>
-            <button type="button" id="sciflow-add-coauthor" class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm">
+            <button type="button" id="sciflow-add-coauthor" class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm" style="margin-top: 10px;">
                 + <?php esc_html_e( 'Adicionar Coautor', 'sciflow-wp' ); ?>
             </button>
             <p class="sciflow-field__help"><?php esc_html_e( 'Máximo de 6 autores por resumo (incluindo autor principal).', 'sciflow-wp' ); ?></p>
+        </div>
+
+        <!-- Presenting Author -->
+        <div class="sciflow-field">
+            <label class="sciflow-field__label">
+                <?php esc_html_e( 'Autor Apresentador *', 'sciflow-wp' ); ?>
+            </label>
+            <?php 
+                $presenting_author = $edit_post ? get_post_meta($post_id, '_sciflow_presenting_author', true) : '';
+                if (empty($presenting_author)) {
+                    $presenting_author = 'main';
+                }
+            ?>
+            <select id="sciflow-presenting-author" name="presenting_author" required class="sciflow-field__select">
+                <option value="main" <?php selected($presenting_author, 'main'); ?>><?php echo esc_html($current_user->display_name); ?> (Autor Principal)</option>
+                <?php foreach ($coauthors as $index => $coauthor) : ?>
+                    <?php if (!empty($coauthor['name'])) : ?>
+                        <option value="<?php echo esc_attr($index); ?>" <?php selected($presenting_author, (string)$index); ?>><?php echo esc_html($coauthor['name']); ?></option>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </select>
+            <p class="sciflow-field__help"><?php esc_html_e( 'Selecione qual autor será o responsável pela apresentação do trabalho.', 'sciflow-wp' ); ?></p>
         </div>
 
         <!-- Content (WYSIWYG) -->

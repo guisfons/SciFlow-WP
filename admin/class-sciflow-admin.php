@@ -12,7 +12,7 @@ class SciFlow_Admin
 
     private $payment;
 
-    public function __construct(SciFlow_Sicredi_Pix $payment)
+    public function __construct(SciFlow_PayGo_Gateway $payment)
     {
         $this->payment = $payment;
 
@@ -95,12 +95,12 @@ class SciFlow_Admin
         // Dashboard URL.
         $clean['dashboard_url'] = esc_url_raw($input['dashboard_url'] ?? '');
 
-        // Sicredi settings.
-        $clean['sicredi_client_id'] = sanitize_text_field($input['sicredi_client_id'] ?? '');
-        $clean['sicredi_client_secret'] = sanitize_text_field($input['sicredi_client_secret'] ?? '');
-        $clean['sicredi_chave_pix'] = sanitize_text_field($input['sicredi_chave_pix'] ?? '');
-        $clean['sicredi_ambiente'] = in_array($input['sicredi_ambiente'] ?? '', array('sandbox', 'producao'))
-            ? $input['sicredi_ambiente'] : 'sandbox';
+        // PayGo settings.
+        $clean['paygo_integration_key'] = sanitize_text_field($input['paygo_integration_key'] ?? '');
+        $clean['paygo_token'] = sanitize_text_field($input['paygo_token'] ?? '');
+        $clean['paygo_pix_key'] = sanitize_text_field($input['paygo_pix_key'] ?? '');
+        $clean['paygo_ambiente'] = in_array($input['paygo_ambiente'] ?? '', array('sandbox', 'producao'))
+            ? $input['paygo_ambiente'] : 'sandbox';
         $clean['submission_price'] = floatval($input['submission_price'] ?? 50);
 
         // Ranking weights.
@@ -183,27 +183,27 @@ class SciFlow_Admin
                 </table>
 
                 <h2>
-                    <?php esc_html_e('Pagamento Sicredi Pix', 'sciflow-wp'); ?>
+                    <?php esc_html_e('Pagamento PayGo (Pix)', 'sciflow-wp'); ?>
                 </h2>
                 <table class="form-table">
                     <tr>
-                        <th scope="row">Client ID</th>
-                        <td><input type="text" name="sciflow_settings[sicredi_client_id]"
-                                value="<?php echo esc_attr($settings['sicredi_client_id'] ?? ''); ?>" class="regular-text">
+                        <th scope="row">Chave de Integração (Integration Key)</th>
+                        <td><input type="text" name="sciflow_settings[paygo_integration_key]"
+                                value="<?php echo esc_attr($settings['paygo_integration_key'] ?? ''); ?>" class="regular-text">
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row">Client Secret</th>
-                        <td><input type="password" name="sciflow_settings[sicredi_client_secret]"
-                                value="<?php echo esc_attr($settings['sicredi_client_secret'] ?? ''); ?>" class="regular-text">
+                        <th scope="row">Token / Senha</th>
+                        <td><input type="password" name="sciflow_settings[paygo_token]"
+                                value="<?php echo esc_attr($settings['paygo_token'] ?? ''); ?>" class="regular-text">
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">
-                            <?php esc_html_e('Chave Pix', 'sciflow-wp'); ?>
+                            <?php esc_html_e('Chave Pix (opcional)', 'sciflow-wp'); ?>
                         </th>
-                        <td><input type="text" name="sciflow_settings[sicredi_chave_pix]"
-                                value="<?php echo esc_attr($settings['sicredi_chave_pix'] ?? ''); ?>" class="regular-text">
+                        <td><input type="text" name="sciflow_settings[paygo_pix_key]"
+                                value="<?php echo esc_attr($settings['paygo_pix_key'] ?? ''); ?>" class="regular-text">
                         </td>
                     </tr>
                     <tr>
@@ -211,10 +211,10 @@ class SciFlow_Admin
                             <?php esc_html_e('Ambiente', 'sciflow-wp'); ?>
                         </th>
                         <td>
-                            <select name="sciflow_settings[sicredi_ambiente]">
-                                <option value="sandbox" <?php selected($settings['sicredi_ambiente'] ?? '', 'sandbox'); ?>>
+                            <select name="sciflow_settings[paygo_ambiente]">
+                                <option value="sandbox" <?php selected($settings['paygo_ambiente'] ?? '', 'sandbox'); ?>>
                                     Sandbox</option>
-                                <option value="producao" <?php selected($settings['sicredi_ambiente'] ?? '', 'producao'); ?>>
+                                <option value="producao" <?php selected($settings['paygo_ambiente'] ?? '', 'producao'); ?>>
                                     Produção</option>
                             </select>
                         </td>
@@ -488,9 +488,40 @@ class SciFlow_Admin
         $score = get_post_meta($post->ID, '_sciflow_ranking_score', true);
         $keywords = get_post_meta($post->ID, '_sciflow_keywords', true);
 
+        $author_inst = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
+        $author_cpf = get_post_meta($post->ID, '_sciflow_main_author_cpf', true);
+        $author_email = get_post_meta($post->ID, '_sciflow_main_author_email', true);
+        $author_phone = get_post_meta($post->ID, '_sciflow_main_author_telefone', true);
+
+        $presenting_author = get_post_meta($post->ID, '_sciflow_presenting_author', true);
+        $presenting_author_name = esc_html__('Não informado', 'sciflow-wp');
+
+        if ($presenting_author === 'main') {
+            $author_id = get_post_meta($post->ID, '_sciflow_author_id', true);
+            $user = get_userdata($author_id);
+            $presenting_author_name = $user ? esc_html($user->display_name) . ' (Autor Principal)' : esc_html__('Autor Principal (Desconhecido)', 'sciflow-wp');
+        } elseif (is_numeric($presenting_author)) {
+            $coauthors = get_post_meta($post->ID, '_sciflow_coauthors', true);
+            if (is_array($coauthors) && isset($coauthors[$presenting_author])) {
+                $presenting_author_name = esc_html($coauthors[$presenting_author]['name']) . ' (Coautor)';
+            }
+        }
+
+        $cultura = get_post_meta($post->ID, '_sciflow_cultura', true);
+        $knowledge_area = get_post_meta($post->ID, '_sciflow_knowledge_area', true);
+
         echo '<p><strong>' . esc_html__('Status:', 'sciflow-wp') . '</strong> ' . $sm->get_status_badge($status) . '</p>';
         echo '<p><strong>' . esc_html__('Evento:', 'sciflow-wp') . '</strong> ' . esc_html(ucfirst($event)) . '</p>';
         echo '<p><strong>' . esc_html__('Pagamento:', 'sciflow-wp') . '</strong> ' . ($payment === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente') . '</p>';
+
+        echo '<p><strong>' . esc_html__('Autor Apresentador:', 'sciflow-wp') . '</strong> ' . esc_html($presenting_author_name) . '</p>';
+
+        if ($cultura) {
+            echo '<p><strong>' . esc_html__('Cultura:', 'sciflow-wp') . '</strong> ' . esc_html($cultura) . '</p>';
+        }
+        if ($knowledge_area) {
+            echo '<p><strong>' . esc_html__('Área de Conhecimento:', 'sciflow-wp') . '</strong> ' . esc_html($knowledge_area) . '</p>';
+        }
 
         if ($reviewer) {
             $rev_user = get_userdata($reviewer);
@@ -504,6 +535,16 @@ class SciFlow_Admin
         if ($keywords && is_array($keywords)) {
             echo '<p><strong>' . esc_html__('Palavras-chave:', 'sciflow-wp') . '</strong> ' . esc_html(implode(', ', $keywords)) . '</p>';
         }
+
+        echo '<hr><p><strong>' . esc_html__('Dados do Autor Principal:', 'sciflow-wp') . '</strong></p>';
+        if ($author_inst)
+            echo '<p><strong>' . esc_html__('Instituição:', 'sciflow-wp') . '</strong> ' . esc_html($author_inst) . '</p>';
+        if ($author_cpf)
+            echo '<p><strong>' . esc_html__('CPF:', 'sciflow-wp') . '</strong> ' . esc_html($author_cpf) . '</p>';
+        if ($author_email)
+            echo '<p><strong>' . esc_html__('E-mail:', 'sciflow-wp') . '</strong> ' . esc_html($author_email) . '</p>';
+        if ($author_phone)
+            echo '<p><strong>' . esc_html__('Telefone:', 'sciflow-wp') . '</strong> ' . esc_html($author_phone) . '</p>';
 
         if ($payment !== 'confirmed') {
             echo '<hr><form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';

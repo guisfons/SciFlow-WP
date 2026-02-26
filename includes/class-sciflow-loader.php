@@ -68,7 +68,7 @@ class SciFlow_Loader
         $this->poster_upload = new SciFlow_Poster_Upload($this->status_manager, $this->email);
 
         // Payment.
-        $this->payment = new SciFlow_Sicredi_Pix();
+        $this->payment = new SciFlow_PayGo_Gateway();
 
         // Frontend.
         $this->shortcodes = new SciFlow_Shortcodes(

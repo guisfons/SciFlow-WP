@@ -41,7 +41,7 @@ class SciFlow_Redirection
         // 1. Inscritos with paid registration
         if (in_array('sciflow_inscrito', $roles, true)) {
             if ($this->woocommerce && $this->woocommerce->has_paid_registration($user->ID)) {
-                wp_safe_redirect(home_url('/artigos-publicados'));
+                wp_safe_redirect(home_url('/meus-artigos'));
                 exit;
             }
         }

@@ -98,6 +98,10 @@ class SciFlow_Editorial
         if (!is_wp_error($result)) {
             $this->email->send_editorial_decision($post_id, $decision, $notes);
 
+            if ($decision === 'return_to_reviewer') {
+                $this->email->send_returned_to_reviewer($post_id);
+            }
+
             if ($decision === 'approve') {
                 $this->email->send_poster_request($post_id);
             }

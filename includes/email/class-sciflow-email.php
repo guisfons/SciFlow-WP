@@ -180,17 +180,20 @@ class SciFlow_Email
             'approve' => __('Aprovado', 'sciflow-wp'),
             'reject' => __('Reprovado', 'sciflow-wp'),
             'return_to_author' => __('Devolvido para Correções', 'sciflow-wp'),
+            'approved_with_considerations' => __('Aprovado com Considerações', 'sciflow-wp'),
         );
 
-        $vars['decision_label'] = $decision_labels[$decision] ?? $decision;
+        // Only notify author for these specific decisions.
+        if (!isset($decision_labels[$decision])) {
+            return;
+        }
+
+        $vars['decision_label'] = $decision_labels[$decision];
         $vars['notes'] = $notes;
         $vars['message'] = sprintf(
             __('O editor tomou uma decisão sobre seu trabalho: <strong>%s</strong>.', 'sciflow-wp'),
             $vars['decision_label']
         );
-
-        // The editor's notes are meant for the reviewer, not the author.
-
 
         $subject = sprintf(__('[%s] Decisão Editorial: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
@@ -198,7 +201,26 @@ class SciFlow_Email
     }
 
     /**
-     * 5. Approval + poster request → Author.
+     * 5. Returned to reviewer → Reviewer.
+     */
+    public function send_returned_to_reviewer($post_id)
+    {
+        $vars = $this->get_template_vars($post_id);
+        $vars['message'] = __('O editor solicitou que você reavalie o trabalho abaixo após as correções ou considerações editoriais.', 'sciflow-wp');
+
+        $reviewer_id = get_post_meta($post_id, '_sciflow_reviewer_id', true);
+        $reviewer = get_userdata($reviewer_id);
+
+        if (!$reviewer)
+            return;
+
+        $subject = sprintf(__('[%s] Reavaliação Solicitada: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
+
+        $this->send($reviewer->user_email, $subject, 'assigned-reviewer', $vars);
+    }
+
+    /**
+     * 6. Approval + poster request → Author.
      */
     public function send_poster_request($post_id)
     {
@@ -217,7 +239,7 @@ class SciFlow_Email
     }
 
     /**
-     * 6. Confirmation needed (ranking selection) → Author.
+     * 7. Confirmation needed (ranking selection) → Author.
      */
     public function send_confirmation_needed($post_id)
     {

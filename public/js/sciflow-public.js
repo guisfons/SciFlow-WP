@@ -92,6 +92,7 @@
             <input type="text" name="coauthors[${i}][name]" placeholder="Nome" class="sciflow-field__input" required>
             <input type="email" name="coauthors[${i}][email]" placeholder="E-mail" class="sciflow-field__input">
             <input type="text" name="coauthors[${i}][institution]" placeholder="Instituição" class="sciflow-field__input">
+            <input type="text" name="coauthors[${i}][telefone]" placeholder="Telefone" class="sciflow-field__input">
             <button type="button" class="sciflow-coauthor-remove" title="Remover">×</button>
         </div>`;
         $('#sciflow-coauthors-list').append(row);
@@ -99,7 +100,38 @@
 
     $(document).on('click', '.sciflow-coauthor-remove', function () {
         $(this).closest('.sciflow-coauthor-row').remove();
+        updatePresentingAuthorOptions();
     });
+
+    $(document).on('input', '.sciflow-coauthor-row input[name$="[name]"]', function () {
+        updatePresentingAuthorOptions();
+    });
+
+    function updatePresentingAuthorOptions() {
+        const $select = $('#sciflow-presenting-author');
+        if (!$select.length) return;
+
+        const currentValue = $select.val();
+        const mainAuthorName = $('#sciflow-authors-text').val() || 'Autor Principal';
+
+        $select.empty();
+        $select.append(`<option value="main">${mainAuthorName} (Autor Principal)</option>`);
+
+        $('.sciflow-coauthor-row').each(function () {
+            const index = $(this).data('index');
+            const name = $(this).find('input[name$="[name]"]').val();
+            if (name) {
+                $select.append(`<option value="${index}">${name}</option>`);
+            }
+        });
+
+        // Restore selection if it still exists
+        if ($select.find(`option[value="${currentValue}"]`).length) {
+            $select.val(currentValue);
+        } else {
+            $select.val('main');
+        }
+    }
 
     // ─── Submission Form ───
 

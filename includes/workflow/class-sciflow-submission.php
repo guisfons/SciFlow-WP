@@ -141,21 +141,33 @@ class SciFlow_Submission
             update_post_meta($post_id, '_sciflow_status', 'rascunho');
         } else {
             update_post_meta($post_id, '_sciflow_status', 'submetido');
+            // Notify editor on new submission (if not a draft).
+            $this->email->send_new_submission($post_id, $event);
         }
 
         update_post_meta($post_id, '_sciflow_event', $event);
 
         update_post_meta($post_id, '_sciflow_author_id', $user_id);
+        update_post_meta($post_id, '_sciflow_main_author_instituicao', sanitize_text_field($data['main_author_instituicao'] ?? ''));
+        update_post_meta($post_id, '_sciflow_main_author_cpf', sanitize_text_field($data['main_author_cpf'] ?? ''));
+        update_post_meta($post_id, '_sciflow_main_author_email', sanitize_email($data['main_author_email'] ?? ''));
+        update_post_meta($post_id, '_sciflow_main_author_telefone', sanitize_text_field($data['main_author_telefone'] ?? ''));
         update_post_meta($post_id, '_sciflow_coauthors', $coauthors);
+
+        $presenting_author = sanitize_text_field($data['presenting_author'] ?? 'main');
+        update_post_meta($post_id, '_sciflow_presenting_author', $presenting_author);
+        update_post_meta($post_id, '_sciflow_cultura', $cultura);
+        update_post_meta($post_id, '_sciflow_knowledge_area', $knowledge_area);
+
         update_post_meta($post_id, '_sciflow_keywords', $keywords);
         update_post_meta($post_id, '_sciflow_language', $language);
         update_post_meta($post_id, '_sciflow_payment_status', 'confirmed');
 
-        // If resubmitting from correction, add a system message and notify editor.
+        // If resubmitting from correction, add a system message.
         if (!empty($was_in_correction) && !$is_draft) {
             $editorial = new SciFlow_Editorial($this->status_manager, $this->email);
             $editorial->add_message($post_id, 'autor', __('O autor enviou as correções solicitadas.', 'sciflow-wp'));
-            $this->email->send_new_submission($post_id, $event);
+            // Note: send_new_submission was already called above if not a draft.
         }
 
         /**
@@ -215,10 +227,28 @@ class SciFlow_Submission
             update_post_meta($post_id, '_sciflow_keywords', $keywords);
         }
 
+        update_post_meta($post_id, '_sciflow_main_author_instituicao', sanitize_text_field($data['main_author_instituicao'] ?? ''));
+        update_post_meta($post_id, '_sciflow_main_author_cpf', sanitize_text_field($data['main_author_cpf'] ?? ''));
+        update_post_meta($post_id, '_sciflow_main_author_email', sanitize_email($data['main_author_email'] ?? ''));
+        update_post_meta($post_id, '_sciflow_main_author_telefone', sanitize_text_field($data['main_author_telefone'] ?? ''));
+
         // Update co-authors if provided.
         if (isset($data['coauthors'])) {
             $coauthors = $this->sanitize_coauthors($data['coauthors']);
             update_post_meta($post_id, '_sciflow_coauthors', $coauthors);
+        }
+
+        if (isset($data['presenting_author'])) {
+            $presenting_author = sanitize_text_field($data['presenting_author']);
+            update_post_meta($post_id, '_sciflow_presenting_author', $presenting_author);
+        }
+
+        if (isset($data['cultura'])) {
+            update_post_meta($post_id, '_sciflow_cultura', sanitize_text_field($data['cultura']));
+        }
+
+        if (isset($data['knowledge_area'])) {
+            update_post_meta($post_id, '_sciflow_knowledge_area', sanitize_text_field($data['knowledge_area']));
         }
 
         // Transition back to submetido.
@@ -295,6 +325,7 @@ class SciFlow_Submission
                 'name' => sanitize_text_field($author['name'] ?? ''),
                 'email' => sanitize_email($author['email'] ?? ''),
                 'institution' => sanitize_text_field($author['institution'] ?? ''),
+                'telefone' => sanitize_text_field($author['telefone'] ?? ''),
             );
         }
 
