@@ -48,7 +48,7 @@ class SciFlow_Certificates
 
         $event_labels = array(
             'enfrute' => 'Enfrute — Congresso Nacional',
-            'senco' => 'Senco — Seminário Catarinense de Olericultura',
+            'semco' => 'Semco — Seminário Catarinense de Olericultura',
         );
 
         $html = $this->render_certificate_html(array(

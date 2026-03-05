@@ -13,7 +13,7 @@ class SciFlow_Ranking
     /**
      * Get ranked articles for a specific event.
      *
-     * @param string $event 'enfrute' or 'senco'.
+     * @param string $event 'enfrute' or 'semco'.
      * @return array Sorted posts with ranking data.
      */
     public function get_event_ranking($event)
@@ -32,8 +32,8 @@ class SciFlow_Ranking
     public function get_general_ranking()
     {
         $enfrute = $this->query_ranked('enfrute_trabalhos');
-        $senco = $this->query_ranked('senco_trabalhos');
-        $all = array_merge($enfrute, $senco);
+        $semco = $this->query_ranked('semco_trabalhos');
+        $all = array_merge($enfrute, $semco);
 
         // Sort descending by score.
         usort($all, function ($a, $b) {
@@ -56,7 +56,7 @@ class SciFlow_Ranking
         $selected = array();
 
         // Per event.
-        foreach (array('enfrute', 'senco') as $event) {
+        foreach (array('enfrute', 'semco') as $event) {
             $ranking = $this->get_event_ranking($event);
             $count = 0;
 
@@ -153,7 +153,7 @@ class SciFlow_Ranking
     {
         $now = current_time('timestamp', true);
 
-        foreach (array('enfrute_trabalhos', 'senco_trabalhos') as $pt) {
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
             $query = new WP_Query(array(
                 'post_type' => $pt,
                 'posts_per_page' => -1,

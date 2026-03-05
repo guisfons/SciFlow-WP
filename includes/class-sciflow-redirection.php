@@ -50,8 +50,8 @@ class SciFlow_Redirection
         $editorial_roles = array(
             'sciflow_editor',
             'sciflow_revisor',
-            'sciflow_senco_editor',
-            'sciflow_senco_revisor',
+            'sciflow_semco_editor',
+            'sciflow_semco_revisor',
             'sciflow_enfrute_editor',
             'sciflow_enfrute_revisor'
         );
@@ -87,8 +87,8 @@ class SciFlow_Redirection
         $editorial_roles = array(
             'sciflow_editor',
             'sciflow_revisor',
-            'sciflow_senco_editor',
-            'sciflow_senco_revisor',
+            'sciflow_semco_editor',
+            'sciflow_semco_revisor',
             'sciflow_enfrute_editor',
             'sciflow_enfrute_revisor'
         );

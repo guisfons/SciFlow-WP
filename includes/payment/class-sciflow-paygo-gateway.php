@@ -157,7 +157,7 @@ class SciFlow_PayGo_Gateway implements SciFlow_Payment_Gateway_Interface
 
         // Find post by txid.
         $query = new WP_Query(array(
-            'post_type' => array('enfrute_trabalhos', 'senco_trabalhos'),
+            'post_type' => array('enfrute_trabalhos', 'semco_trabalhos'),
             'posts_per_page' => 1,
             'post_status' => 'any',
             'meta_query' => array(

@@ -36,6 +36,7 @@ class SciFlow_Shortcodes
         $this->woocommerce = $woocommerce;
 
         add_shortcode('sciflow_submission_form', array($this, 'submission_form'));
+        add_shortcode('sciflow_speaker_form', array($this, 'speaker_form'));
         add_shortcode('sciflow_author_dashboard', array($this, 'author_dashboard'));
         add_shortcode('sciflow_reviewer_panel', array($this, 'reviewer_panel'));
         add_shortcode('sciflow_editor_panel', array($this, 'editor_panel'));
@@ -68,6 +69,28 @@ class SciFlow_Shortcodes
 
         ob_start();
         include SCIFLOW_PATH . 'public/templates/submission-form.php';
+        return ob_get_clean();
+    }
+
+    /**
+     * [sciflow_speaker_form]
+     */
+    public function speaker_form($atts)
+    {
+        if (!is_user_logged_in()) {
+            return '<div class="sciflow-notice sciflow-notice--warning">'
+                . __('Você precisa estar logado para submeter uma palestra.', 'sciflow-wp')
+                . ' <a href="' . esc_url(wp_login_url(get_permalink())) . '">'
+                . __('Fazer login', 'sciflow-wp') . '</a></div>';
+        }
+
+        if (!current_user_can('sciflow_speaker')) {
+            return '<div class="sciflow-notice sciflow-notice--error">'
+                . __('Apenas usuários com o perfil de Palestrante podem acessar esta tela.', 'sciflow-wp') . '</div>';
+        }
+
+        ob_start();
+        include SCIFLOW_PATH . 'public/templates/speaker-form.php';
         return ob_get_clean();
     }
 
@@ -128,7 +151,7 @@ class SciFlow_Shortcodes
     }
 
     /**
-     * [sciflow_ranking event="enfrute|senco|geral"]
+     * [sciflow_ranking event="enfrute|semco|geral"]
      */
     public function ranking_page($atts)
     {

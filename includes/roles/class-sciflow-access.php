@@ -27,7 +27,7 @@ class SciFlow_Access
         }
 
         $screen = get_current_screen();
-        if (!$screen || !in_array($screen->post_type, array('enfrute_trabalhos', 'senco_trabalhos'))) {
+        if (!$screen || !in_array($screen->post_type, array('enfrute_trabalhos', 'semco_trabalhos'))) {
             return;
         }
 
@@ -40,17 +40,17 @@ class SciFlow_Access
         $meta_query = $query->get('meta_query') ?: array();
 
         // 1. Filter by Post Type based on Role
-        $is_senco_role = in_array('sciflow_senco_editor', $roles) || in_array('sciflow_senco_revisor', $roles);
+        $is_semco_role = in_array('sciflow_semco_editor', $roles) || in_array('sciflow_semco_revisor', $roles);
         $is_enfrute_role = in_array('sciflow_enfrute_editor', $roles) || in_array('sciflow_enfrute_revisor', $roles);
 
-        if ($is_senco_role && !$is_enfrute_role) {
-            $query->set('post_type', 'senco_trabalhos');
-        } elseif ($is_enfrute_role && !$is_senco_role) {
+        if ($is_semco_role && !$is_enfrute_role) {
+            $query->set('post_type', 'semco_trabalhos');
+        } elseif ($is_enfrute_role && !$is_semco_role) {
             $query->set('post_type', 'enfrute_trabalhos');
         }
 
         // 2. Filter out Drafts (post_status and meta _sciflow_status)
-        if ($is_senco_role || $is_enfrute_role) {
+        if ($is_semco_role || $is_enfrute_role) {
             // Force status to publish
             $query->set('post_status', 'publish');
 

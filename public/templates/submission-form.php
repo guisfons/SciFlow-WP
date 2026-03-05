@@ -85,7 +85,7 @@ if (!is_array($coauthors)) $coauthors = array();
             <select id="sciflow-event" name="event" required class="sciflow-field__select">
                 <option value=""><?php esc_html_e( 'Selecione o evento', 'sciflow-wp' ); ?></option>
                 <option value="enfrute" <?php selected($event, 'enfrute'); ?>>Enfrute — Congresso Nacional</option>
-                <option value="senco" <?php selected($event, 'senco'); ?>>Senco — Seminário Catarinense de Olericultura</option>
+                <option value="semco" <?php selected($event, 'semco'); ?>>Semco — Seminário Catarinense de Olericultura</option>
             </select>
         </div>
 
@@ -170,7 +170,7 @@ if (!is_array($coauthors)) $coauthors = array();
         <!-- Main Author -->
         <div class="sciflow-field">
             <label class="sciflow-field__label">
-                <?php esc_html_e( 'Autor Principal', 'sciflow-wp' ); ?>
+                <?php esc_html_e( 'Autor Correspondente', 'sciflow-wp' ); ?>
             </label>
             <input type="text" value="<?php echo esc_attr( $current_user->display_name ); ?>"
                    class="sciflow-field__input" style="margin-bottom: 10px;" readonly disabled>
@@ -209,7 +209,7 @@ if (!is_array($coauthors)) $coauthors = array();
             <button type="button" id="sciflow-add-coauthor" class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm" style="margin-top: 10px;">
                 + <?php esc_html_e( 'Adicionar Coautor', 'sciflow-wp' ); ?>
             </button>
-            <p class="sciflow-field__help"><?php esc_html_e( 'Máximo de 6 autores por resumo (incluindo autor principal).', 'sciflow-wp' ); ?></p>
+            <p class="sciflow-field__help"><?php esc_html_e( 'Máximo de 6 autores por resumo (incluindo autor correspondente).', 'sciflow-wp' ); ?></p>
         </div>
 
         <!-- Presenting Author -->
@@ -224,7 +224,7 @@ if (!is_array($coauthors)) $coauthors = array();
                 }
             ?>
             <select id="sciflow-presenting-author" name="presenting_author" required class="sciflow-field__select">
-                <option value="main" <?php selected($presenting_author, 'main'); ?>><?php echo esc_html($current_user->display_name); ?> (Autor Principal)</option>
+                <option value="main" <?php selected($presenting_author, 'main'); ?>><?php echo esc_html($current_user->display_name); ?> (Autor Correspondente)</option>
                 <?php foreach ($coauthors as $index => $coauthor) : ?>
                     <?php if (!empty($coauthor['name'])) : ?>
                         <option value="<?php echo esc_attr($index); ?>" <?php selected($presenting_author, (string)$index); ?>><?php echo esc_html($coauthor['name']); ?></option>
@@ -289,4 +289,20 @@ if (!is_array($coauthors)) $coauthors = array();
             </button>
         </div>
     </form>
+    
+    <!-- Preview Modal -->
+    <div id="sciflow-preview-modal" class="sciflow-payment-modal" style="display:none;">
+        <div class="sciflow-payment-modal__content" style="max-width: 600px; text-align: left; max-height: 90vh; overflow-y: auto;">
+            <h3 style="margin-top:0; border-bottom: 2px solid var(--sciflow-primary); padding-bottom: 10px;"><?php esc_html_e( 'Pré-visualização da Submissão', 'sciflow-wp' ); ?></h3>
+            <div id="sciflow-preview-content" class="sciflow-content-preview" style="margin: 20px 0;"></div>
+            <div class="sciflow-field sciflow-field--actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button type="button" class="sciflow-btn sciflow-btn--secondary" id="sciflow-cancel-preview-btn">
+                    <?php esc_html_e( 'Voltar e Editar', 'sciflow-wp' ); ?>
+                </button>
+                <button type="button" class="sciflow-btn sciflow-btn--primary" id="sciflow-confirm-submit-btn">
+                    <?php esc_html_e( 'Confirmar e Enviar', 'sciflow-wp' ); ?>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>

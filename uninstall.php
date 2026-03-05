@@ -23,12 +23,12 @@ if ($admin_role) {
         'read_private_enfrute_trabalhos',
         'delete_enfrute_trabalhos',
         'delete_others_enfrute_trabalhos',
-        'edit_senco_trabalhos',
-        'edit_others_senco_trabalhos',
-        'publish_senco_trabalhos',
-        'read_private_senco_trabalhos',
-        'delete_senco_trabalhos',
-        'delete_others_senco_trabalhos',
+        'edit_semco_trabalhos',
+        'edit_others_semco_trabalhos',
+        'publish_semco_trabalhos',
+        'read_private_semco_trabalhos',
+        'delete_semco_trabalhos',
+        'delete_others_semco_trabalhos',
         'manage_sciflow',
         'assign_sciflow_reviewers',
     );
@@ -46,7 +46,7 @@ global $wpdb;
 $wpdb->query("DELETE FROM {$wpdb->postmeta} WHERE meta_key LIKE '_sciflow_%'");
 
 // Remove posts of both CPTs.
-$post_types = array('enfrute_trabalhos', 'senco_trabalhos');
+$post_types = array('enfrute_trabalhos', 'semco_trabalhos');
 foreach ($post_types as $pt) {
     $posts = get_posts(array(
         'post_type' => $pt,

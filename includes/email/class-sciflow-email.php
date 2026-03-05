@@ -32,7 +32,7 @@ class SciFlow_Email
     {
         $labels = array(
             'enfrute' => 'Enfrute — Congresso Nacional',
-            'senco' => 'Senco — Seminário Catarinense de Olericultura',
+            'semco' => 'Semco — Seminário Catarinense de Olericultura',
         );
         return $labels[$event] ?? $event;
     }
@@ -43,7 +43,52 @@ class SciFlow_Email
     private function get_dashboard_url()
     {
         $settings = get_option('sciflow_settings', array());
-        return $settings['dashboard_url'] ?? home_url();
+        if (!empty($settings['dashboard_url'])) {
+            return $settings['dashboard_url'];
+        }
+
+        // Fallback to WooCommerce my account page if it exists, or just home url
+        if (function_exists('wc_get_page_id')) {
+            $my_account = wc_get_page_id('myaccount');
+            if ($my_account && $my_account > 0) {
+                return get_permalink($my_account);
+            }
+        }
+
+        return home_url('/');
+    }
+
+    /**
+     * Get emails of the submitter and correspondent author.
+     */
+    private function get_author_recipients($post_id)
+    {
+        $recipients = array();
+
+        // 1. Submitter (Inscrito/Usuário Logado no momento da submissão)
+        $author_id = get_post_meta($post_id, '_sciflow_author_id', true);
+        if ($author_id) {
+            $author = get_userdata($author_id);
+            if ($author && is_email($author->user_email)) {
+                $recipients[] = $author->user_email;
+            }
+        }
+
+        // 2. Correspondent Author (Autor Apresentador / Correspondente)
+        $presenting_author = get_post_meta($post_id, '_sciflow_presenting_author', true);
+        if ($presenting_author === 'main') {
+            $main_email = get_post_meta($post_id, '_sciflow_main_author_email', true);
+            if (is_email($main_email)) {
+                $recipients[] = $main_email;
+            }
+        } elseif (is_numeric($presenting_author)) {
+            $coauthors = get_post_meta($post_id, '_sciflow_coauthors', true);
+            if (isset($coauthors[$presenting_author]['email']) && is_email($coauthors[$presenting_author]['email'])) {
+                $recipients[] = $coauthors[$presenting_author]['email'];
+            }
+        }
+
+        return array_unique($recipients);
     }
 
     /**
@@ -170,11 +215,11 @@ class SciFlow_Email
     public function send_editorial_decision($post_id, $decision, $notes)
     {
         $vars = $this->get_template_vars($post_id);
-        $author_id = get_post_meta($post_id, '_sciflow_author_id', true);
-        $author = get_userdata($author_id);
+        $recipients = $this->get_author_recipients($post_id);
 
-        if (!$author)
+        if (empty($recipients)) {
             return;
+        }
 
         $decision_labels = array(
             'approve' => __('Aprovado', 'sciflow-wp'),
@@ -197,7 +242,7 @@ class SciFlow_Email
 
         $subject = sprintf(__('[%s] Decisão Editorial: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
-        $this->send($author->user_email, $subject, 'editorial-decision', $vars);
+        $this->send($recipients, $subject, 'editorial-decision', $vars);
     }
 
     /**
@@ -225,17 +270,17 @@ class SciFlow_Email
     public function send_poster_request($post_id)
     {
         $vars = $this->get_template_vars($post_id);
-        $author_id = get_post_meta($post_id, '_sciflow_author_id', true);
-        $author = get_userdata($author_id);
+        $recipients = $this->get_author_recipients($post_id);
 
-        if (!$author)
+        if (empty($recipients)) {
             return;
+        }
 
         $vars['message'] = __('Seu trabalho foi aprovado! Por favor, envie o pôster em formato PDF.', 'sciflow-wp');
 
         $subject = sprintf(__('[%s] Trabalho Aprovado — Envie Seu Pôster: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
-        $this->send($author->user_email, $subject, 'poster-request', $vars);
+        $this->send($recipients, $subject, 'poster-request', $vars);
     }
 
     /**
@@ -244,11 +289,11 @@ class SciFlow_Email
     public function send_confirmation_needed($post_id)
     {
         $vars = $this->get_template_vars($post_id);
-        $author_id = get_post_meta($post_id, '_sciflow_author_id', true);
-        $author = get_userdata($author_id);
+        $recipients = $this->get_author_recipients($post_id);
 
-        if (!$author)
+        if (empty($recipients)) {
             return;
+        }
 
         $deadline = get_post_meta($post_id, '_sciflow_confirmation_deadline', true);
         $vars['deadline'] = $deadline ? wp_date('d/m/Y H:i', strtotime($deadline)) : '---';
@@ -259,6 +304,6 @@ class SciFlow_Email
 
         $subject = sprintf(__('[%s] Confirmação de Apresentação: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
-        $this->send($author->user_email, $subject, 'confirmation-needed', $vars);
+        $this->send($recipients, $subject, 'confirmation-needed', $vars);
     }
 }

@@ -24,12 +24,13 @@ class SciFlow_Status_Manager
             'rascunho' => __('Rascunho', 'sciflow-wp'),
             'aguardando_pagamento' => __('Aguardando Pagamento', 'sciflow-wp'),
             'submetido' => __('Submetido', 'sciflow-wp'),
+            'submetido_com_revisao' => __('Submetido com Revisão', 'sciflow-wp'),
             'em_avaliacao' => __('Em Avaliação', 'sciflow-wp'),
             'aguardando_decisao' => __('Aguardando Parecer do Editor', 'sciflow-wp'),
             'em_correcao' => __('Em Correção', 'sciflow-wp'),
             'aprovado' => __('Aprovado', 'sciflow-wp'),
             'reprovado' => __('Reprovado', 'sciflow-wp'),
-            'aprovado_com_consideracoes' => __('Aprovado com Considerações', 'sciflow-wp'),
+            'aprovado_com_consideracoes' => __('Revisão Necessária', 'sciflow-wp'),
             'apto_revisao' => __('Apto para Revisão', 'sciflow-wp'),
             'apto_publicacao' => __('Apto para Publicação', 'sciflow-wp'),
             'poster_enviado' => __('Pôster Enviado', 'sciflow-wp'),
@@ -47,13 +48,14 @@ class SciFlow_Status_Manager
             'rascunho' => array('aguardando_pagamento', 'submetido'),
             'aguardando_pagamento' => array('submetido'),
             'submetido' => array('em_avaliacao', 'apto_revisao', 'aguardando_decisao'),
+            'submetido_com_revisao' => array('em_avaliacao', 'apto_revisao', 'aguardando_decisao'),
             'apto_revisao' => array('em_avaliacao'),
             'em_avaliacao' => array('aguardando_decisao'),
             'aguardando_decisao' => array('em_correcao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'apto_revisao', 'apto_publicacao', 'em_avaliacao'),
-            'aprovado_com_consideracoes' => array('submetido'), // Permite correção
-            'reprovado' => array('submetido'), // Conforme solicitado: pode fazer ajustes
+            'aprovado_com_consideracoes' => array('submetido', 'submetido_com_revisao'), // Permite correção
+            'reprovado' => array('submetido', 'submetido_com_revisao'), // Conforme solicitado: pode fazer ajustes
             'apto_publicacao' => array('aprovado'),
-            'em_correcao' => array('submetido'),
+            'em_correcao' => array('submetido', 'submetido_com_revisao'),
             'aprovado' => array('poster_enviado', 'aguardando_confirmacao'),
             'aguardando_confirmacao' => array('confirmado'),
         );
@@ -121,6 +123,7 @@ class SciFlow_Status_Manager
             'rascunho' => 'secondary',
             'aguardando_pagamento' => 'warning',
             'submetido' => 'primary',
+            'submetido_com_revisao' => 'primary',
             'em_avaliacao' => 'info',
             'aguardando_decisao' => 'warning',
             'em_correcao' => 'warning',
@@ -159,7 +162,7 @@ class SciFlow_Status_Manager
     {
         $map = array(
             'enfrute' => 'enfrute_trabalhos',
-            'senco' => 'senco_trabalhos',
+            'semco' => 'semco_trabalhos',
         );
         return isset($map[$event]) ? $map[$event] : false;
     }
@@ -171,7 +174,7 @@ class SciFlow_Status_Manager
     {
         $map = array(
             'enfrute_trabalhos' => 'enfrute',
-            'senco_trabalhos' => 'senco',
+            'semco_trabalhos' => 'semco',
         );
         return isset($map[$post_type]) ? $map[$post_type] : false;
     }

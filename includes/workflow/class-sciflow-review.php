@@ -91,7 +91,7 @@ class SciFlow_Review
         }
 
         $posts = array();
-        foreach (array('enfrute_trabalhos', 'senco_trabalhos') as $pt) {
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
             $query = new WP_Query(array(
                 'post_type' => $pt,
                 'posts_per_page' => -1,

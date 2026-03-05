@@ -13,7 +13,7 @@ class SciFlow_Meta
     /**
      * Post types that share the same meta fields.
      */
-    private $post_types = array('enfrute_trabalhos', 'senco_trabalhos');
+    private $post_types = array('enfrute_trabalhos', 'semco_trabalhos');
 
     public function __construct()
     {
@@ -50,7 +50,7 @@ class SciFlow_Meta
             ),
             '_sciflow_event' => array(
                 'type' => 'string',
-                'description' => 'Event: enfrute or senco',
+                'description' => 'Event: enfrute or semco',
                 'single' => true,
                 'sanitize_callback' => 'sanitize_text_field',
                 'show_in_rest' => false,

@@ -14,7 +14,8 @@ class SciFlow_Loader
      * Module instances.
      */
     private $enfrute_cpt;
-    private $senco_cpt;
+    private $semco_cpt;
+    private $palestra_cpt;
     private $meta;
     private $status_manager;
     private $submission;
@@ -41,11 +42,12 @@ class SciFlow_Loader
 
         // Post types.
         $this->enfrute_cpt = new SciFlow_Enfrute_CPT();
-        $this->senco_cpt = new SciFlow_Senco_CPT();
+        $this->semco_cpt = new SciFlow_Semco_CPT();
+        $this->palestra_cpt = new SciFlow_Palestra_CPT();
 
         // Self-repair roles if missing capabilities.
-        $senco_editor = get_role('sciflow_senco_editor');
-        if ($senco_editor && !$senco_editor->has_cap('manage_sciflow')) {
+        $semco_editor = get_role('sciflow_semco_editor');
+        if ($semco_editor && !$semco_editor->has_cap('manage_sciflow')) {
             $roles = new SciFlow_Roles();
             $roles->add_roles();
             $roles->add_caps();

@@ -20,8 +20,8 @@ class SciFlow_Activator
         // Flush rewrite rules so CPT permalinks work.
         $enfrute = new SciFlow_Enfrute_CPT();
         $enfrute->register();
-        $senco = new SciFlow_Senco_CPT();
-        $senco->register();
+        $semco = new SciFlow_Semco_CPT();
+        $semco->register();
         flush_rewrite_rules();
 
         // Store version for future upgrades.

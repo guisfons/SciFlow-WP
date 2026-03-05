@@ -90,7 +90,7 @@ class SciFlow_Admin
 
         // Editor emails (multiple supported separated by comma).
         $clean['enfrute_editor_email'] = $this->sanitize_multiple_emails($input['enfrute_editor_email'] ?? '');
-        $clean['senco_editor_email'] = $this->sanitize_multiple_emails($input['senco_editor_email'] ?? '');
+        $clean['semco_editor_email'] = $this->sanitize_multiple_emails($input['semco_editor_email'] ?? '');
 
         // Dashboard URL.
         $clean['dashboard_url'] = esc_url_raw($input['dashboard_url'] ?? '');
@@ -111,6 +111,7 @@ class SciFlow_Admin
 
         // WooCommerce product IDs.
         $clean['woo_product_ids'] = sanitize_text_field($input['woo_product_ids'] ?? '');
+        $clean['woo_speaker_product_ids'] = sanitize_text_field($input['woo_speaker_product_ids'] ?? '');
 
         return $clean;
     }
@@ -163,11 +164,11 @@ class SciFlow_Admin
                     </tr>
                     <tr>
                         <th scope="row">
-                            <?php esc_html_e('E-mail do Editor Senco', 'sciflow-wp'); ?>
+                            <?php esc_html_e('E-mail do Editor Semco', 'sciflow-wp'); ?>
                         </th>
                         <td>
-                            <input type="text" name="sciflow_settings[senco_editor_email]"
-                                value="<?php echo esc_attr($settings['senco_editor_email'] ?? ''); ?>" class="regular-text">
+                            <input type="text" name="sciflow_settings[semco_editor_email]"
+                                value="<?php echo esc_attr($settings['semco_editor_email'] ?? ''); ?>" class="regular-text">
                             <p class="description"><?php esc_html_e('Separe múltiplos e-mails por vírgula.', 'sciflow-wp'); ?>
                             </p>
                         </td>
@@ -271,6 +272,19 @@ class SciFlow_Admin
                             </p>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e('ID(s) do Produto/Variação de Palestrante', 'sciflow-wp'); ?>
+                        </th>
+                        <td>
+                            <input type="text" name="sciflow_settings[woo_speaker_product_ids]"
+                                value="<?php echo esc_attr($settings['woo_speaker_product_ids'] ?? ''); ?>" class="regular-text"
+                                placeholder="ex: 789 ou 789,1011">
+                            <p class="description">
+                                <?php esc_html_e('ID(s) do produto ou variação WooCommerce que atribui o cargo de Palestrante.', 'sciflow-wp'); ?>
+                            </p>
+                        </td>
+                    </tr>
                 </table>
 
                 <?php submit_button(); ?>
@@ -310,8 +324,8 @@ class SciFlow_Admin
             <h2>Enfrute</h2>
             <?php $this->render_admin_ranking_table($ranking->get_event_ranking('enfrute')); ?>
 
-            <h2>Senco</h2>
-            <?php $this->render_admin_ranking_table($ranking->get_event_ranking('senco')); ?>
+            <h2>Semco</h2>
+            <?php $this->render_admin_ranking_table($ranking->get_event_ranking('semco')); ?>
 
             <h2>
                 <?php esc_html_e('Geral', 'sciflow-wp'); ?>
@@ -412,7 +426,7 @@ class SciFlow_Admin
                 </thead>
                 <tbody>
                     <?php
-                    foreach (array('enfrute_trabalhos', 'senco_trabalhos') as $pt) {
+                    foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
                         $query = new WP_Query(array(
                             'post_type' => $pt,
                             'posts_per_page' => -1,
@@ -463,7 +477,7 @@ class SciFlow_Admin
      */
     public function add_meta_boxes()
     {
-        foreach (array('enfrute_trabalhos', 'senco_trabalhos') as $pt) {
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
             add_meta_box(
                 'sciflow_status_meta',
                 __('SciFlow — Status e Dados', 'sciflow-wp'),

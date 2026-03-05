@@ -251,8 +251,16 @@ class SciFlow_Submission
             update_post_meta($post_id, '_sciflow_knowledge_area', sanitize_text_field($data['knowledge_area']));
         }
 
-        // Transition back to submetido.
-        $result = $this->status_manager->transition($post_id, 'submetido');
+        if (isset($data['event'])) {
+            update_post_meta($post_id, '_sciflow_event', sanitize_text_field($data['event']));
+        }
+
+        if (isset($data['language'])) {
+            update_post_meta($post_id, '_sciflow_language', sanitize_text_field($data['language']));
+        }
+
+        // Transition to the new submetido com revisao status.
+        $result = $this->status_manager->transition($post_id, 'submetido_com_revisao');
 
         if (!is_wp_error($result)) {
             $event = get_post_meta($post_id, '_sciflow_event', true);
@@ -268,7 +276,7 @@ class SciFlow_Submission
     private function count_submissions_by_author($user_id, $event = null)
     {
         $count = 0;
-        $post_types = $event ? array(SciFlow_Status_Manager::get_post_type_for_event($event)) : array('enfrute_trabalhos', 'senco_trabalhos');
+        $post_types = $event ? array(SciFlow_Status_Manager::get_post_type_for_event($event)) : array('enfrute_trabalhos', 'semco_trabalhos');
 
         foreach ($post_types as $pt) {
             if (!$pt)
@@ -295,7 +303,7 @@ class SciFlow_Submission
         }
 
         $posts = array();
-        foreach (array('enfrute_trabalhos', 'senco_trabalhos') as $pt) {
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
             $query = new WP_Query(array(
                 'post_type' => $pt,
                 'author' => $user_id,

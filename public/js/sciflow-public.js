@@ -103,7 +103,7 @@
         updatePresentingAuthorOptions();
     });
 
-    $(document).on('input', '.sciflow-coauthor-row input[name$="[name]"]', function () {
+    $(document).on('input', '.sciflow-coauthor-row input[name$="[name]"], #sciflow-authors-text', function () {
         updatePresentingAuthorOptions();
     });
 
@@ -112,10 +112,10 @@
         if (!$select.length) return;
 
         const currentValue = $select.val();
-        const mainAuthorName = $('#sciflow-authors-text').val() || 'Autor Principal';
+        const mainAuthorName = $('#sciflow-authors-text').val() || 'Autor Correspondente';
 
         $select.empty();
-        $select.append(`<option value="main">${mainAuthorName} (Autor Principal)</option>`);
+        $select.append(`<option value="main">${mainAuthorName} (Autor Correspondente)</option>`);
 
         $('.sciflow-coauthor-row').each(function () {
             const index = $(this).data('index');
@@ -137,10 +137,48 @@
 
     $(document).on('submit', '#sciflow-submit-form', function (e) {
         e.preventDefault();
-        const $form = $(this);
-        const $btn = $form.find('#sciflow-submit-btn');
 
-        if (!confirm(ajax.strings.confirm_submit || 'Confirma a submissão?')) return;
+        // Populate preview modal
+        const title = $('#sciflow-title').val() || '';
+        const event = $('#sciflow-event option:selected').text();
+        const cultura = $('select[name="cultura"]').val() || '';
+        const area = $('select[name="knowledge_area"]').val() || '';
+
+        let contentHtml = '';
+        if (typeof tinyMCE !== 'undefined') {
+            const editor = tinyMCE.get('sciflow_content');
+            if (editor) contentHtml = editor.getContent();
+        } else {
+            contentHtml = $('#sciflow_content').val() || '';
+        }
+
+        let authors = '<strong>Autor Correspondente:</strong> ' + ($('#sciflow-authors-text').val() || '') + '<br>';
+        $('.sciflow-coauthor-row').each(function () {
+            const name = $(this).find('input[name$="[name]"]').val();
+            if (name) authors += '<strong>Coautor:</strong> ' + name + '<br>';
+        });
+
+        const previewHtml = `
+            <p><strong>Evento:</strong> ${event}</p>
+            <p><strong>Cultura:</strong> ${cultura}</p>
+            <p><strong>Área:</strong> ${area}</p>
+            <hr>
+            <h4>${title}</h4>
+            <div style="margin-bottom: 15px; font-size: 13px;">${authors}</div>
+            <div>${contentHtml}</div>
+        `;
+
+        $('#sciflow-preview-content').html(previewHtml);
+        $('#sciflow-preview-modal').fadeIn(200);
+    });
+
+    $(document).on('click', '#sciflow-cancel-preview-btn', function () {
+        $('#sciflow-preview-modal').fadeOut(200);
+    });
+
+    $(document).on('click', '#sciflow-confirm-submit-btn', function (e) {
+        const $form = $('#sciflow-submit-form');
+        const $btn = $(this);
 
         // Sync TinyMCE.
         if (typeof tinyMCE !== 'undefined') {
@@ -152,9 +190,9 @@
 
         ajaxPost('sciflow_submit', formData, $btn)
             .done(function (res) {
+                $('#sciflow-preview-modal').fadeOut(200);
                 if (res.success) {
                     showMessage('#sciflow-form-messages', res.data.message, 'success');
-                    // Update hidden post_id field so next save/submit updates this post
                     if (res.data.post_id) {
                         $('#sciflow_post_id').val(res.data.post_id);
                     }
@@ -166,15 +204,17 @@
                             window.location.href = res.data.redirect_url;
                         }
                     } else {
-                        // Hide draft button after success
                         $('#sciflow-draft-btn').fadeOut(200);
                     }
                 } else {
                     showMessage('#sciflow-form-messages', res.data.message, 'error');
                 }
+                $(window).scrollTop(0);
             })
             .fail(function () {
+                $('#sciflow-preview-modal').fadeOut(200);
                 showMessage('#sciflow-form-messages', 'Erro de conexão.', 'error');
+                $(window).scrollTop(0);
             });
     });
 
@@ -452,6 +492,103 @@
                     showMessage('#sciflow-dashboard-messages', res.data.message, 'error');
                 }
             });
+    });
+
+    // ─── Editorial Filters ───
+
+    $('.sciflow-filter-input').on('keyup change', function () {
+        const eventKey = $(this).data('event');
+        const $table = $('.sciflow-table-' + eventKey);
+        const search = $('.sciflow-filter-text[data-event="' + eventKey + '"]').val().toLowerCase();
+        const status = $('.sciflow-filter-status[data-event="' + eventKey + '"]').val();
+
+        $table.find('tbody > tr.sciflow-table__row').each(function () {
+            const $row = $(this);
+            const rowSearch = $row.data('search') || '';
+            const rowStatus = $row.data('status') || '';
+            const $contentRow = $('#content-' + $row.data('post-id'));
+
+            let show = true;
+            if (search && rowSearch.indexOf(search) === -1) {
+                show = false;
+            }
+            if (status && rowStatus !== status) {
+                show = false;
+            }
+
+            if (show) {
+                $row.show();
+            } else {
+                $row.hide();
+                $contentRow.hide(); // Hide the expanded details if the row gets filtered out
+            }
+        });
+    });
+
+    // ─── Speaker Form ───
+
+    function updateSpeakerCharCount() {
+        const title = $('#sciflow-speaker-title').val() || '';
+        const content = $('#sciflow-speaker-content').val() || '';
+        const total = (title + ' ' + content).length;
+
+        const $counter = $('#speaker-char-count');
+        $counter.text('Caracteres: ' + total + ' / 25000 (Mínimo: 16000)');
+
+        if (total < 16000 || total > 25000) {
+            $counter.css('color', '#dc3545'); // red
+        } else {
+            $counter.css('color', '#198754'); // green
+        }
+    }
+
+    $('#sciflow-speaker-title, #sciflow-speaker-content').on('input', updateSpeakerCharCount);
+
+    $('#sciflow-speaker-form').on('submit', function (e) {
+        e.preventDefault();
+
+        const title = $('#sciflow-speaker-title').val() || '';
+        const content = $('#sciflow-speaker-content').val() || '';
+        const total = (title + ' ' + content).length;
+
+        if (total < 16000) {
+            alert('O texto deve ter no mínimo 16.000 caracteres. Atual: ' + total);
+            return;
+        }
+        if (total > 25000) {
+            alert('O texto excedeu o limite de 25.000 caracteres. Atual: ' + total);
+            return;
+        }
+
+        const $form = $(this);
+        const $btn = $form.find('button[type="submit"]');
+        const data = new FormData(this);
+
+        const origText = $btn.text();
+        $btn.prop('disabled', true).html('<span class="sciflow-spinner"></span> ' + (ajax.strings.submitting || 'Enviando...'));
+
+        $.ajax({
+            url: ajax.ajax_url,
+            type: 'POST',
+            data: data,
+            processData: false,
+            contentType: false,
+            success: function (res) {
+                if (res.success) {
+                    showMessage('#sciflow-form-messages', res.data.message, 'success');
+                    $form[0].reset();
+                    updateSpeakerCharCount();
+                } else {
+                    showMessage('#sciflow-form-messages', res.data.message || 'Erro ao enviar.', 'error');
+                }
+            },
+            error: function () {
+                showMessage('#sciflow-form-messages', 'Erro de conexão.', 'error');
+            },
+            complete: function () {
+                $btn.prop('disabled', false).text(origText);
+            }
+        });
     });
 
 })(jQuery);

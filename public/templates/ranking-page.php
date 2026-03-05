@@ -5,7 +5,7 @@
  * Available vars:
  *   $ranking        - SciFlow_Ranking
  *   $status_manager - SciFlow_Status_Manager
- *   $event          - string (enfrute, senco, or all)
+ *   $event          - string (enfrute, semco, or all)
  */
 
 if (!defined('ABSPATH'))
@@ -21,8 +21,8 @@ if (!defined('ABSPATH'))
             data-ranking="enfrute">
             Enfrute
         </button>
-        <button class="sciflow-tab <?php echo $event === 'senco' ? 'sciflow-tab--active' : ''; ?>" data-ranking="senco">
-            Senco
+        <button class="sciflow-tab <?php echo $event === 'semco' ? 'sciflow-tab--active' : ''; ?>" data-ranking="semco">
+            Semco
         </button>
         <button class="sciflow-tab <?php echo $event === 'geral' ? 'sciflow-tab--active' : ''; ?>" data-ranking="geral">
             <?php esc_html_e('Geral', 'sciflow-wp'); ?>
@@ -39,13 +39,13 @@ if (!defined('ABSPATH'))
         ?>
     </div>
 
-    <!-- Senco ranking -->
-    <div class="sciflow-ranking-content" id="ranking-senco"
-        style="<?php echo $event !== 'senco' ? 'display:none;' : ''; ?>">
-        <h3>Ranking Senco</h3>
+    <!-- Semco ranking -->
+    <div class="sciflow-ranking-content" id="ranking-semco"
+        style="<?php echo $event !== 'semco' ? 'display:none;' : ''; ?>">
+        <h3>Ranking Semco</h3>
         <?php
-        $senco_ranking = $ranking->get_event_ranking('senco');
-        sciflow_render_ranking_table($senco_ranking, $status_manager);
+        $semco_ranking = $ranking->get_event_ranking('semco');
+        sciflow_render_ranking_table($semco_ranking, $status_manager);
         ?>
     </div>
 

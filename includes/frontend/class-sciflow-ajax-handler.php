@@ -39,6 +39,9 @@ class SciFlow_Ajax_Handler
         // Resubmission.
         add_action('wp_ajax_sciflow_resubmit', array($this, 'handle_resubmit'));
 
+        // Speaker Talk Submission.
+        add_action('wp_ajax_sciflow_submit_speaker_talk', array($this, 'handle_submit_speaker_talk'));
+
         // Review.
         add_action('wp_ajax_sciflow_submit_review', array($this, 'handle_submit_review'));
 
@@ -103,7 +106,60 @@ class SciFlow_Ajax_Handler
             'is_draft' => $is_draft,
             'redirect_url' => home_url('/meus-artigos/')
         ));
+    }
 
+    /**
+     * Handle speaker talk submission.
+     */
+    public function handle_submit_speaker_talk()
+    {
+        if (!check_ajax_referer('sciflow_speaker_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => __('Sessão expirada. Recarregue a página.', 'sciflow-wp')));
+        }
+
+        if (!is_user_logged_in() || !current_user_can('sciflow_speaker')) {
+            wp_send_json_error(array('message' => __('Permissão negada.', 'sciflow-wp')));
+        }
+
+        $event = sanitize_text_field($_POST['event'] ?? '');
+        $title = sanitize_text_field($_POST['title'] ?? '');
+        $content = wp_kses_post($_POST['content'] ?? '');
+
+        if (empty($title) || empty($content)) {
+            wp_send_json_error(array('message' => __('Título e Resumo são obrigatórios.', 'sciflow-wp')));
+        }
+
+        $total_length = mb_strlen(strip_tags($title . ' ' . $content));
+
+        if ($total_length < 16000) {
+            wp_send_json_error(array('message' => __('O texto deve ter no mínimo 16.000 caracteres.', 'sciflow-wp')));
+        }
+        if ($total_length > 25000) {
+            wp_send_json_error(array('message' => __('O texto excedeu o limite de 25.000 caracteres.', 'sciflow-wp')));
+        }
+
+        $post_data = array(
+            'post_title' => $title,
+            'post_content' => $content,
+            'post_type' => 'sciflow_palestra',
+            'post_status' => 'publish',
+            'post_author' => get_current_user_id()
+        );
+
+        $post_id = wp_insert_post($post_data, true);
+
+        if (is_wp_error($post_id)) {
+            wp_send_json_error(array('message' => __('Erro ao salvar a palestra.', 'sciflow-wp')));
+        }
+
+        if ($event) {
+            update_post_meta($post_id, '_sciflow_event', $event);
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Palestra enviada com sucesso.', 'sciflow-wp'),
+            'post_id' => $post_id
+        ));
     }
 
     /**
@@ -120,6 +176,15 @@ class SciFlow_Ajax_Handler
             'content' => wp_kses_post($_POST['content'] ?? ''),
             'keywords' => array_map('sanitize_text_field', (array) ($_POST['keywords'] ?? array())),
             'coauthors' => $_POST['coauthors'] ?? array(),
+            'event' => sanitize_text_field($_POST['event'] ?? ''),
+            'language' => sanitize_text_field($_POST['language'] ?? 'pt'),
+            'cultura' => sanitize_text_field($_POST['cultura'] ?? ''),
+            'knowledge_area' => sanitize_text_field($_POST['knowledge_area'] ?? ''),
+            'presenting_author' => sanitize_text_field($_POST['presenting_author'] ?? 'main'),
+            'main_author_instituicao' => sanitize_text_field($_POST['main_author_instituicao'] ?? ''),
+            'main_author_cpf' => sanitize_text_field($_POST['main_author_cpf'] ?? ''),
+            'main_author_email' => sanitize_email($_POST['main_author_email'] ?? ''),
+            'main_author_telefone' => sanitize_text_field($_POST['main_author_telefone'] ?? ''),
         );
 
         $result = $this->submission->resubmit($post_id, $data);

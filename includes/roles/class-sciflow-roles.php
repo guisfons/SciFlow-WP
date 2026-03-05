@@ -20,6 +20,11 @@ class SciFlow_Roles
             'read' => true,
         ));
 
+        // Palestrante — can submit talks
+        add_role('sciflow_speaker', __('Palestrante (SciFlow)', 'sciflow-wp'), array(
+            'read' => true,
+        ));
+
         // Revisor — can read and review assigned articles.
         add_role('sciflow_revisor', __('Revisor (SciFlow)', 'sciflow-wp'), array(
             'read' => true,
@@ -32,13 +37,13 @@ class SciFlow_Roles
 
         // --- NEW ROLES ---
 
-        // Senco Editor
-        add_role('sciflow_senco_editor', __('Editor Senco (SciFlow)', 'sciflow-wp'), array(
+        // Semco Editor
+        add_role('sciflow_semco_editor', __('Editor Semco (SciFlow)', 'sciflow-wp'), array(
             'read' => true,
         ));
 
-        // Senco Revisor
-        add_role('sciflow_senco_revisor', __('Revisor Senco (SciFlow)', 'sciflow-wp'), array(
+        // Semco Revisor
+        add_role('sciflow_semco_revisor', __('Revisor Semco (SciFlow)', 'sciflow-wp'), array(
             'read' => true,
         ));
 
@@ -65,10 +70,10 @@ class SciFlow_Roles
             $inscrito->add_cap('edit_enfrute_trabalhos');
             $inscrito->add_cap('edit_published_enfrute_trabalhos');
             $inscrito->add_cap('delete_enfrute_trabalhos');
-            // Own Senco posts.
-            $inscrito->add_cap('edit_senco_trabalhos');
-            $inscrito->add_cap('edit_published_senco_trabalhos');
-            $inscrito->add_cap('delete_senco_trabalhos');
+            // Own Semco posts.
+            $inscrito->add_cap('edit_semco_trabalhos');
+            $inscrito->add_cap('edit_published_semco_trabalhos');
+            $inscrito->add_cap('delete_semco_trabalhos');
             // Upload.
             $inscrito->add_cap('upload_files');
         }
@@ -78,8 +83,8 @@ class SciFlow_Roles
         if ($revisor) {
             $revisor->add_cap('read_enfrute_trabalhos');
             $revisor->add_cap('read_private_enfrute_trabalhos');
-            $revisor->add_cap('read_senco_trabalhos');
-            $revisor->add_cap('read_private_senco_trabalhos');
+            $revisor->add_cap('read_semco_trabalhos');
+            $revisor->add_cap('read_private_semco_trabalhos');
             $revisor->add_cap('sciflow_review');
         }
 
@@ -90,8 +95,8 @@ class SciFlow_Roles
             foreach ($this->get_post_type_caps('enfrute_trabalho') as $cap) {
                 $editor->add_cap($cap);
             }
-            // All Senco caps.
-            foreach ($this->get_post_type_caps('senco_trabalho') as $cap) {
+            // All Semco caps.
+            foreach ($this->get_post_type_caps('semco_trabalho') as $cap) {
                 $editor->add_cap($cap);
             }
             $editor->add_cap('sciflow_review');
@@ -100,24 +105,24 @@ class SciFlow_Roles
             $editor->add_cap('upload_files');
         }
 
-        // ---------- Senco Editor ----------
-        $senco_editor = get_role('sciflow_senco_editor');
-        if ($senco_editor) {
-            foreach ($this->get_post_type_caps('senco_trabalho') as $cap) {
-                $senco_editor->add_cap($cap);
+        // ---------- Semco Editor ----------
+        $semco_editor = get_role('sciflow_semco_editor');
+        if ($semco_editor) {
+            foreach ($this->get_post_type_caps('semco_trabalho') as $cap) {
+                $semco_editor->add_cap($cap);
             }
-            $senco_editor->add_cap('sciflow_review');
-            $senco_editor->add_cap('assign_sciflow_reviewers');
-            $senco_editor->add_cap('manage_sciflow'); // Needed for some dashboard checks
-            $senco_editor->add_cap('upload_files');
+            $semco_editor->add_cap('sciflow_review');
+            $semco_editor->add_cap('assign_sciflow_reviewers');
+            $semco_editor->add_cap('manage_sciflow'); // Needed for some dashboard checks
+            $semco_editor->add_cap('upload_files');
         }
 
-        // ---------- Senco Revisor ----------
-        $senco_revisor = get_role('sciflow_senco_revisor');
-        if ($senco_revisor) {
-            $senco_revisor->add_cap('read_senco_trabalhos');
-            $senco_revisor->add_cap('read_private_senco_trabalhos');
-            $senco_revisor->add_cap('sciflow_review');
+        // ---------- Semco Revisor ----------
+        $semco_revisor = get_role('sciflow_semco_revisor');
+        if ($semco_revisor) {
+            $semco_revisor->add_cap('read_semco_trabalhos');
+            $semco_revisor->add_cap('read_private_semco_trabalhos');
+            $semco_revisor->add_cap('sciflow_review');
         }
 
         // ---------- Enfrute Editor ----------
@@ -146,7 +151,7 @@ class SciFlow_Roles
             foreach ($this->get_post_type_caps('enfrute_trabalho') as $cap) {
                 $admin->add_cap($cap);
             }
-            foreach ($this->get_post_type_caps('senco_trabalho') as $cap) {
+            foreach ($this->get_post_type_caps('semco_trabalho') as $cap) {
                 $admin->add_cap($cap);
             }
             $admin->add_cap('sciflow_review');
@@ -161,10 +166,11 @@ class SciFlow_Roles
     public function remove_roles()
     {
         remove_role('sciflow_inscrito');
+        remove_role('sciflow_speaker');
         remove_role('sciflow_revisor');
         remove_role('sciflow_editor');
-        remove_role('sciflow_senco_editor');
-        remove_role('sciflow_senco_revisor');
+        remove_role('sciflow_semco_editor');
+        remove_role('sciflow_semco_revisor');
         remove_role('sciflow_enfrute_editor');
         remove_role('sciflow_enfrute_revisor');
     }
