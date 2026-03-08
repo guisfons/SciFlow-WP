@@ -23,7 +23,7 @@ if ($edit_post) {
     $status = get_post_meta($post_id, '_sciflow_status', true);
     $allowed_edit_statuses = array('rascunho', 'em_correcao', 'aprovado_com_consideracoes', 'reprovado');
     if (!in_array($status, $allowed_edit_statuses, true)) {
-        echo '<div class="sciflow-notice sciflow-notice--warning">Este trabalho já foi submetido e ainda não foi liberado pelo editor para correções.</div>';
+        echo '<div class="sciflow-notice sciflow-notice--warning">Este trabalho já foi submetido e ainda não foi liberado pelo editor para alterações.</div>';
         return;
     }
 }
@@ -72,7 +72,11 @@ if (!is_array($coauthors)) $coauthors = array();
     <div class="sciflow-notice sciflow-notice--info" id="sciflow-form-messages" style="display:none;"></div>
 
     <form id="sciflow-submit-form" class="sciflow-form" enctype="multipart/form-data">
-        <input type="hidden" name="action" value="sciflow_submit">
+        <?php 
+        $sciflow_status_form = $edit_post ? get_post_meta($post_id, '_sciflow_status', true) : '';
+        $form_action = ($post_id > 0 && in_array($sciflow_status_form, array('em_correcao', 'aprovado_com_consideracoes', 'reprovado'), true)) ? 'sciflow_resubmit' : 'sciflow_submit';
+        ?>
+        <input type="hidden" name="action" value="<?php echo esc_attr($form_action); ?>">
         <input type="hidden" name="nonce" value="<?php echo esc_attr( wp_create_nonce( 'sciflow_nonce' ) ); ?>">
         <input type="hidden" name="post_id" id="sciflow_post_id" value="<?php echo esc_attr($post_id); ?>">
 
@@ -170,11 +174,15 @@ if (!is_array($coauthors)) $coauthors = array();
         <!-- Main Author -->
         <div class="sciflow-field">
             <label class="sciflow-field__label">
-                <?php esc_html_e( 'Autor Correspondente', 'sciflow-wp' ); ?>
+                <?php esc_html_e( 'Autor Principal', 'sciflow-wp' ); ?>
             </label>
-            <input type="text" value="<?php echo esc_attr( $current_user->display_name ); ?>"
+            <?php 
+            $main_author_name = $edit_post ? get_post_meta($post_id, '_sciflow_main_author_name', true) : $current_user->display_name;
+            if (empty($main_author_name)) $main_author_name = $current_user->display_name;
+            ?>
+            <input type="text" value="<?php echo esc_attr( $main_author_name ); ?>"
                    class="sciflow-field__input" style="margin-bottom: 10px;" readonly disabled>
-            <input type="hidden" name="authors_text" id="sciflow-authors-text" value="<?php echo esc_attr( $current_user->display_name ); ?>">
+            <input type="hidden" name="authors_text" id="sciflow-authors-text" value="<?php echo esc_attr( $main_author_name ); ?>">
             
             <?php 
             $main_author_instituicao = $edit_post ? get_post_meta($post_id, '_sciflow_main_author_instituicao', true) : '';
@@ -197,19 +205,19 @@ if (!is_array($coauthors)) $coauthors = array();
             </label>
             <div id="sciflow-coauthors-list">
                 <?php foreach ($coauthors as $index => $coauthor) : ?>
-                    <div class="sciflow-coauthor-item" data-index="<?php echo $index; ?>">
-                        <input type="text" name="coauthors[<?php echo $index; ?>][name]" value="<?php echo esc_attr($coauthor['name'] ?? ''); ?>" placeholder="Nome" required>
-                        <input type="email" name="coauthors[<?php echo $index; ?>][email]" value="<?php echo esc_attr($coauthor['email'] ?? ''); ?>" placeholder="E-mail" required>
-                        <input type="text" name="coauthors[<?php echo $index; ?>][institution]" value="<?php echo esc_attr($coauthor['institution'] ?? ''); ?>" placeholder="Instituição" required>
-                        <input type="text" name="coauthors[<?php echo $index; ?>][telefone]" value="<?php echo esc_attr($coauthor['telefone'] ?? ''); ?>" placeholder="Telefone" required>
-                        <button type="button" class="sciflow-remove-coauthor">&times;</button>
+                    <div class="sciflow-coauthor-row" data-index="<?php echo $index; ?>">
+                        <input type="text" name="coauthors[<?php echo $index; ?>][name]" value="<?php echo esc_attr($coauthor['name'] ?? ''); ?>" class="sciflow-field__input" placeholder="Nome" required>
+                        <input type="email" name="coauthors[<?php echo $index; ?>][email]" value="<?php echo esc_attr($coauthor['email'] ?? ''); ?>" class="sciflow-field__input" placeholder="E-mail" required>
+                        <input type="text" name="coauthors[<?php echo $index; ?>][institution]" value="<?php echo esc_attr($coauthor['institution'] ?? ''); ?>" class="sciflow-field__input" placeholder="Instituição" required>
+                        <input type="text" name="coauthors[<?php echo $index; ?>][telefone]" value="<?php echo esc_attr($coauthor['telefone'] ?? ''); ?>" class="sciflow-field__input" placeholder="Telefone" required>
+                        <button type="button" class="sciflow-coauthor-remove" title="Remover">&times;</button>
                     </div>
                 <?php endforeach; ?>
             </div>
             <button type="button" id="sciflow-add-coauthor" class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm" style="margin-top: 10px;">
                 + <?php esc_html_e( 'Adicionar Coautor', 'sciflow-wp' ); ?>
             </button>
-            <p class="sciflow-field__help"><?php esc_html_e( 'Máximo de 6 autores por resumo (incluindo autor correspondente).', 'sciflow-wp' ); ?></p>
+            <p class="sciflow-field__help"><?php esc_html_e( 'Máximo de 6 autores por resumo (incluindo autor principal).', 'sciflow-wp' ); ?></p>
         </div>
 
         <!-- Presenting Author -->
@@ -224,7 +232,7 @@ if (!is_array($coauthors)) $coauthors = array();
                 }
             ?>
             <select id="sciflow-presenting-author" name="presenting_author" required class="sciflow-field__select">
-                <option value="main" <?php selected($presenting_author, 'main'); ?>><?php echo esc_html($current_user->display_name); ?> (Autor Correspondente)</option>
+                <option value="main" <?php selected($presenting_author, 'main'); ?>><?php echo esc_html($current_user->display_name); ?> (Autor Principal)</option>
                 <?php foreach ($coauthors as $index => $coauthor) : ?>
                     <?php if (!empty($coauthor['name'])) : ?>
                         <option value="<?php echo esc_attr($index); ?>" <?php selected($presenting_author, (string)$index); ?>><?php echo esc_html($coauthor['name']); ?></option>

@@ -136,18 +136,26 @@ class SciFlow_Submission
             return $post_id;
         }
 
-        // Save meta.
         if ($is_draft) {
-            update_post_meta($post_id, '_sciflow_status', 'rascunho');
+            if (empty($was_in_correction)) {
+                update_post_meta($post_id, '_sciflow_status', 'rascunho');
+            }
         } else {
-            update_post_meta($post_id, '_sciflow_status', 'submetido');
+            // If it was in correction, transition to 'submetido_com_revisao' (Submetido com alterações)
+            if (!empty($was_in_correction)) {
+                update_post_meta($post_id, '_sciflow_status', 'submetido_com_revisao');
+            } else {
+                update_post_meta($post_id, '_sciflow_status', 'submetido');
+            }
             // Notify editor on new submission (if not a draft).
             $this->email->send_new_submission($post_id, $event);
+            $this->email->send_submission_confirmation($post_id);
         }
 
         update_post_meta($post_id, '_sciflow_event', $event);
 
         update_post_meta($post_id, '_sciflow_author_id', $user_id);
+        update_post_meta($post_id, '_sciflow_main_author_name', sanitize_text_field($data['authors_text'] ?? ''));
         update_post_meta($post_id, '_sciflow_main_author_instituicao', sanitize_text_field($data['main_author_instituicao'] ?? ''));
         update_post_meta($post_id, '_sciflow_main_author_cpf', sanitize_text_field($data['main_author_cpf'] ?? ''));
         update_post_meta($post_id, '_sciflow_main_author_email', sanitize_email($data['main_author_email'] ?? ''));
@@ -156,6 +164,9 @@ class SciFlow_Submission
 
         $presenting_author = sanitize_text_field($data['presenting_author'] ?? 'main');
         update_post_meta($post_id, '_sciflow_presenting_author', $presenting_author);
+
+        $cultura = sanitize_text_field($data['cultura'] ?? '');
+        $knowledge_area = sanitize_text_field($data['knowledge_area'] ?? '');
         update_post_meta($post_id, '_sciflow_cultura', $cultura);
         update_post_meta($post_id, '_sciflow_knowledge_area', $knowledge_area);
 
@@ -166,7 +177,7 @@ class SciFlow_Submission
         // If resubmitting from correction, add a system message.
         if (!empty($was_in_correction) && !$is_draft) {
             $editorial = new SciFlow_Editorial($this->status_manager, $this->email);
-            $editorial->add_message($post_id, 'autor', __('O autor enviou as correções solicitadas.', 'sciflow-wp'));
+            $editorial->add_message($post_id, 'autor', __('O autor enviou as alterações solicitadas.', 'sciflow-wp'));
             // Note: send_new_submission was already called above if not a draft.
         }
 
@@ -195,7 +206,7 @@ class SciFlow_Submission
     }
 
     /**
-     * Author resubmits after corrections.
+     * Author resubmits after alterations.
      */
     public function resubmit($post_id, $data)
     {
@@ -207,8 +218,9 @@ class SciFlow_Submission
         }
 
         $current_status = $this->status_manager->get_status($post_id);
-        if ($current_status !== 'em_correcao') {
-            return new WP_Error('invalid_status', __('O trabalho não está em fase de correção.', 'sciflow-wp'));
+        $allowed_edit_statuses = array('em_correcao', 'aprovado_com_consideracoes', 'reprovado');
+        if (!in_array($current_status, $allowed_edit_statuses, true)) {
+            return new WP_Error('invalid_status', __('O trabalho não pode ser editado no status atual.', 'sciflow-wp'));
         }
 
         // Update content.
@@ -225,6 +237,10 @@ class SciFlow_Submission
         if (!empty($data['keywords'])) {
             $keywords = array_filter(array_map('sanitize_text_field', (array) $data['keywords']));
             update_post_meta($post_id, '_sciflow_keywords', $keywords);
+        }
+
+        if (isset($data['authors_text'])) {
+            update_post_meta($post_id, '_sciflow_main_author_name', sanitize_text_field($data['authors_text']));
         }
 
         update_post_meta($post_id, '_sciflow_main_author_instituicao', sanitize_text_field($data['main_author_instituicao'] ?? ''));
@@ -263,8 +279,12 @@ class SciFlow_Submission
         $result = $this->status_manager->transition($post_id, 'submetido_com_revisao');
 
         if (!is_wp_error($result)) {
+            $editorial = new SciFlow_Editorial($this->status_manager, $this->email);
+            $editorial->add_message($post_id, 'autor', __('O autor enviou as alterações solicitadas.', 'sciflow-wp'));
+
             $event = get_post_meta($post_id, '_sciflow_event', true);
             $this->email->send_new_submission($post_id, $event);
+            $this->email->send_submission_confirmation($post_id);
         }
 
         return $result;
@@ -319,7 +339,7 @@ class SciFlow_Submission
     /**
      * Sanitize the co-authors array.
      */
-    private function sanitize_coauthors($raw)
+    private function sanitize_coauthors($raw, $is_draft = false)
     {
         $clean = array();
         if (!is_array($raw)) {
@@ -329,16 +349,19 @@ class SciFlow_Submission
         foreach ($raw as $i => $author) {
             if ($i >= 8)
                 break; // Max 8 co-authors.
-            $clean[] = array(
-                'name' => sanitize_text_field($author['name'] ?? ''),
-                'email' => sanitize_email($author['email'] ?? ''),
-                'institution' => sanitize_text_field($author['institution'] ?? ''),
-                'telefone' => sanitize_text_field($author['telefone'] ?? ''),
-            );
+
+            $has_any_data = !empty($author['name']) || !empty($author['email']) || !empty($author['institution']) || !empty($author['telefone']);
+
+            if ($has_any_data) {
+                $clean[] = array(
+                    'name' => sanitize_text_field($author['name'] ?? ''),
+                    'email' => sanitize_email($author['email'] ?? ''),
+                    'institution' => sanitize_text_field($author['institution'] ?? ''),
+                    'telefone' => sanitize_text_field($author['telefone'] ?? ''),
+                );
+            }
         }
 
-        return array_filter($clean, function ($a) {
-            return !empty($a['name']);
-        });
+        return $clean;
     }
 }

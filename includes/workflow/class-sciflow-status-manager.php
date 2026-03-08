@@ -24,13 +24,13 @@ class SciFlow_Status_Manager
             'rascunho' => __('Rascunho', 'sciflow-wp'),
             'aguardando_pagamento' => __('Aguardando Pagamento', 'sciflow-wp'),
             'submetido' => __('Submetido', 'sciflow-wp'),
-            'submetido_com_revisao' => __('Submetido com Revisão', 'sciflow-wp'),
+            'submetido_com_revisao' => __('SUBMETIDO COM ALTERAÇÕES', 'sciflow-wp'),
             'em_avaliacao' => __('Em Avaliação', 'sciflow-wp'),
             'aguardando_decisao' => __('Aguardando Parecer do Editor', 'sciflow-wp'),
-            'em_correcao' => __('Em Correção', 'sciflow-wp'),
+            'em_correcao' => __('Necessita Alterações', 'sciflow-wp'),
             'aprovado' => __('Aprovado', 'sciflow-wp'),
             'reprovado' => __('Reprovado', 'sciflow-wp'),
-            'aprovado_com_consideracoes' => __('Revisão Necessária', 'sciflow-wp'),
+            'aprovado_com_consideracoes' => __('Aprovado com Considerações', 'sciflow-wp'),
             'apto_revisao' => __('Apto para Revisão', 'sciflow-wp'),
             'apto_publicacao' => __('Apto para Publicação', 'sciflow-wp'),
             'poster_enviado' => __('Pôster Enviado', 'sciflow-wp'),
@@ -45,18 +45,17 @@ class SciFlow_Status_Manager
     private function get_transitions()
     {
         return array(
-            'rascunho' => array('aguardando_pagamento', 'submetido'),
-            'aguardando_pagamento' => array('submetido'),
-            'submetido' => array('em_avaliacao', 'apto_revisao', 'aguardando_decisao'),
-            'submetido_com_revisao' => array('em_avaliacao', 'apto_revisao', 'aguardando_decisao'),
-            'apto_revisao' => array('em_avaliacao'),
-            'em_avaliacao' => array('aguardando_decisao'),
-            'aguardando_decisao' => array('em_correcao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'apto_revisao', 'apto_publicacao', 'em_avaliacao'),
-            'aprovado_com_consideracoes' => array('submetido', 'submetido_com_revisao'), // Permite correção
-            'reprovado' => array('submetido', 'submetido_com_revisao'), // Conforme solicitado: pode fazer ajustes
+            'rascunho' => array('submetido'), // Draft -> Submetido
+            'submetido' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aguardando_decisao'),
+            'em_avaliacao' => array('aguardando_decisao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes'),
+            'aguardando_decisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'em_correcao'),
+            'em_revisao' => array('aprovado', 'reprovado', 'aprovado_com_consideracoes'),
+            'aprovado_com_consideracoes' => array('em_correcao'),
+            'aprovado' => array('apto_publicacao', 'poster_enviado', 'poster_reprovado'),
+            'reprovado' => array(),
             'apto_publicacao' => array('aprovado'),
             'em_correcao' => array('submetido', 'submetido_com_revisao'),
-            'aprovado' => array('poster_enviado', 'aguardando_confirmacao'),
+            'submetido_com_revisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'aguardando_decisao'),
             'aguardando_confirmacao' => array('confirmado'),
         );
     }

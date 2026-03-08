@@ -192,4 +192,12 @@ class SciFlow_Roles
             "delete_published_{$plural}",
         );
     }
+    /**
+     * Refresh roles and capabilities.
+     * Use this if new roles or caps are added but don't show up in DB.
+     */
+    public function refresh_roles() {
+        $this->add_roles();
+        $this->add_caps();
+    }
 }

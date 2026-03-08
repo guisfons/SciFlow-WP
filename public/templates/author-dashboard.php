@@ -90,7 +90,7 @@ if (!defined('ABSPATH'))
 
                     <?php
                     $history = SciFlow_Editorial::get_message_history($post->ID);
-                    $show_history_statuses = array('em_correcao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'poster_enviado', 'aguardando_confirmacao', 'confirmado');
+                    $show_history_statuses = array('submetido', 'em_revisao', 'aprovado_com_consideracoes', 'em_correcao', 'submetido_com_revisao', 'aprovado', 'reprovado', 'apto_publicacao', 'poster_enviado', 'poster_reprovado', 'poster_aprovado', 'confirmado');
 
                     if (!empty($history) && in_array($status, $show_history_statuses, true)): ?>
                         <div class="sciflow-message-history">
@@ -99,7 +99,6 @@ if (!defined('ABSPATH'))
                             </h4>
                             <div class="sciflow-messages">
                                 <?php foreach ($history as $msg):
-                                    $role_label = array(
                                     $role_label = array(
                                         'revisor' => __('Comitê Científico', 'sciflow-wp'),
                                         'editor' => __('Comitê Científico', 'sciflow-wp'),

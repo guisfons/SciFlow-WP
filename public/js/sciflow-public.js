@@ -81,6 +81,14 @@
     // ─── Co-authors ───
 
     let coauthorIndex = 0;
+    $(document).ready(function () {
+        $('.sciflow-coauthor-row').each(function () {
+            const idx = parseInt($(this).data('index'));
+            if (!isNaN(idx) && idx >= coauthorIndex) {
+                coauthorIndex = idx + 1;
+            }
+        });
+    });
 
     $(document).on('click', '#sciflow-add-coauthor', function () {
         if (coauthorIndex >= 5) {
@@ -103,8 +111,14 @@
         updatePresentingAuthorOptions();
     });
 
-    $(document).on('input', '.sciflow-coauthor-row input[name$="[name]"], #sciflow-authors-text', function () {
+    $(document).on('focus mousedown', '#sciflow-presenting-author', function () {
         updatePresentingAuthorOptions();
+    });
+
+    $(document).ready(function () {
+        if ($('#sciflow-presenting-author').length) {
+            updatePresentingAuthorOptions();
+        }
     });
 
     function updatePresentingAuthorOptions() {
@@ -112,10 +126,10 @@
         if (!$select.length) return;
 
         const currentValue = $select.val();
-        const mainAuthorName = $('#sciflow-authors-text').val() || 'Autor Correspondente';
+        const mainAuthorName = $('#sciflow-authors-text').val() || 'Autor Principal';
 
         $select.empty();
-        $select.append(`<option value="main">${mainAuthorName} (Autor Correspondente)</option>`);
+        $select.append(`<option value="main">${mainAuthorName} (Autor Principal)</option>`);
 
         $('.sciflow-coauthor-row').each(function () {
             const index = $(this).data('index');
@@ -152,7 +166,7 @@
             contentHtml = $('#sciflow_content').val() || '';
         }
 
-        let authors = '<strong>Autor Correspondente:</strong> ' + ($('#sciflow-authors-text').val() || '') + '<br>';
+        let authors = '<strong>Autor Principal:</strong> ' + ($('#sciflow-authors-text').val() || '') + '<br>';
         $('.sciflow-coauthor-row').each(function () {
             const name = $(this).find('input[name$="[name]"]').val();
             if (name) authors += '<strong>Coautor:</strong> ' + name + '<br>';
@@ -187,8 +201,9 @@
         }
 
         const formData = $form.serialize();
+        const action = $form.find('input[name="action"]').val() || 'sciflow_submit';
 
-        ajaxPost('sciflow_submit', formData, $btn)
+        ajaxPost(action, formData, $btn)
             .done(function (res) {
                 $('#sciflow-preview-modal').fadeOut(200);
                 if (res.success) {
@@ -229,8 +244,9 @@
         }
 
         const formData = $form.serialize() + '&is_draft=1';
+        const action = 'sciflow_submit'; // drafts are always submit, not resubmit
 
-        ajaxPost('sciflow_submit', formData, $btn)
+        ajaxPost(action, formData, $btn)
             .done(function (res) {
                 if (res.success) {
                     showMessage('#sciflow-form-messages', res.data.message, 'success');
@@ -412,8 +428,9 @@
         const labels = {
             approve: 'aprovar',
             reject: 'reprovar',
+            approved: 'aprovar',
+            rejected: 'reprovar',
             return_to_author: 'devolver',
-            approved_with_considerations: 'aprovar com considerações',
             return_to_reviewer: 'mandar de volta para o revisor'
         };
         if (!confirm('Tem certeza que deseja ' + (labels[decision] || decision) + ' este trabalho?')) return;
@@ -501,11 +518,15 @@
         const $table = $('.sciflow-table-' + eventKey);
         const search = $('.sciflow-filter-text[data-event="' + eventKey + '"]').val().toLowerCase();
         const status = $('.sciflow-filter-status[data-event="' + eventKey + '"]').val();
+        const cultura = $('.sciflow-filter-cultura[data-event="' + eventKey + '"]').val();
+        const area = $('.sciflow-filter-area[data-event="' + eventKey + '"]').val();
 
         $table.find('tbody > tr.sciflow-table__row').each(function () {
             const $row = $(this);
             const rowSearch = $row.data('search') || '';
             const rowStatus = $row.data('status') || '';
+            const rowCultura = $row.data('cultura') || '';
+            const rowArea = $row.data('area') || '';
             const $contentRow = $('#content-' + $row.data('post-id'));
 
             let show = true;
@@ -515,12 +536,61 @@
             if (status && rowStatus !== status) {
                 show = false;
             }
+            if (cultura && rowCultura !== cultura) {
+                show = false;
+            }
+            if (area && rowArea !== area) {
+                show = false;
+            }
 
             if (show) {
                 $row.show();
             } else {
                 $row.hide();
                 $contentRow.hide(); // Hide the expanded details if the row gets filtered out
+            }
+        });
+    });
+    // ─── Reviewer Filters ───
+
+    $('.sciflow-filter-input').on('keyup change', function () {
+        if (!$(this).hasClass('sciflow-filter-text-reviewer') &&
+            !$(this).hasClass('sciflow-filter-event-reviewer') &&
+            !$(this).hasClass('sciflow-filter-cultura-reviewer') &&
+            !$(this).hasClass('sciflow-filter-area-reviewer')) {
+            return;
+        }
+
+        const search = $('.sciflow-filter-text-reviewer').val().toLowerCase();
+        const event = $('.sciflow-filter-event-reviewer').val();
+        const cultura = $('.sciflow-filter-cultura-reviewer').val();
+        const area = $('.sciflow-filter-area-reviewer').val();
+
+        $('.sciflow-review-card').each(function () {
+            const $card = $(this);
+            const cardSearch = $card.data('search') || '';
+            const cardEvent = $card.data('event') || '';
+            const cardCultura = $card.data('cultura') || '';
+            const cardArea = $card.data('area') || '';
+
+            let show = true;
+            if (search && cardSearch.indexOf(search) === -1) {
+                show = false;
+            }
+            if (event && cardEvent !== event) {
+                show = false;
+            }
+            if (cultura && cardCultura !== cultura) {
+                show = false;
+            }
+            if (area && cardArea !== area) {
+                show = false;
+            }
+
+            if (show) {
+                $card.show();
+            } else {
+                $card.hide();
             }
         });
     });

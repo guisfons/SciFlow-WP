@@ -33,6 +33,77 @@ $criteria = array(
             </p>
         </div>
     <?php else: ?>
+        <!-- Filters -->
+        <div class="sciflow-filters"
+            style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; display: flex; gap: 15px; flex-wrap: wrap;">
+            <div class="sciflow-filter-group">
+                <label
+                    style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px;"><?php esc_html_e('Buscar (Título, Autor, Cultura, Área)', 'sciflow-wp'); ?></label>
+                <input type="text" class="sciflow-filter-input sciflow-filter-text-reviewer"
+                    placeholder="<?php esc_attr_e('Digite para buscar...', 'sciflow-wp'); ?>"
+                    style="padding:6px; border:1px solid #ccc; border-radius:4px; width: 250px;">
+            </div>
+            <div class="sciflow-filter-group">
+                <label
+                    style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px;"><?php esc_html_e('Evento', 'sciflow-wp'); ?></label>
+                <select class="sciflow-filter-input sciflow-filter-event-reviewer"
+                    style="padding:6px; border:1px solid #ccc; border-radius:4px;">
+                    <option value=""><?php esc_html_e('Todos', 'sciflow-wp'); ?></option>
+                    <option value="enfrute">Enfrute</option>
+                    <option value="semco">Semco</option>
+                </select>
+            </div>
+            <div class="sciflow-filter-group">
+                <label
+                    style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px;"><?php esc_html_e('Cultura', 'sciflow-wp'); ?></label>
+                <select class="sciflow-filter-input sciflow-filter-cultura-reviewer"
+                    style="padding:6px; border:1px solid #ccc; border-radius:4px; max-width: 150px;">
+                    <option value=""><?php esc_html_e('Todas', 'sciflow-wp'); ?></option>
+                    <optgroup label="Frutas de clima temperado">
+                        <option value="Figo">Figo</option>
+                        <option value="Frutas de caroço">Frutas de caroço</option>
+                        <option value="Goiaba/Caqui">Goiaba/Caqui</option>
+                        <option value="Maçã/Pera">Maçã/Pera</option>
+                        <option value="Pequenas frutas">Pequenas frutas</option>
+                        <option value="Frutas nativas">Frutas nativas</option>
+                        <option value="Uva">Uva</option>
+                        <option value="Outras (Frutas)">Outras</option>
+                    </optgroup>
+                    <optgroup label="Olerícolas">
+                        <option value="Alho">Alho</option>
+                        <option value="Cebola">Cebola</option>
+                        <option value="Tomate">Tomate</option>
+                        <option value="Morango">Morango</option>
+                        <option value="Aipim/mandioca">Aipim/mandioca</option>
+                        <option value="Cenoura">Cenoura</option>
+                        <option value="Pimentão">Pimentão</option>
+                        <option value="Folhosas">Folhosas</option>
+                        <option value="Outras (Olerícolas)">Outras</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="sciflow-filter-group">
+                <label
+                    style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px;"><?php esc_html_e('Área do Conhecimento', 'sciflow-wp'); ?></label>
+                <select class="sciflow-filter-input sciflow-filter-area-reviewer"
+                    style="padding:6px; border:1px solid #ccc; border-radius:4px; max-width: 200px;">
+                    <option value=""><?php esc_html_e('Todas', 'sciflow-wp'); ?></option>
+                    <option value="Biotecnologia/Genética e Melhoramento">Biotecnologia/Genética e Melhoramento</option>
+                    <option value="Botânica e Fisiologia">Botânica e Fisiologia</option>
+                    <option value="Colheita e Pós-Colheita">Colheita e Pós-Colheita</option>
+                    <option value="Fitossanidade">Fitossanidade</option>
+                    <option value="Economia/Estatística">Economia/Estatística</option>
+                    <option value="Fitotecnia">Fitotecnia</option>
+                    <option value="Irrigação">Irrigação</option>
+                    <option value="Processamento (Química e Bioquímica)">Processamento (Química e Bioquímica)</option>
+                    <option value="Propagação">Propagação</option>
+                    <option value="Sementes">Sementes</option>
+                    <option value="Solos e Nutrição de Plantas">Solos e Nutrição de Plantas</option>
+                    <option value="Outros">Outros</option>
+                </select>
+            </div>
+        </div>
+
         <?php foreach ($articles as $post):
             $status = $status_manager->get_status($post->ID);
             $label = $status_manager->get_status_label($status);
@@ -40,8 +111,18 @@ $criteria = array(
             $scores = get_post_meta($post->ID, '_sciflow_scores', true);
             $prev_decision = get_post_meta($post->ID, '_sciflow_reviewer_decision', true);
             $can_review = ($status === 'em_avaliacao');
+            $cultura = get_post_meta($post->ID, '_sciflow_cultura', true);
+            $area = get_post_meta($post->ID, '_sciflow_knowledge_area', true);
+
+            $author_id = get_post_meta($post->ID, '_sciflow_author_id', true);
+            $author = get_userdata($author_id);
+            $is_editor = current_user_can('manage_sciflow');
+            $search_author = ($is_editor || current_user_can('administrator')) ? ($author ? $author->display_name : '') : '';
             ?>
-            <div class="sciflow-review-card" data-post-id="<?php echo esc_attr($post->ID); ?>">
+            <div class="sciflow-review-card" data-post-id="<?php echo esc_attr($post->ID); ?>"
+                data-event="<?php echo esc_attr($event); ?>" data-cultura="<?php echo esc_attr($cultura); ?>"
+                data-area="<?php echo esc_attr($area); ?>"
+                data-search="<?php echo esc_attr(strtolower($post->post_title . ' ' . $search_author . ' ' . $cultura . ' ' . $area)); ?>">
                 <div class="sciflow-work-card__header">
                     <h3>
                         <?php echo esc_html($post->post_title); ?>
@@ -64,6 +145,29 @@ $criteria = array(
                     <!-- LEFT COLUMN: Article content (read-only) -->
                     <div class="sciflow-reviewer-main"
                         style="flex: 2; min-width: 300px; background:#fff; padding:20px; border:1px solid #eee; border-radius:6px;">
+
+                        <?php
+                        $cultura = get_post_meta($post->ID, '_sciflow_cultura', true);
+                        $area = get_post_meta($post->ID, '_sciflow_knowledge_area', true);
+                        ?>
+                        <?php if ($cultura || $area): ?>
+                            <div class="sciflow-meta"
+                                style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px;">
+                                <?php if ($cultura): ?>
+                                    <div style="margin-bottom: 5px;">
+                                        <strong><?php esc_html_e('Cultura / Fruta:', 'sciflow-wp'); ?></strong>
+                                        <?php echo esc_html($cultura); ?>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($area): ?>
+                                    <div>
+                                        <strong><?php esc_html_e('Área do Conhecimento:', 'sciflow-wp'); ?></strong>
+                                        <?php echo esc_html($area); ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+
                         <h4 style="margin-top:0;">
                             <?php esc_html_e('Conteúdo do Trabalho', 'sciflow-wp'); ?>
                         </h4>
@@ -143,6 +247,7 @@ $criteria = array(
                                     $decisions = array(
                                         'approved' => __('Aprovado', 'sciflow-wp'),
                                         'approved_with_considerations' => __('Aprovado com Considerações', 'sciflow-wp'),
+                                        'reject' => __('Reprovado', 'sciflow-wp'),
                                         'rejected' => __('Reprovado', 'sciflow-wp'),
                                     );
                                     echo esc_html($decisions[$prev_decision] ?? $prev_decision);

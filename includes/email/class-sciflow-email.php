@@ -40,22 +40,31 @@ class SciFlow_Email
     /**
      * Get the dashboard URL.
      */
-    private function get_dashboard_url()
+    private function get_dashboard_url($post_id = 0)
     {
+        $base_url = home_url('/');
         $settings = get_option('sciflow_settings', array());
-        if (!empty($settings['dashboard_url'])) {
-            return $settings['dashboard_url'];
-        }
 
-        // Fallback to WooCommerce my account page if it exists, or just home url
-        if (function_exists('wc_get_page_id')) {
+        if (!empty($settings['dashboard_url'])) {
+            $base_url = $settings['dashboard_url'];
+        } elseif (function_exists('wc_get_page_id')) {
+            // Fallback to WooCommerce my account page if it exists
             $my_account = wc_get_page_id('myaccount');
             if ($my_account && $my_account > 0) {
-                return get_permalink($my_account);
+                $base_url = get_permalink($my_account);
             }
         }
 
-        return home_url('/');
+        // Include the article_id parameter if a post_id is provided
+        if ($post_id > 0) {
+            $detail_page = get_pages(array('meta_key' => '_wp_page_template', 'meta_value' => 'page-templates/template-article-detail.php'));
+            if (!empty($detail_page)) {
+                $base_url = get_permalink($detail_page[0]->ID);
+            }
+            return add_query_arg('article_id', $post_id, $base_url);
+        }
+
+        return $base_url;
     }
 
     /**
@@ -74,14 +83,15 @@ class SciFlow_Email
             }
         }
 
-        // 2. Correspondent Author (Autor Apresentador / Correspondente)
+        // 2. Autor Principal Email
+        $main_email = get_post_meta($post_id, '_sciflow_main_author_email', true);
+        if (is_email($main_email)) {
+            $recipients[] = $main_email;
+        }
+
+        // 3. Autor Apresentador Email
         $presenting_author = get_post_meta($post_id, '_sciflow_presenting_author', true);
-        if ($presenting_author === 'main') {
-            $main_email = get_post_meta($post_id, '_sciflow_main_author_email', true);
-            if (is_email($main_email)) {
-                $recipients[] = $main_email;
-            }
-        } elseif (is_numeric($presenting_author)) {
+        if (is_numeric($presenting_author)) {
             $coauthors = get_post_meta($post_id, '_sciflow_coauthors', true);
             if (isset($coauthors[$presenting_author]['email']) && is_email($coauthors[$presenting_author]['email'])) {
                 $recipients[] = $coauthors[$presenting_author]['email'];
@@ -105,7 +115,7 @@ class SciFlow_Email
             'titulo' => $post->post_title,
             'evento' => $this->get_event_label($event),
             'status' => $sm->get_status_label($status),
-            'link' => $this->get_dashboard_url(),
+            'link' => $this->get_dashboard_url($post_id),
             'site_name' => get_bloginfo('name'),
         );
     }
@@ -178,6 +188,24 @@ class SciFlow_Email
     }
 
     /**
+     * Confirmation email for authors.
+     */
+    public function send_submission_confirmation($post_id)
+    {
+        $vars = $this->get_template_vars($post_id);
+        $recipients = $this->get_author_recipients($post_id);
+
+        if (empty($recipients)) {
+            return;
+        }
+
+        $vars['message'] = __('Recebemos sua submissão com sucesso! Você pode acompanhar o status pelo seu painel.', 'sciflow-wp');
+        $subject = sprintf(__('[%s] Confirmação de Submissão: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
+
+        $this->send($recipients, $subject, 'submission-confirmation', $vars);
+    }
+
+    /**
      * 2. Reviewer assigned → Reviewer.
      */
     public function send_assigned_reviewer($post_id, $reviewer_id)
@@ -224,8 +252,8 @@ class SciFlow_Email
         $decision_labels = array(
             'approve' => __('Aprovado', 'sciflow-wp'),
             'reject' => __('Reprovado', 'sciflow-wp'),
-            'return_to_author' => __('Devolvido para Correções', 'sciflow-wp'),
-            'approved_with_considerations' => __('Aprovado com Considerações', 'sciflow-wp'),
+            'return_to_author' => __('Devolvido para Alterações', 'sciflow-wp'),
+            'approved_with_considerations' => __('Necessita Alterações', 'sciflow-wp'),
         );
 
         // Only notify author for these specific decisions.
@@ -251,7 +279,7 @@ class SciFlow_Email
     public function send_returned_to_reviewer($post_id)
     {
         $vars = $this->get_template_vars($post_id);
-        $vars['message'] = __('O editor solicitou que você reavalie o trabalho abaixo após as correções ou considerações editoriais.', 'sciflow-wp');
+        $vars['message'] = __('O editor solicitou que você reavalie o trabalho abaixo após as alterações ou considerações editoriais.', 'sciflow-wp');
 
         $reviewer_id = get_post_meta($post_id, '_sciflow_reviewer_id', true);
         $reviewer = get_userdata($reviewer_id);

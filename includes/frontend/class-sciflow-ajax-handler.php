@@ -90,6 +90,13 @@ class SciFlow_Ajax_Handler
             'keywords' => array_map('sanitize_text_field', (array) ($_POST['keywords'] ?? array())),
             'coauthors' => $_POST['coauthors'] ?? array(),
             'language' => sanitize_text_field($_POST['language'] ?? 'pt'),
+            'cultura' => sanitize_text_field($_POST['cultura'] ?? ''),
+            'knowledge_area' => sanitize_text_field($_POST['knowledge_area'] ?? ''),
+            'presenting_author' => sanitize_text_field($_POST['presenting_author'] ?? 'main'),
+            'main_author_instituicao' => sanitize_text_field($_POST['main_author_instituicao'] ?? ''),
+            'main_author_cpf' => sanitize_text_field($_POST['main_author_cpf'] ?? ''),
+            'main_author_email' => sanitize_email($_POST['main_author_email'] ?? ''),
+            'main_author_telefone' => sanitize_text_field($_POST['main_author_telefone'] ?? ''),
             'is_draft' => !empty($_POST['is_draft']),
             'post_id' => !empty($_POST['post_id']) ? absint($_POST['post_id']) : 0,
         );

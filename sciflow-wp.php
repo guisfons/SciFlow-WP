@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SCIFLOW_VERSION', '1.0.0');
+define('SCIFLOW_VERSION', '1.0.1');
 define('SCIFLOW_PATH', plugin_dir_path(__FILE__));
 define('SCIFLOW_URL', plugin_dir_url(__FILE__));
 define('SCIFLOW_BASENAME', plugin_basename(__FILE__));
@@ -88,5 +88,13 @@ function sciflow_init()
 {
     $loader = new SciFlow_Loader();
     $loader->run();
+
+    // Check for version upgrade and refresh roles.
+    $installed_ver = get_option('sciflow_version');
+    if ($installed_ver !== SCIFLOW_VERSION) {
+        $roles = new SciFlow_Roles();
+        $roles->refresh_roles();
+        update_option('sciflow_version', SCIFLOW_VERSION);
+    }
 }
 add_action('plugins_loaded', 'sciflow_init');

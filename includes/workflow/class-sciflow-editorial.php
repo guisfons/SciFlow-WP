@@ -79,8 +79,8 @@ class SciFlow_Editorial
         $status_map = array(
             'approve' => 'aprovado',
             'reject' => 'reprovado',
-            'return_to_author' => 'em_correcao',
             'approved_with_considerations' => 'aprovado_com_consideracoes',
+            'return_to_author' => 'em_correcao',
             'return_to_reviewer' => 'em_avaliacao',
             'apto_revisao' => 'apto_revisao',
             'apto_publicacao' => 'apto_publicacao',
@@ -174,7 +174,7 @@ class SciFlow_Editorial
     public function get_reviewers()
     {
         return get_users(array(
-            'role__in' => array('sciflow_revisor', 'sciflow_editor'),
+            'role__in' => array('sciflow_revisor', 'sciflow_editor', 'sciflow_semco_revisor', 'sciflow_enfrute_revisor'),
             'orderby' => 'display_name',
         ));
     }
