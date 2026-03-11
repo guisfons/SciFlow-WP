@@ -22,6 +22,9 @@ class SciFlow_Activator
         $enfrute->register();
         $semco = new SciFlow_Semco_CPT();
         $semco->register();
+        $palestra = new SciFlow_Palestra_CPT();
+        $palestra->register();
+        
         flush_rewrite_rules();
 
         // Store version for future upgrades.

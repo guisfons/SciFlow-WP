@@ -59,15 +59,13 @@ $events = array(
                             style="padding:6px; border:1px solid #ccc; border-radius:4px; width: 250px;">
                     </div>
                         <div class="sciflow-filter-group">
-                            <label
-                                style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px;"><?php esc_html_e('Status', 'sciflow-wp'); ?></label>
+                            <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px;"><?php esc_html_e('Status', 'sciflow-wp'); ?></label>
                             <select class="sciflow-filter-input sciflow-filter-status"
                                 data-event="<?php echo esc_attr($event_key); ?>"
                                 style="padding:6px; border:1px solid #ccc; border-radius:4px;">
                                 <option value=""><?php esc_html_e('Todos', 'sciflow-wp'); ?></option>
                                 <?php foreach ($status_manager->get_statuses() as $s_key => $s_label): ?>
-                                    <option value="<?php echo esc_attr($s_key); ?>"><?php echo esc_html($s_label['label']); ?>
-                                    </option>
+                                    <option value="<?php echo esc_attr($s_key); ?>"><?php echo esc_html($s_label); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -172,7 +170,7 @@ $events = array(
                                     ?>">
                                     <td>
                                         <strong>
-                                            <?php echo esc_html($post->post_title); ?>
+                                            #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> - <?php echo esc_html($post->post_title); ?>
                                         </strong>
                                         <button class="sciflow-btn sciflow-btn--link sciflow-toggle-content"
                                             data-target="content-<?php echo esc_attr($post->ID); ?>">

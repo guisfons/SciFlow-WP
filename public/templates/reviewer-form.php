@@ -125,6 +125,7 @@ $criteria = array(
                 data-search="<?php echo esc_attr(strtolower($post->post_title . ' ' . $search_author . ' ' . $cultura . ' ' . $area)); ?>">
                 <div class="sciflow-work-card__header">
                     <h3>
+                        #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> -
                         <?php echo esc_html($post->post_title); ?>
                     </h3>
                     <?php echo $status_manager->get_status_badge($status); ?>

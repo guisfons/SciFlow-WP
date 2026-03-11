@@ -52,8 +52,18 @@ $current_user = wp_get_current_user();
             <label for="sciflow-speaker-content" class="sciflow-field__label">
                 <?php esc_html_e('Resumo / Conteúdo (16.000 a 25.000 caracteres) *', 'sciflow-wp'); ?>
             </label>
-            <textarea id="sciflow-speaker-content" name="content" required class="sciflow-field__textarea" rows="15"
-                minlength="16000" maxlength="25000"></textarea>
+            <?php
+            wp_editor( $content, 'sciflow_content', array(
+                'textarea_name' => 'content',
+                'textarea_rows' => 12,
+                'media_buttons' => false,
+                'quicktags'     => false,
+                'tinymce'       => array(
+                    'toolbar1' => 'bold,italic,bullist,numlist,link,unlink,undo,redo',
+                    'toolbar2' => '',
+                ),
+            ) );
+            ?>
             <div class="sciflow-field__help" id="speaker-char-count">Caracteres: 0 / 25000 (Mínimo: 16000)</div>
         </div>
 

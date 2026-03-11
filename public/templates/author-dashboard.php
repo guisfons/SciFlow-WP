@@ -48,6 +48,7 @@ if (!defined('ABSPATH'))
                 <div class="sciflow-work-card" data-post-id="<?php echo esc_attr($post->ID); ?>">
                     <div class="sciflow-work-card__header">
                         <h3 class="sciflow-work-card__title">
+                            #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> -
                             <?php echo esc_html($post->post_title); ?>
                         </h3>
                         <?php echo $status_manager->get_status_badge($display_status); ?>

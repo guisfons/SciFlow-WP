@@ -298,6 +298,7 @@ class SciFlow_Email
     public function send_poster_request($post_id)
     {
         $vars = $this->get_template_vars($post_id);
+        $vars['link'] = $this->get_poster_upload_url(); // Specific URL for poster upload
         $recipients = $this->get_author_recipients($post_id);
 
         if (empty($recipients)) {
@@ -309,6 +310,26 @@ class SciFlow_Email
         $subject = sprintf(__('[%s] Trabalho Aprovado — Envie Seu Pôster: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
         $this->send($recipients, $subject, 'poster-request', $vars);
+    }
+
+    /**
+     * Get the poster upload URL.
+     */
+    private function get_poster_upload_url()
+    {
+        $pages = get_pages(array(
+            'meta_key' => '_wp_page_template',
+            'meta_value' => 'template-poster-upload.php',
+            'number' => 1,
+            'post_status' => 'publish'
+        ));
+
+        if (!empty($pages)) {
+            return get_permalink($pages[0]->ID);
+        }
+
+        // Fallback to dashboard
+        return $this->get_dashboard_url();
     }
 
     /**

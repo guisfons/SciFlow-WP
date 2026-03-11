@@ -45,10 +45,21 @@
         const editor = tinyMCE.get('sciflow_content');
         if (!editor) return;
 
-        const content = editor.getContent({ format: 'text' });
+        const content = editor.getContent({ format: 'text' }).replace(/\n/g, ' ').trim();
         const title = $('#sciflow-title').val() || '';
-        const authorsText = $('#sciflow-authors-text').val() || '';
-        const total = (title + ' ' + content + ' ' + authorsText).length;
+
+        // Title counter
+        const titleLen = title.length;
+        $('#sciflow-title-count').text(titleLen);
+        const $titleWrapper = $('#sciflow-title-counter');
+        if (titleLen > 180) {
+            $titleWrapper.css('color', 'red');
+        } else {
+            $titleWrapper.css('color', '#666');
+        }
+
+        // Combined counter (Title + Abstract)
+        const total = titleLen + content.length;
 
         const $counter = $('#sciflow-char-count');
         const $wrapper = $('#sciflow-char-counter');
@@ -62,6 +73,22 @@
         }
     }
 
+    function applyMasks() {
+        if ($.isFunction($.fn.mask)) {
+            $('.sciflow-mask-cpf').mask('000.000.000-00');
+
+            const spMaskBehavior = function (val) {
+                return val.replace(/\D/g, '').length === 11 ? '(00) 00000-0000' : '(00) 0000-00009';
+            };
+            const spOptions = {
+                onKeyPress: function (val, e, field, options) {
+                    field.mask(spMaskBehavior.apply({}, arguments), options);
+                }
+            };
+            $('.sciflow-mask-phone').mask(spMaskBehavior, spOptions);
+        }
+    }
+
     $(document).ready(function () {
         // Setup TinyMCE char counter.
         if (typeof tinyMCE !== 'undefined') {
@@ -69,13 +96,55 @@
                 const editor = tinyMCE.get('sciflow_content');
                 if (editor) {
                     clearInterval(waitForEditor);
-                    editor.on('keyup change', updateCharCount);
+                    editor.on('keyup change blur', updateCharCount);
+
+                    // Prevent line breaks
+                    editor.on('keydown', function (e) {
+                        if (e.keyCode === 13) {
+                            e.preventDefault();
+                            return false;
+                        }
+                    });
+
                     updateCharCount();
                 }
             }, 500);
         }
 
-        $('#sciflow-title').on('input', updateCharCount);
+        $('#sciflow-title').on('input change', updateCharCount);
+
+        // Conditional Cultura Select
+        $('#sciflow-event').on('change', function () {
+            const val = $(this).val();
+            const $culturaField = $('#sciflow-cultura-field');
+            const $culturaSelect = $('#sciflow-cultura-select');
+
+            if (!val) {
+                $culturaField.hide();
+                $culturaSelect.val('');
+                return;
+            }
+
+            $culturaField.show();
+
+            if (val === 'enfrute') {
+                $culturaField.find('.sciflow-optgroup-frutas').show().prop('disabled', false);
+                $culturaField.find('.sciflow-optgroup-olericolas').hide().prop('disabled', true);
+            } else if (val === 'semco') {
+                $culturaField.find('.sciflow-optgroup-frutas').hide().prop('disabled', true);
+                $culturaField.find('.sciflow-optgroup-olericolas').show().prop('disabled', false);
+            } else {
+                $culturaField.find('optgroup').show().prop('disabled', false);
+            }
+
+            // Clear selection if it's now hidden
+            const selectedOption = $culturaSelect.find('option:selected');
+            if (selectedOption.parent().is(':disabled')) {
+                $culturaSelect.val('');
+            }
+        }).trigger('change');
+
+        applyMasks();
     });
 
     // ─── Co-authors ───
@@ -100,10 +169,11 @@
             <input type="text" name="coauthors[${i}][name]" placeholder="Nome" class="sciflow-field__input" required>
             <input type="email" name="coauthors[${i}][email]" placeholder="E-mail" class="sciflow-field__input">
             <input type="text" name="coauthors[${i}][institution]" placeholder="Instituição" class="sciflow-field__input">
-            <input type="text" name="coauthors[${i}][telefone]" placeholder="Telefone" class="sciflow-field__input">
+            <input type="text" name="coauthors[${i}][telefone]" placeholder="Telefone" class="sciflow-field__input sciflow-mask-phone">
             <button type="button" class="sciflow-coauthor-remove" title="Remover">×</button>
         </div>`;
         $('#sciflow-coauthors-list').append(row);
+        applyMasks();
     });
 
     $(document).on('click', '.sciflow-coauthor-remove', function () {
@@ -151,6 +221,19 @@
 
     $(document).on('submit', '#sciflow-submit-form', function (e) {
         e.preventDefault();
+
+        // Keyword uniqueness validation
+        const keywords = [];
+        $('.sciflow-keyword-input').each(function () {
+            const val = $(this).val().trim().toLowerCase();
+            if (val) keywords.push(val);
+        });
+
+        const uniqueKeywords = new Set(keywords);
+        if (uniqueKeywords.size !== keywords.length) {
+            alert('As palavras-chave não podem ser repetidas.');
+            return;
+        }
 
         // Populate preview modal
         const title = $('#sciflow-title').val() || '';
@@ -222,12 +305,14 @@
                         $('#sciflow-draft-btn').fadeOut(200);
                     }
                 } else {
+                    alert(res.data.message);
                     showMessage('#sciflow-form-messages', res.data.message, 'error');
                 }
                 $(window).scrollTop(0);
             })
             .fail(function () {
                 $('#sciflow-preview-modal').fadeOut(200);
+                alert('Erro de conexão.');
                 showMessage('#sciflow-form-messages', 'Erro de conexão.', 'error');
                 $(window).scrollTop(0);
             });
@@ -257,10 +342,12 @@
                     // Hide draft button after success
                     $('#sciflow-draft-btn').fadeOut(200);
                 } else {
+                    alert(res.data.message);
                     showMessage('#sciflow-form-messages', res.data.message, 'error');
                 }
             })
             .fail(function () {
+                alert('Erro de conexão.');
                 showMessage('#sciflow-form-messages', 'Erro de conexão.', 'error');
             });
     });
@@ -462,6 +549,17 @@
         const postId = $form.data('post-id');
 
         const formData = new FormData($form[0]);
+        const fileInput = $form.find('input[type="file"]')[0];
+
+        if (fileInput.files.length > 0) {
+            const fileName = fileInput.files[0].name;
+            const extension = fileName.split('.').pop().toLowerCase();
+            if (extension !== 'pdf') {
+                alert('Apenas arquivos PDF são aceitos.');
+                return;
+            }
+        }
+
         formData.append('action', 'sciflow_upload_poster');
         formData.append('nonce', ajax.nonce);
         formData.append('post_id', postId);
@@ -598,9 +696,20 @@
     // ─── Speaker Form ───
 
     function updateSpeakerCharCount() {
+        let content = '';
+        if (typeof tinyMCE !== 'undefined') {
+            const editor = tinyMCE.get('sciflow_content');
+            if (editor) {
+                content = editor.getContent({ format: 'text' }).replace(/\n/g, ' ').trim();
+            } else {
+                content = $('#sciflow-speaker-content').val() || '';
+            }
+        } else {
+            content = $('#sciflow-speaker-content').val() || '';
+        }
+
         const title = $('#sciflow-speaker-title').val() || '';
-        const content = $('#sciflow-speaker-content').val() || '';
-        const total = (title + ' ' + content).length;
+        const total = title.length + content.length;
 
         const $counter = $('#speaker-char-count');
         $counter.text('Caracteres: ' + total + ' / 25000 (Mínimo: 16000)');
@@ -617,9 +726,15 @@
     $('#sciflow-speaker-form').on('submit', function (e) {
         e.preventDefault();
 
+        // Sync TinyMCE if present.
+        if (typeof tinyMCE !== 'undefined') {
+            const editor = tinyMCE.get('sciflow_content');
+            if (editor) editor.save();
+        }
+
         const title = $('#sciflow-speaker-title').val() || '';
         const content = $('#sciflow-speaker-content').val() || '';
-        const total = (title + ' ' + content).length;
+        const total = title.length + content.length;
 
         if (total < 16000) {
             alert('O texto deve ter no mínimo 16.000 caracteres. Atual: ' + total);
@@ -649,16 +764,35 @@
                     $form[0].reset();
                     updateSpeakerCharCount();
                 } else {
+                    alert(res.data.message || 'Erro ao enviar.');
                     showMessage('#sciflow-form-messages', res.data.message || 'Erro ao enviar.', 'error');
                 }
             },
             error: function () {
+                alert('Erro de conexão.');
                 showMessage('#sciflow-form-messages', 'Erro de conexão.', 'error');
             },
             complete: function () {
                 $btn.prop('disabled', false).text(origText);
             }
         });
+    });
+
+    // Also detect TinyMCE changes for Speaker Form
+    $(document).ready(function () {
+        if (typeof tinyMCE !== 'undefined') {
+            const waitForEditor = setInterval(function () {
+                const editor = tinyMCE.get('sciflow_content');
+                if (editor) {
+                    // Check if we are on the speaker form (the editor ID is shared for now but handled differently)
+                    if ($('#sciflow-speaker-form').length) {
+                        clearInterval(waitForEditor);
+                        editor.on('input change keyup blur', updateSpeakerCharCount);
+                        updateSpeakerCharCount();
+                    }
+                }
+            }, 500);
+        }
     });
 
 })(jQuery);

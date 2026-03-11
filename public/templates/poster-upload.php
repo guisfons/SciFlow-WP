@@ -9,12 +9,26 @@
 
 if (!defined('ABSPATH'))
     exit;
+
+$settings = get_option('sciflow_settings', array());
+$poster_template_url = $settings['poster_template_url'] ?? '';
 ?>
 
 <div class="sciflow-poster-upload" id="sciflow-poster-upload">
     <h2 class="sciflow-dashboard__title">
         <?php esc_html_e('Enviar Pôster (PDF)', 'sciflow-wp'); ?>
     </h2>
+
+    <?php if ($poster_template_url): ?>
+        <div class="sciflow-poster-template-download" style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #2c5530;">
+            <p style="margin-top:0; font-weight: 500;">
+                <?php esc_html_e('Antes de enviar seu pôster, certifique-se de utilizar o modelo padrão do evento:', 'sciflow-wp'); ?>
+            </p>
+            <a href="<?php echo esc_url($poster_template_url); ?>" class="sciflow-btn sciflow-btn--outline" target="_blank" download>
+                <?php esc_html_e('Baixar Modelo do Pôster', 'sciflow-wp'); ?>
+            </a>
+        </div>
+    <?php endif; ?>
 
     <div class="sciflow-notice" id="sciflow-poster-messages" style="display:none;"></div>
 

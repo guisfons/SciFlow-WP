@@ -177,4 +177,36 @@ class SciFlow_Status_Manager
         );
         return isset($map[$post_type]) ? $map[$post_type] : false;
     }
+
+    /**
+     * Get or generate a visual sequential ID for an article.
+     * The ID is per-post-type (Enfrute or Semco) starting from 1.
+     */
+    public static function get_visual_id($post_id)
+    {
+        $visual_id = get_post_meta($post_id, '_sciflow_visual_id', true);
+        if ($visual_id) {
+            return $visual_id;
+        }
+
+        $post_type = get_post_type($post_id);
+        if (!in_array($post_type, array('enfrute_trabalhos', 'semco_trabalhos', 'sciflow_palestra'))) {
+            return '';
+        }
+
+        global $wpdb;
+        // Find the highest visual ID for this post type
+        $max_id = $wpdb->get_var($wpdb->prepare("
+            SELECT MAX(CAST(m.meta_value AS UNSIGNED))
+            FROM {$wpdb->postmeta} m
+            INNER JOIN {$wpdb->posts} p ON p.ID = m.post_id
+            WHERE m.meta_key = '_sciflow_visual_id'
+            AND p.post_type = %s
+        ", $post_type));
+
+        $visual_id = intval($max_id) + 1;
+        update_post_meta($post_id, '_sciflow_visual_id', $visual_id);
+
+        return $visual_id;
+    }
 }

@@ -145,6 +145,12 @@ class SciFlow_Ajax_Handler
             wp_send_json_error(array('message' => __('O texto excedeu o limite de 25.000 caracteres.', 'sciflow-wp')));
         }
 
+        // Link blocking.
+        $regex = '/(https?:\/\/[^\s]+|www\.[^\s]+)/i';
+        if (preg_match($regex, $title) || preg_match($regex, $content)) {
+            wp_send_json_error(array('message' => __('Título ou Resumo não podem conter links/URLs.', 'sciflow-wp')));
+        }
+
         $post_data = array(
             'post_title' => $title,
             'post_content' => $content,
@@ -215,8 +221,16 @@ class SciFlow_Ajax_Handler
 
         $post_id = absint($_POST['post_id'] ?? 0);
 
+        $raw_scores = $_POST['scores'] ?? array();
+        $sanitized_scores = array();
+        if (is_array($raw_scores)) {
+            foreach ($raw_scores as $key => $val) {
+                $sanitized_scores[sanitize_key($key)] = floatval($val);
+            }
+        }
+
         $data = array(
-            'scores' => $_POST['scores'] ?? array(),
+            'scores' => $sanitized_scores,
             'decision' => sanitize_text_field($_POST['decision'] ?? ''),
             'notes' => wp_kses_post($_POST['notes'] ?? ''),
         );

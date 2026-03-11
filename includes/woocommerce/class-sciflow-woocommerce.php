@@ -131,8 +131,8 @@ class SciFlow_WooCommerce
             return false;
         }
 
-        // Admin, Editor, and Speaker roles bypass the payment requirement so they can also act as authors
-        if (user_can($user_id, 'manage_sciflow') || user_can($user_id, 'manage_options') || user_can($user_id, 'sciflow_speaker')) {
+        // Admin, Editor, Reviewer, and Speaker roles bypass the payment requirement so they can also act as authors
+        if (user_can($user_id, 'manage_sciflow') || user_can($user_id, 'manage_options') || user_can($user_id, 'sciflow_speaker') || user_can($user_id, 'sciflow_review')) {
             return true;
         }
 

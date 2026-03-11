@@ -92,8 +92,11 @@ class SciFlow_Admin
         $clean['enfrute_editor_email'] = $this->sanitize_multiple_emails($input['enfrute_editor_email'] ?? '');
         $clean['semco_editor_email'] = $this->sanitize_multiple_emails($input['semco_editor_email'] ?? '');
 
-        // Dashboard URL.
+        // Dashboard URLs.
         $clean['dashboard_url'] = esc_url_raw($input['dashboard_url'] ?? '');
+        $clean['editor_dashboard_url'] = esc_url_raw($input['editor_dashboard_url'] ?? '');
+        $clean['reviewer_dashboard_url'] = esc_url_raw($input['reviewer_dashboard_url'] ?? '');
+        $clean['poster_template_url'] = esc_url_raw($input['poster_template_url'] ?? '');
 
         // PayGo settings.
         $clean['paygo_integration_key'] = sanitize_text_field($input['paygo_integration_key'] ?? '');
@@ -180,6 +183,34 @@ class SciFlow_Admin
                         <td><input type="url" name="sciflow_settings[dashboard_url]"
                                 value="<?php echo esc_attr($settings['dashboard_url'] ?? ''); ?>" class="regular-text"
                                 placeholder="<?php echo esc_attr(home_url('/meu-painel/')); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e('URL do Painel do Editor', 'sciflow-wp'); ?>
+                        </th>
+                        <td><input type="url" name="sciflow_settings[editor_dashboard_url]"
+                                value="<?php echo esc_attr($settings['editor_dashboard_url'] ?? ''); ?>" class="regular-text"
+                                placeholder="<?php echo esc_attr(home_url('/painel-do-editor/')); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e('URL do Painel do Revisor', 'sciflow-wp'); ?>
+                        </th>
+                        <td><input type="url" name="sciflow_settings[reviewer_dashboard_url]"
+                                value="<?php echo esc_attr($settings['reviewer_dashboard_url'] ?? ''); ?>" class="regular-text"
+                                placeholder="<?php echo esc_attr(home_url('/painel-do-revisor/')); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e('URL do Template do Pôster', 'sciflow-wp'); ?>
+                        </th>
+                        <td><input type="url" name="sciflow_settings[poster_template_url]"
+                                value="<?php echo esc_attr($settings['poster_template_url'] ?? ''); ?>" class="regular-text"
+                                placeholder="https://...">
+                            <p class="description">
+                                <?php esc_html_e('Link para o modelo de pôster disponibilizado para download (.ppt, .pptx, etc).', 'sciflow-wp'); ?>
+                            </p>
+                        </td>
                     </tr>
                 </table>
 

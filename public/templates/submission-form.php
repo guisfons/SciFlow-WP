@@ -106,14 +106,14 @@ if (!is_array($coauthors)) $coauthors = array();
         </div>
 
         <!-- Cultura -->
-        <div class="sciflow-field">
+        <div class="sciflow-field" id="sciflow-cultura-field" style="display:none;">
             <label class="sciflow-field__label">
                 <?php esc_html_e( 'Cultura *', 'sciflow-wp' ); ?>
             </label>
             <?php $cultura = $edit_post ? get_post_meta($post_id, '_sciflow_cultura', true) : ''; ?>
-            <select name="cultura" required class="sciflow-field__select">
+            <select name="cultura" id="sciflow-cultura-select" required class="sciflow-field__select">
                 <option value=""><?php esc_html_e('Selecione uma cultura...', 'sciflow-wp'); ?></option>
-                <optgroup label="Frutas de clima temperado">
+                <optgroup label="Frutas de clima temperado" class="sciflow-optgroup-frutas">
                     <option value="Figo" <?php selected($cultura, 'Figo'); ?>>Figo</option>
                     <option value="Frutas de caroço" <?php selected($cultura, 'Frutas de caroço'); ?>>Frutas de caroço</option>
                     <option value="Goiaba/Caqui" <?php selected($cultura, 'Goiaba/Caqui'); ?>>Goiaba/Caqui</option>
@@ -123,7 +123,7 @@ if (!is_array($coauthors)) $coauthors = array();
                     <option value="Uva" <?php selected($cultura, 'Uva'); ?>>Uva</option>
                     <option value="Outras (Frutas)" <?php selected($cultura, 'Outras (Frutas)'); ?>>Outras</option>
                 </optgroup>
-                <optgroup label="Olerícolas">
+                <optgroup label="Olerícolas" class="sciflow-optgroup-olericolas">
                     <option value="Alho" <?php selected($cultura, 'Alho'); ?>>Alho</option>
                     <option value="Cebola" <?php selected($cultura, 'Cebola'); ?>>Cebola</option>
                     <option value="Tomate" <?php selected($cultura, 'Tomate'); ?>>Tomate</option>
@@ -160,7 +160,6 @@ if (!is_array($coauthors)) $coauthors = array();
             </select>
         </div>
 
-        <!-- Title -->
         <div class="sciflow-field">
             <label for="sciflow-title" class="sciflow-field__label">
                 <?php esc_html_e( 'Título do Trabalho *', 'sciflow-wp' ); ?>
@@ -168,7 +167,11 @@ if (!is_array($coauthors)) $coauthors = array();
             <input type="text" id="sciflow-title" name="title" required
                    class="sciflow-field__input"
                    value="<?php echo esc_attr($title); ?>"
+                   maxlength="180"
                    placeholder="<?php esc_attr_e( 'Título do trabalho científico', 'sciflow-wp' ); ?>">
+            <div class="sciflow-char-counter" id="sciflow-title-counter" style="margin-top: 5px; font-size: 12px; color: #666;">
+                <span id="sciflow-title-count">0</span> / 180 <?php esc_html_e( 'caracteres', 'sciflow-wp' ); ?>
+            </div>
         </div>
 
         <!-- Main Author -->
@@ -192,9 +195,9 @@ if (!is_array($coauthors)) $coauthors = array();
             ?>
             <div class="sciflow-author-details" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <input type="text" name="main_author_instituicao" value="<?php echo esc_attr($main_author_instituicao); ?>" placeholder="Instituição *" class="sciflow-field__input" required>
-                <input type="text" name="main_author_cpf" value="<?php echo esc_attr($main_author_cpf); ?>" placeholder="CPF *" class="sciflow-field__input" required>
+                <input type="text" name="main_author_cpf" value="<?php echo esc_attr($main_author_cpf); ?>" placeholder="CPF *" class="sciflow-field__input sciflow-mask-cpf" required>
                 <input type="email" name="main_author_email" value="<?php echo esc_attr($main_author_email); ?>" placeholder="E-mail *" class="sciflow-field__input" required>
-                <input type="text" name="main_author_telefone" value="<?php echo esc_attr($main_author_telefone); ?>" placeholder="Telefone *" class="sciflow-field__input" required>
+                <input type="text" name="main_author_telefone" value="<?php echo esc_attr($main_author_telefone); ?>" placeholder="Telefone *" class="sciflow-field__input sciflow-mask-phone" required>
             </div>
         </div>
 
@@ -209,7 +212,7 @@ if (!is_array($coauthors)) $coauthors = array();
                         <input type="text" name="coauthors[<?php echo $index; ?>][name]" value="<?php echo esc_attr($coauthor['name'] ?? ''); ?>" class="sciflow-field__input" placeholder="Nome" required>
                         <input type="email" name="coauthors[<?php echo $index; ?>][email]" value="<?php echo esc_attr($coauthor['email'] ?? ''); ?>" class="sciflow-field__input" placeholder="E-mail" required>
                         <input type="text" name="coauthors[<?php echo $index; ?>][institution]" value="<?php echo esc_attr($coauthor['institution'] ?? ''); ?>" class="sciflow-field__input" placeholder="Instituição" required>
-                        <input type="text" name="coauthors[<?php echo $index; ?>][telefone]" value="<?php echo esc_attr($coauthor['telefone'] ?? ''); ?>" class="sciflow-field__input" placeholder="Telefone" required>
+                        <input type="text" name="coauthors[<?php echo $index; ?>][telefone]" value="<?php echo esc_attr($coauthor['telefone'] ?? ''); ?>" class="sciflow-field__input sciflow-mask-phone" placeholder="Telefone" required>
                         <button type="button" class="sciflow-coauthor-remove" title="Remover">&times;</button>
                     </div>
                 <?php endforeach; ?>

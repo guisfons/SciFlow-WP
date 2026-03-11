@@ -23,6 +23,7 @@ class SciFlow_Roles
         // Palestrante — can submit talks
         add_role('sciflow_speaker', __('Palestrante (SciFlow)', 'sciflow-wp'), array(
             'read' => true,
+            'upload_files' => true,
         ));
 
         // Revisor — can read and review assigned articles.
@@ -78,6 +79,14 @@ class SciFlow_Roles
             $inscrito->add_cap('upload_files');
         }
 
+        // ---------- Palestrante ----------
+        $speaker = get_role('sciflow_speaker');
+        if ($speaker) {
+            foreach ($this->get_post_type_caps('sciflow_palestra') as $cap) {
+                $speaker->add_cap($cap);
+            }
+        }
+
         // ---------- Revisor ----------
         $revisor = get_role('sciflow_revisor');
         if ($revisor) {
@@ -97,6 +106,10 @@ class SciFlow_Roles
             }
             // All Semco caps.
             foreach ($this->get_post_type_caps('semco_trabalho') as $cap) {
+                $editor->add_cap($cap);
+            }
+            // All Palestra caps.
+            foreach ($this->get_post_type_caps('sciflow_palestra') as $cap) {
                 $editor->add_cap($cap);
             }
             $editor->add_cap('sciflow_review');
@@ -152,6 +165,9 @@ class SciFlow_Roles
                 $admin->add_cap($cap);
             }
             foreach ($this->get_post_type_caps('semco_trabalho') as $cap) {
+                $admin->add_cap($cap);
+            }
+            foreach ($this->get_post_type_caps('sciflow_palestra') as $cap) {
                 $admin->add_cap($cap);
             }
             $admin->add_cap('sciflow_review');

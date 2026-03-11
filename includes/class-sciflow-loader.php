@@ -31,6 +31,7 @@ class SciFlow_Loader
     private $woocommerce;
     private $access;
     private $redirection;
+    private $templates;
 
     /**
      * Instantiate all modules and register hooks.
@@ -104,6 +105,9 @@ class SciFlow_Loader
         // Redirection logic.
         $this->redirection = new SciFlow_Redirection($this->woocommerce);
 
+        // Page templates.
+        $this->templates = new SciFlow_Templates();
+
         // Enqueue assets.
         add_action('wp_enqueue_scripts', array($this, 'enqueue_public_assets'));
 
@@ -134,6 +138,14 @@ class SciFlow_Loader
             SCIFLOW_URL . 'public/js/sciflow-public.js',
             array('jquery'),
             SCIFLOW_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
+            'jquery-mask',
+            'https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js',
+            array('jquery'),
+            '1.14.16',
             true
         );
 

@@ -60,27 +60,33 @@ class SciFlow_Submission
         $content = wp_kses_post($data['content'] ?? '');
 
         if (!$is_draft) {
-            $full_text = $title . ' ' . wp_strip_all_tags($content);
+            // Title limit.
+            if (mb_strlen($title) > 180) {
+                return new WP_Error('title_limit', __('O título deve ter no máximo 180 caracteres.', 'sciflow-wp'));
+            }
 
-            // Include authors in char count.
-            $authors_text = sanitize_text_field($data['authors_text'] ?? '');
-            $full_text .= ' ' . $authors_text;
+            // Combined Title + Content.
+            $char_count = mb_strlen($title) + mb_strlen(trim(wp_strip_all_tags($content)));
 
-            $char_count = mb_strlen($full_text);
             if ($char_count < 3000 || $char_count > 4000) {
                 return new WP_Error(
                     'char_limit',
                     sprintf(
-                        __('O texto deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'),
+                        __('O título + resumo deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'),
                         $char_count
                     )
                 );
             }
 
-            // Validate keywords (3-5).
+            // Validate keywords (3-5) and check for duplicates.
             $keywords = array_filter(array_map('sanitize_text_field', (array) ($data['keywords'] ?? array())));
             if (count($keywords) < 3 || count($keywords) > 5) {
                 return new WP_Error('keywords', __('Informe de 3 a 5 palavras-chave.', 'sciflow-wp'));
+            }
+            
+            $unique_keywords = array_unique(array_map('mb_strtolower', $keywords));
+            if (count($unique_keywords) !== count($keywords)) {
+                return new WP_Error('duplicate_keywords', __('As palavras-chave não podem ser repetidas.', 'sciflow-wp'));
             }
         } else {
             $keywords = array_filter(array_map('sanitize_text_field', (array) ($data['keywords'] ?? array())));
@@ -91,6 +97,32 @@ class SciFlow_Submission
         $total_authors = 1 + count($coauthors); // main + co-authors.
         if ($total_authors > 6) {
             return new WP_Error('max_authors', __('Máximo de 6 autores por resumo.', 'sciflow-wp'));
+        }
+
+        // Link blocking check.
+        $fields_to_check = array(
+            'title' => $title,
+            'content' => $content,
+            'authors_text' => $data['authors_text'] ?? '',
+            'instituicao' => $data['main_author_instituicao'] ?? '',
+        );
+
+        foreach ($fields_to_check as $field => $val) {
+            if ($this->contains_links($val)) {
+                return new WP_Error('no_links', sprintf(__('O campo %s não pode conter links/URLs.', 'sciflow-wp'), $field));
+            }
+        }
+
+        foreach ($keywords as $kw) {
+            if ($this->contains_links($kw)) {
+                return new WP_Error('no_links', __('Palavras-chave não podem conter links/URLs.', 'sciflow-wp'));
+            }
+        }
+
+        foreach ($coauthors as $ca) {
+            if ($this->contains_links($ca['name']) || $this->contains_links($ca['institution'])) {
+                return new WP_Error('no_links', __('Dados de coautores não podem conter links/URLs.', 'sciflow-wp'));
+            }
         }
 
         // Validate language.
@@ -157,9 +189,14 @@ class SciFlow_Submission
         update_post_meta($post_id, '_sciflow_author_id', $user_id);
         update_post_meta($post_id, '_sciflow_main_author_name', sanitize_text_field($data['authors_text'] ?? ''));
         update_post_meta($post_id, '_sciflow_main_author_instituicao', sanitize_text_field($data['main_author_instituicao'] ?? ''));
-        update_post_meta($post_id, '_sciflow_main_author_cpf', sanitize_text_field($data['main_author_cpf'] ?? ''));
+        
+        $cpf = preg_replace('/[^0-9.-]/', '', $data['main_author_cpf'] ?? '');
+        update_post_meta($post_id, '_sciflow_main_author_cpf', $cpf);
+        
         update_post_meta($post_id, '_sciflow_main_author_email', sanitize_email($data['main_author_email'] ?? ''));
-        update_post_meta($post_id, '_sciflow_main_author_telefone', sanitize_text_field($data['main_author_telefone'] ?? ''));
+        
+        $phone = preg_replace('/[^0-9() -]/', '', $data['main_author_telefone'] ?? '');
+        update_post_meta($post_id, '_sciflow_main_author_telefone', $phone);
         update_post_meta($post_id, '_sciflow_coauthors', $coauthors);
 
         $presenting_author = sanitize_text_field($data['presenting_author'] ?? 'main');
@@ -227,6 +264,24 @@ class SciFlow_Submission
         $title = sanitize_text_field($data['title'] ?? '');
         $content = wp_kses_post($data['content'] ?? '');
 
+        // Re-validate limits on resubmit as well
+        if (mb_strlen($title) > 180) {
+            return new WP_Error('title_limit', __('O título deve ter no máximo 180 caracteres.', 'sciflow-wp'));
+        }
+        $char_count = mb_strlen($title) + mb_strlen(trim(wp_strip_all_tags($content)));
+        if ($char_count < 3000 || $char_count > 4000) {
+            return new WP_Error('char_limit', sprintf(__('O título + resumo deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'), $char_count));
+        }
+
+        // Link blocking check.
+        if ($this->contains_links($title) || $this->contains_links($content)) {
+            return new WP_Error('no_links', __('Título ou Resumo não podem conter links/URLs.', 'sciflow-wp'));
+        }
+
+        if ($this->contains_links($data['authors_text'] ?? '') || $this->contains_links($data['main_author_instituicao'] ?? '')) {
+            return new WP_Error('no_links', __('Dados do autor não podem conter links/URLs.', 'sciflow-wp'));
+        }
+
         wp_update_post(array(
             'ID' => $post_id,
             'post_title' => $title,
@@ -236,6 +291,13 @@ class SciFlow_Submission
         // Update keywords if provided.
         if (!empty($data['keywords'])) {
             $keywords = array_filter(array_map('sanitize_text_field', (array) $data['keywords']));
+            
+            // Check for duplicates
+            $unique_keywords = array_unique(array_map('mb_strtolower', $keywords));
+            if (count($unique_keywords) !== count($keywords)) {
+                return new WP_Error('duplicate_keywords', __('As palavras-chave não podem ser repetidas.', 'sciflow-wp'));
+            }
+            
             update_post_meta($post_id, '_sciflow_keywords', $keywords);
         }
 
@@ -244,13 +306,25 @@ class SciFlow_Submission
         }
 
         update_post_meta($post_id, '_sciflow_main_author_instituicao', sanitize_text_field($data['main_author_instituicao'] ?? ''));
-        update_post_meta($post_id, '_sciflow_main_author_cpf', sanitize_text_field($data['main_author_cpf'] ?? ''));
+        
+        $cpf = preg_replace('/[^0-9.-]/', '', $data['main_author_cpf'] ?? '');
+        update_post_meta($post_id, '_sciflow_main_author_cpf', $cpf);
+        
         update_post_meta($post_id, '_sciflow_main_author_email', sanitize_email($data['main_author_email'] ?? ''));
-        update_post_meta($post_id, '_sciflow_main_author_telefone', sanitize_text_field($data['main_author_telefone'] ?? ''));
+        
+        $phone = preg_replace('/[^0-9() -]/', '', $data['main_author_telefone'] ?? '');
+        update_post_meta($post_id, '_sciflow_main_author_telefone', $phone);
 
         // Update co-authors if provided.
         if (isset($data['coauthors'])) {
             $coauthors = $this->sanitize_coauthors($data['coauthors']);
+            
+            foreach ($coauthors as $ca) {
+                if ($this->contains_links($ca['name']) || $this->contains_links($ca['institution'])) {
+                    return new WP_Error('no_links', __('Dados de coautores não podem conter links/URLs.', 'sciflow-wp'));
+                }
+            }
+            
             update_post_meta($post_id, '_sciflow_coauthors', $coauthors);
         }
 
@@ -357,11 +431,23 @@ class SciFlow_Submission
                     'name' => sanitize_text_field($author['name'] ?? ''),
                     'email' => sanitize_email($author['email'] ?? ''),
                     'institution' => sanitize_text_field($author['institution'] ?? ''),
-                    'telefone' => sanitize_text_field($author['telefone'] ?? ''),
+                    'telefone' => preg_replace('/[^0-9() -]/', '', $author['telefone'] ?? ''),
                 );
             }
         }
 
         return $clean;
+    }
+
+    /**
+     * Check if a text contains URLs/links.
+     */
+    private function contains_links($text)
+    {
+        if (empty($text)) {
+            return false;
+        }
+        // Basic check for http, https or www.
+        return preg_match('/(https?:\/\/[^\s]+|www\.[^\s]+)/i', $text);
     }
 }
