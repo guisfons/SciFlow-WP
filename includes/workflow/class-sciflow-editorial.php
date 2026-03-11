@@ -40,7 +40,7 @@ class SciFlow_Editorial
         }
 
         $allowed_roles = array('sciflow_revisor', 'sciflow_editor', 'administrator', 'sciflow_semco_revisor', 'sciflow_enfrute_revisor');
-        if (!array_intersect($allowed_roles, $user->roles)) {
+        if (!array_intersect($allowed_roles, $user->roles) && !user_can($reviewer_id, 'manage_sciflow')) {
             return new WP_Error('not_reviewer', __('O usuário não tem papel de revisor.', 'sciflow-wp'));
         }
 
@@ -66,8 +66,8 @@ class SciFlow_Editorial
         }
 
         $current = $this->status_manager->get_status($post_id);
-        if (!in_array($current, array('aguardando_decisao', 'submetido_com_revisao'), true)) {
-            return new WP_Error('invalid_status', __('O trabalho precisa estar aguardando decisão ou submetido com revisão para receber uma decisão.', 'sciflow-wp'));
+        if (!in_array($current, array('aguardando_decisao', 'submetido_com_revisao', 'submetido'), true)) {
+            return new WP_Error('invalid_status', __('O trabalho precisa estar submetido ou aguardando decisão para receber um parecer editorial.', 'sciflow-wp'));
         }
 
         if (!empty($notes)) {

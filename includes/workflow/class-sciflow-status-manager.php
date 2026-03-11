@@ -46,7 +46,7 @@ class SciFlow_Status_Manager
     {
         return array(
             'rascunho' => array('submetido'), // Draft -> Submetido
-            'submetido' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aguardando_decisao'),
+            'submetido' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aguardando_decisao', 'em_correcao'),
             'em_avaliacao' => array('aguardando_decisao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes'),
             'aguardando_decisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'em_correcao'),
             'em_revisao' => array('aprovado', 'reprovado', 'aprovado_com_consideracoes'),
@@ -55,7 +55,7 @@ class SciFlow_Status_Manager
             'reprovado' => array(),
             'apto_publicacao' => array('aprovado'),
             'em_correcao' => array('submetido', 'submetido_com_revisao'),
-            'submetido_com_revisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'aguardando_decisao'),
+            'submetido_com_revisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'aguardando_decisao', 'em_correcao'),
             'aguardando_confirmacao' => array('confirmado'),
         );
     }

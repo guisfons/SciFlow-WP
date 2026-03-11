@@ -44,7 +44,7 @@ if (!is_array($coauthors)) $coauthors = array();
     <?php 
     if ($edit_post) {
         $reviewer_notes = get_post_meta($post_id, '_sciflow_reviewer_notes', true);
-        $editorial_history = get_post_meta($post_id, '_sciflow_editorial_message', true);
+        $editorial_history = get_post_meta($post_id, '_sciflow_editorial_notes', true);
 
         if (!empty($reviewer_notes) || !empty($editorial_history)) {
             echo '<div class="alert alert-warning mb-4 rounded-4 shadow-sm border-0 border-start border-4 border-warning">';

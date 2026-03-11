@@ -96,14 +96,37 @@
                 const editor = tinyMCE.get('sciflow_content');
                 if (editor) {
                     clearInterval(waitForEditor);
-                    editor.on('keyup change blur', updateCharCount);
+                    editor.on('keyup change blur', function() {
+                        // Strip <p>, <br> and any line breaks
+                        const content = editor.getContent();
+                        if (content.includes('<p>') || content.includes('<br')) {
+                            const stripped = content.replace(/<\/?p>/g, '').replace(/<br\s*\/?>/g, ' ');
+                            editor.setContent(stripped);
+                        }
+                        updateCharCount();
+                    });
 
-                    // Prevent line breaks
+                    // Prevent line breaks (Enter and Shift+Enter)
                     editor.on('keydown', function (e) {
                         if (e.keyCode === 13) {
                             e.preventDefault();
                             return false;
                         }
+                    });
+
+                    // Strip line breaks on paste
+                    editor.on('paste', function (e) {
+                        e.preventDefault();
+                        let text = '';
+                        if (e.clipboardData || e.originalEvent.clipboardData) {
+                            text = (e.originalEvent || e).clipboardData.getData('text/plain');
+                        } else if (window.clipboardData) {
+                            text = window.clipboardData.getData('Text');
+                        }
+                        
+                        // Replace newlines/carriage returns with space and trim
+                        const sanitized = text.replace(/[\r\n]+/g, ' ').trim();
+                        editor.insertContent(sanitized);
                     });
 
                     updateCharCount();
@@ -112,6 +135,31 @@
         }
 
         $('#sciflow-title').on('input change', updateCharCount);
+
+        // Strip line breaks on paste for Title
+        $('#sciflow-title').on('paste', function (e) {
+            e.preventDefault();
+            let text = '';
+            if (e.originalEvent.clipboardData) {
+                text = e.originalEvent.clipboardData.getData('text/plain');
+            } else if (window.clipboardData) {
+                text = window.clipboardData.getData('Text');
+            }
+
+            const sanitized = text.replace(/[\r\n]+/g, ' ').trim();
+            
+            // Insert at cursor position or replace selection
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            const val = $(this).val();
+            const newVal = val.slice(0, start) + sanitized + val.slice(end);
+            
+            $(this).val(newVal);
+            
+            // Update cursor position
+            this.setSelectionRange(start + sanitized.length, start + sanitized.length);
+            $(this).trigger('change');
+        });
 
         // Conditional Cultura Select
         $('#sciflow-event').on('change', function () {
@@ -167,9 +215,9 @@
         const i = coauthorIndex++;
         const row = `<div class="sciflow-coauthor-row" data-index="${i}">
             <input type="text" name="coauthors[${i}][name]" placeholder="Nome" class="sciflow-field__input" required>
-            <input type="email" name="coauthors[${i}][email]" placeholder="E-mail" class="sciflow-field__input">
-            <input type="text" name="coauthors[${i}][institution]" placeholder="Instituição" class="sciflow-field__input">
-            <input type="text" name="coauthors[${i}][telefone]" placeholder="Telefone" class="sciflow-field__input sciflow-mask-phone">
+            <input type="email" name="coauthors[${i}][email]" placeholder="E-mail" class="sciflow-field__input" required>
+            <input type="text" name="coauthors[${i}][institution]" placeholder="Instituição" class="sciflow-field__input" required>
+            <input type="text" name="coauthors[${i}][telefone]" placeholder="Telefone" class="sciflow-field__input sciflow-mask-phone" required>
             <button type="button" class="sciflow-coauthor-remove" title="Remover">×</button>
         </div>`;
         $('#sciflow-coauthors-list').append(row);
@@ -723,6 +771,27 @@
 
     $('#sciflow-speaker-title, #sciflow-speaker-content').on('input', updateSpeakerCharCount);
 
+    // Strip line breaks on paste for Speaker Title
+    $('#sciflow-speaker-title').on('paste', function (e) {
+        e.preventDefault();
+        let text = '';
+        if (e.originalEvent.clipboardData) {
+            text = e.originalEvent.clipboardData.getData('text/plain');
+        } else if (window.clipboardData) {
+            text = window.clipboardData.getData('Text');
+        }
+
+        const sanitized = text.replace(/[\r\n]+/g, ' ').trim();
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        const val = $(this).val();
+        const newVal = val.slice(0, start) + sanitized + val.slice(end);
+        
+        $(this).val(newVal);
+        this.setSelectionRange(start + sanitized.length, start + sanitized.length);
+        $(this).trigger('input'); // Speaker form uses 'input' for counter
+    });
+
     $('#sciflow-speaker-form').on('submit', function (e) {
         e.preventDefault();
 
@@ -787,7 +856,24 @@
                     // Check if we are on the speaker form (the editor ID is shared for now but handled differently)
                     if ($('#sciflow-speaker-form').length) {
                         clearInterval(waitForEditor);
-                        editor.on('input change keyup blur', updateSpeakerCharCount);
+                        editor.on('input change keyup blur', function() {
+                            // Strip <p>, <br> and any line breaks
+                            const content = editor.getContent();
+                            if (content.includes('<p>') || content.includes('<br')) {
+                                const stripped = content.replace(/<\/?p>/g, '').replace(/<br\s*\/?>/g, ' ');
+                                editor.setContent(stripped);
+                            }
+                            updateSpeakerCharCount();
+                        });
+
+                        // Prevent line breaks (Enter and Shift+Enter)
+                        editor.on('keydown', function (e) {
+                            if (e.keyCode === 13) {
+                                e.preventDefault();
+                                return false;
+                            }
+                        });
+
                         updateSpeakerCharCount();
                     }
                 }

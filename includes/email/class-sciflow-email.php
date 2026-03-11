@@ -16,9 +16,7 @@ class SciFlow_Email
     private function get_editor_email($event)
     {
         $settings = get_option('sciflow_settings', array());
-        $key = $event . '_editor_email';
-        $raw = $settings[$key] ?? get_option('admin_email');
-
+        $raw = !empty($settings[$key]) ? $settings[$key] : get_option('admin_email');
         // Support multiple emails separated by comma.
         $emails = explode(',', $raw);
         $emails = array_map('trim', $emails);

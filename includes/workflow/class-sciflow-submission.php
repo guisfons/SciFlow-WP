@@ -286,6 +286,7 @@ class SciFlow_Submission
             'ID' => $post_id,
             'post_title' => $title,
             'post_content' => $content,
+            'post_status' => 'publish',
         ));
 
         // Update keywords if provided.
