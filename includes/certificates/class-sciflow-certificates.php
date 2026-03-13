@@ -47,7 +47,7 @@ class SciFlow_Certificates
         $coauthors = get_post_meta($post_id, '_sciflow_coauthors', true);
 
         $event_labels = array(
-            'enfrute' => 'Enfrute — Congresso Nacional',
+            'enfrute' => 'Enfrute — Encontro Nacional sobre Fruticultura de Clima Temperado',
             'semco' => 'Semco — Seminário Catarinense de Olericultura',
         );
 

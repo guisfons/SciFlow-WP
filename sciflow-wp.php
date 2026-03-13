@@ -98,3 +98,77 @@ function sciflow_init()
     }
 }
 add_action('plugins_loaded', 'sciflow_init');
+
+/**
+ * TinyMCE: prevent Enter/line-breaks in the sciflow_content abstract field.
+ * The `setup` callback fires at TinyMCE init time and overrides the core
+ * InsertParagraph / InsertLineBreak commands so they do nothing.
+ */
+add_filter('tiny_mce_before_init', function ($init, $editor_id) {
+    if ($editor_id !== 'sciflow_content') {
+        return $init;
+    }
+
+    // Merge into existing setup if one was already defined.
+    $existing_setup = !empty($init['setup']) ? $init['setup'] : '';
+
+    $no_enter_setup = "function(ed) {
+        ed.addCommand('InsertParagraph', function() { return false; });
+        ed.addCommand('InsertLineBreak', function() { return false; });
+
+        // Block Enter key at the lowest level.
+        ed.on('keydown', function(e) {
+            if (e.keyCode === 13) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                return false;
+            }
+        });
+
+        // Intercept paste at the native browser level.
+        // We take full ownership: get plain text, strip ALL line breaks, insert.
+        // This fires before TinyMCE's own paste processing so nothing slips through.
+        ed.on('paste', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var clipData = e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData) || window.clipboardData;
+            if (!clipData) { return; }
+            var text = clipData.getData('text/plain') || clipData.getData('Text') || '';
+            // Replace every kind of line break / vertical whitespace with a single space.
+            text = text.replace(/[\\r\\n\\v\\f\\u2028\\u2029]+/g, ' ').replace(/\\s+/g, ' ').trim();
+            if (text) {
+                ed.insertContent(ed.dom.encode(text));
+            }
+        });
+
+        // Belt-and-suspenders: also clean via PastePreProcess (rich paste).
+        ed.on('PastePreProcess', function(e) {
+            e.content = e.content
+                .replace(/<br\\s*\\/?>/gi, ' ')
+                .replace(/<\\/p>\\s*<p[^>]*>/gi, ' ')
+                .replace(/<p[^>]*>/gi, '')
+                .replace(/<\\/p>/gi, ' ')
+                .replace(/\\s+/g, ' ')
+                .trim();
+        });
+
+        " . $existing_setup . "
+    }";
+
+    $init['setup'] = $no_enter_setup;
+
+    // Also intercept via paste_preprocess (TinyMCE Paste plugin option).
+    // This fires before PastePreProcess and handles HTML-to-text conversion.
+    $init['paste_preprocess'] = "function(plugin, args) {
+        args.content = args.content
+            .replace(/<br\\s*\\/?>/gi, ' ')
+            .replace(/<\\/p>\\s*<p[^>]*>/gi, ' ')
+            .replace(/<p[^>]*>/gi, '')
+            .replace(/<\\/p>/gi, ' ')
+            .replace(/\\s+/g, ' ')
+            .trim();
+    }";
+
+    return $init;
+}, 10, 2);
+

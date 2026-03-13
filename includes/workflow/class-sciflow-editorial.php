@@ -111,6 +111,47 @@ class SciFlow_Editorial
     }
 
     /**
+     * Editor makes a decision on a submitted poster.
+     *
+     * @param string $decision 'approve_poster', 'reject_poster', or 'request_new_poster'.
+     */
+    public function make_poster_decision($post_id, $decision, $notes = '')
+    {
+        if (!current_user_can('manage_sciflow')) {
+            return new WP_Error('unauthorized', __('Permissão insuficiente.', 'sciflow-wp'));
+        }
+
+        $poster_id = get_post_meta($post_id, '_sciflow_poster_id', true);
+        if (!$poster_id) {
+            return new WP_Error('no_poster', __('O trabalho precisa ter um pôster enviado para receber uma decisão.', 'sciflow-wp'));
+        }
+
+        $status_map = array(
+            'approve_poster'     => 'apto_publicacao',
+            'reject_poster'      => 'poster_reprovado',
+            'request_new_poster' => 'poster_em_correcao',
+        );
+
+        if (!isset($status_map[$decision])) {
+            return new WP_Error('invalid_decision', __('Decisão inválida.', 'sciflow-wp'));
+        }
+
+        if (!empty($notes)) {
+            $this->add_message($post_id, 'editor', $notes);
+            update_post_meta($post_id, '_sciflow_poster_editorial_notes', wp_kses_post($notes));
+        }
+
+        $new_status = $status_map[$decision];
+        $result = $this->status_manager->transition($post_id, $new_status);
+
+        if (!is_wp_error($result)) {
+            $this->email->send_editorial_decision($post_id, $decision, $notes);
+        }
+
+        return $result;
+    }
+
+    /**
      * Get all articles for a specific event that need editorial attention.
      */
     public function get_event_articles($event, $status = null)

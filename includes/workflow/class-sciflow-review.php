@@ -123,7 +123,7 @@ class SciFlow_Review
                 return new WP_Error('missing_score', sprintf(__('Nota obrigatória: %s', 'sciflow-wp'), $key));
             }
 
-            $val = floatval($raw[$key]);
+            $val = $this->parse_float($raw[$key] ?? 0);
             if ($val < 0 || $val > 10) {
                 return new WP_Error('invalid_score', sprintf(__('Nota fora do intervalo (0-10): %s', 'sciflow-wp'), $key));
             }
@@ -135,7 +135,18 @@ class SciFlow_Review
     }
 
     /**
-     * Calculate weighted average of 5 criteria (equal weights by default).
+     * Helper to parse float values with comma support.
+     */
+    private function parse_float($val)
+    {
+        if (is_string($val)) {
+            $val = str_replace(',', '.', $val);
+        }
+        return floatval($val);
+    }
+
+    /**
+     * Calculate weighted average of 5 criteria.
      */
     private function calculate_average($scores)
     {
@@ -147,11 +158,20 @@ class SciFlow_Review
         $weighted_sum = 0;
 
         foreach ($criteria as $key) {
-            $weight = floatval($weights[$key] ?? 1);
-            $weighted_sum += $scores[$key] * $weight;
+            $w_val = $weights[$key] ?? 1;
+            $weight = $this->parse_float($w_val);
+            
+            // If weights were somehow saved as 0 or empty, default to 1.
+            if ($weight <= 0) {
+                $weight = 1;
+            }
+
+            $score = $this->parse_float($scores[$key] ?? 0);
+            
+            $weighted_sum += $score * $weight;
             $total_weight += $weight;
         }
 
-        return $total_weight > 0 ? round($weighted_sum / $total_weight, 4) : 0;
+        return $total_weight > 0 ? round($weighted_sum / $total_weight, 2) : 0;
     }
 }

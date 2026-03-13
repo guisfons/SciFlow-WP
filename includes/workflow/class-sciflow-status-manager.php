@@ -28,14 +28,20 @@ class SciFlow_Status_Manager
             'em_avaliacao' => __('Em Avaliação', 'sciflow-wp'),
             'aguardando_decisao' => __('Aguardando Parecer do Editor', 'sciflow-wp'),
             'em_correcao' => __('Necessita Alterações', 'sciflow-wp'),
-            'aprovado' => __('Aprovado', 'sciflow-wp'),
+            'aprovado' => __('Aprovado / Aguardando Pôster', 'sciflow-wp'),
             'reprovado' => __('Reprovado', 'sciflow-wp'),
             'aprovado_com_consideracoes' => __('Aprovado com Considerações', 'sciflow-wp'),
             'apto_revisao' => __('Apto para Revisão', 'sciflow-wp'),
             'apto_publicacao' => __('Apto para Publicação', 'sciflow-wp'),
             'poster_enviado' => __('Pôster Enviado', 'sciflow-wp'),
+            'poster_aprovado' => __('Pôster Aprovado', 'sciflow-wp'),
+            'poster_em_correcao' => __('Pôster em Correção', 'sciflow-wp'),
+            'poster_reenviado' => __('Pôster Reenviado', 'sciflow-wp'),
+            'poster_reprovado' => __('Pôster Reprovado', 'sciflow-wp'),
             'aguardando_confirmacao' => __('Aguardando Confirmação', 'sciflow-wp'),
-            'confirmado' => __('Confirmado', 'sciflow-wp'),
+            'confirmado'             => __('Confirmado', 'sciflow-wp'),
+            // Virtual display-only status (not stored in DB).
+            'aguardando_poster'      => __('Aguardando Envio do Pôster', 'sciflow-wp'),
         );
     }
 
@@ -46,17 +52,22 @@ class SciFlow_Status_Manager
     {
         return array(
             'rascunho' => array('submetido'), // Draft -> Submetido
-            'submetido' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aguardando_decisao', 'em_correcao'),
-            'em_avaliacao' => array('aguardando_decisao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes'),
-            'aguardando_decisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'em_correcao'),
+            'submetido' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aguardando_decisao', 'em_correcao', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao', 'poster_reenviado'),
+            'em_avaliacao' => array('aguardando_decisao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao', 'poster_reenviado'),
+            'aguardando_decisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'em_correcao', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao', 'poster_reenviado'),
             'em_revisao' => array('aprovado', 'reprovado', 'aprovado_com_consideracoes'),
             'aprovado_com_consideracoes' => array('em_correcao'),
-            'aprovado' => array('apto_publicacao', 'poster_enviado', 'poster_reprovado'),
+            'aprovado' => array('apto_publicacao', 'poster_enviado', 'poster_reprovado', 'poster_em_correcao'),
             'reprovado' => array(),
             'apto_publicacao' => array('aprovado'),
-            'em_correcao' => array('submetido', 'submetido_com_revisao'),
+            'em_correcao' => array('submetido', 'submetido_com_revisao', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao'),
             'submetido_com_revisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'aguardando_decisao', 'em_correcao'),
             'aguardando_confirmacao' => array('confirmado'),
+            'poster_enviado' => array('poster_aprovado', 'poster_em_correcao', 'poster_reprovado', 'poster_enviado', 'apto_publicacao'),
+            'poster_em_correcao' => array('poster_enviado', 'poster_em_correcao', 'poster_reenviado'),
+            'poster_reenviado' => array('poster_aprovado', 'poster_em_correcao', 'poster_reprovado', 'poster_reenviado', 'apto_publicacao'),
+            'poster_reprovado' => array('poster_em_correcao', 'poster_aprovado', 'poster_reprovado'),
+            'poster_aprovado' => array('poster_em_correcao', 'poster_reprovado', 'poster_aprovado', 'apto_publicacao'),
         );
     }
 
@@ -131,9 +142,15 @@ class SciFlow_Status_Manager
             'aprovado_com_consideracoes' => 'success',
             'apto_revisao' => 'primary',
             'apto_publicacao' => 'success',
-            'poster_enviado' => 'success',
+            'poster_enviado' => 'info',
+            'poster_reenviado' => 'info',
+            'poster_aprovado' => 'success',
+            'poster_em_correcao' => 'warning',
+            'poster_reprovado' => 'danger',
             'aguardando_confirmacao' => 'warning',
-            'confirmado' => 'success',
+            'confirmado'             => 'success',
+            // Virtual display-only.
+            'aguardando_poster'      => 'warning',
         );
 
         return isset($colors[$status]) ? $colors[$status] : 'secondary';

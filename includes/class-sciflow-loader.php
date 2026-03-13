@@ -114,6 +114,9 @@ class SciFlow_Loader
         // Register REST routes for payment webhook.
         add_action('rest_api_init', array($this->payment, 'register_routes'));
 
+        // Email notifications.
+        add_action('sciflow_status_changed', array($this->email, 'send_status_change_to_editor'), 10, 3);
+
         // Cron for confirmation deadline.
         add_action('sciflow_check_confirmation_deadlines', array($this->ranking, 'check_deadlines'));
         if (!wp_next_scheduled('sciflow_check_confirmation_deadlines')) {
@@ -131,6 +134,13 @@ class SciFlow_Loader
             SCIFLOW_URL . 'public/css/sciflow-public.css',
             array(),
             SCIFLOW_VERSION
+        );
+
+        wp_enqueue_style(
+            'bootstrap-icons',
+            'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
+            array(),
+            '1.11.3'
         );
 
         wp_enqueue_script(

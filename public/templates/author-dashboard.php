@@ -34,6 +34,10 @@ if (!defined('ABSPATH'))
                 if (in_array($status, array('submetido', 'apto_revisao', 'aguardando_decisao'), true)) {
                     $display_status = 'em_avaliacao';
                 }
+                // Status 'aprovado' = trabalho aprovado, aguardando envio do pôster.
+                if ($status === 'aprovado') {
+                    $display_status = 'aguardando_poster';
+                }
 
                 $event = get_post_meta($post->ID, '_sciflow_event', true);
                 $payment = get_post_meta($post->ID, '_sciflow_payment_status', true);
@@ -44,6 +48,10 @@ if (!defined('ABSPATH'))
                 $ed_notes = get_post_meta($post->ID, '_sciflow_editorial_notes', true);
                 $confirmed = get_post_meta($post->ID, '_sciflow_presentation_confirmed', true);
                 $deadline = get_post_meta($post->ID, '_sciflow_confirmation_deadline', true);
+
+                // Resolve poster upload page URL.
+                $poster_pages = get_pages(array('meta_key' => '_wp_page_template', 'meta_value' => 'template-poster-upload.php', 'number' => 1, 'post_status' => 'publish'));
+                $poster_upload_url = !empty($poster_pages) ? get_permalink($poster_pages[0]->ID) : home_url('/');
                 ?>
                 <div class="sciflow-work-card" data-post-id="<?php echo esc_attr($post->ID); ?>">
                     <div class="sciflow-work-card__header">
@@ -91,7 +99,7 @@ if (!defined('ABSPATH'))
 
                     <?php
                     $history = SciFlow_Editorial::get_message_history($post->ID);
-                    $show_history_statuses = array('submetido', 'em_revisao', 'aprovado_com_consideracoes', 'em_correcao', 'submetido_com_revisao', 'aprovado', 'reprovado', 'apto_publicacao', 'poster_enviado', 'poster_reprovado', 'poster_aprovado', 'confirmado');
+                    $show_history_statuses = array('submetido', 'em_revisao', 'aprovado_com_consideracoes', 'em_correcao', 'submetido_com_revisao', 'aprovado', 'reprovado', 'apto_publicacao', 'poster_enviado', 'poster_reprovado', 'poster_aprovado', 'confirmado', 'poster_reenviado');
 
                     if (!empty($history) && in_array($status, $show_history_statuses, true)): ?>
                         <div class="sciflow-message-history">
@@ -148,8 +156,21 @@ if (!defined('ABSPATH'))
                             </a>
                         <?php endif; ?>
 
-                        <?php if (in_array($status, array('aprovado', 'poster_enviado'), true)): ?>
-                            <a href="#sciflow-poster-upload" class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm">
+                        <?php if (in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao'), true)): ?>
+                            <?php
+                            // Banner visible when poster is still needed
+                            if ($status === 'aprovado'): ?>
+                                <div class="sciflow-notice sciflow-notice--info" style="margin-bottom:10px; border-left: 4px solid #0d6efd; padding: 10px 14px; background: #e7f1ff; border-radius: 6px;">
+                                    <strong>🎉 <?php esc_html_e( 'Trabalho Aprovado!', 'sciflow-wp' ); ?></strong><br>
+                                    <?php esc_html_e( 'Seu trabalho foi aceito. Agora envie o pôster em formato PDF para concluir o processo.', 'sciflow-wp' ); ?>
+                                </div>
+                            <?php elseif ($status === 'poster_em_correcao'): ?>
+                                <div class="sciflow-notice sciflow-notice--warning" style="margin-bottom:10px; border-left: 4px solid #f0ad4e; padding: 10px 14px; background: #fff8e7; border-radius: 6px;">
+                                    <strong>📋 <?php esc_html_e( 'Pôster Necessita Correção', 'sciflow-wp' ); ?></strong><br>
+                                    <?php esc_html_e( 'O comitê solicitou o envio de um novo pôster. Veja as observações acima e reenvie o arquivo.', 'sciflow-wp' ); ?>
+                                </div>
+                            <?php endif; ?>
+                            <a href="<?php echo esc_url($poster_upload_url); ?>" class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm">
                                 <?php echo $poster_id
                                     ? esc_html__('Reenviar Pôster', 'sciflow-wp')
                                     : esc_html__('Enviar Pôster (PDF)', 'sciflow-wp'); ?>

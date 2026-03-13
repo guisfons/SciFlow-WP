@@ -51,6 +51,7 @@ class SciFlow_Ajax_Handler
 
         // Poster upload.
         add_action('wp_ajax_sciflow_upload_poster', array($this, 'handle_upload_poster'));
+        add_action('wp_ajax_sciflow_poster_decision', array($this, 'handle_poster_decision'));
 
         // Payment.
         add_action('wp_ajax_sciflow_create_payment', array($this, 'handle_create_payment'));
@@ -99,6 +100,7 @@ class SciFlow_Ajax_Handler
             'main_author_telefone' => sanitize_text_field($_POST['main_author_telefone'] ?? ''),
             'is_draft' => !empty($_POST['is_draft']),
             'post_id' => !empty($_POST['post_id']) ? absint($_POST['post_id']) : 0,
+            'acknowledgement' => sanitize_textarea_field($_POST['acknowledgement'] ?? ''),
         );
         $result = $this->submission->create($data);
 
@@ -198,14 +200,17 @@ class SciFlow_Ajax_Handler
             'main_author_cpf' => sanitize_text_field($_POST['main_author_cpf'] ?? ''),
             'main_author_email' => sanitize_email($_POST['main_author_email'] ?? ''),
             'main_author_telefone' => sanitize_text_field($_POST['main_author_telefone'] ?? ''),
+            'acknowledgement' => sanitize_textarea_field($_POST['acknowledgement'] ?? ''),
         );
 
         $result = $this->submission->resubmit($post_id, $data);
 
         if (is_wp_error($result)) {
+            error_log('SciFlow Resubmit Error: ' . $result->get_error_message());
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
+        error_log('SciFlow Resubmit Success. Post ID: ' . $post_id);
         wp_send_json_success(array(
             'message' => __('Trabalho reenviado com sucesso! Redirecionando...', 'sciflow-wp'),
             'redirect_url' => home_url('/meus-artigos/')
@@ -225,6 +230,9 @@ class SciFlow_Ajax_Handler
         $sanitized_scores = array();
         if (is_array($raw_scores)) {
             foreach ($raw_scores as $key => $val) {
+                if (is_string($val)) {
+                    $val = str_replace(',', '.', $val);
+                }
                 $sanitized_scores[sanitize_key($key)] = floatval($val);
             }
         }
@@ -303,6 +311,30 @@ class SciFlow_Ajax_Handler
         }
 
         wp_send_json_success(array('message' => __('Pôster enviado com sucesso!', 'sciflow-wp')));
+    }
+
+    /**
+     * Handle poster editorial decision.
+     */
+    public function handle_poster_decision()
+    {
+        $this->verify_request();
+
+        if (!current_user_can('manage_sciflow')) {
+            wp_send_json_error(array('message' => __('Permissão insuficiente.', 'sciflow-wp')));
+        }
+
+        $post_id  = absint($_POST['post_id'] ?? 0);
+        $decision = sanitize_text_field($_POST['decision'] ?? '');
+        $notes    = wp_kses_post($_POST['notes'] ?? '');
+
+        $result = $this->editorial->make_poster_decision($post_id, $decision, $notes);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success(array('message' => __('Decisão do pôster registrada com sucesso!', 'sciflow-wp')));
     }
 
     /**

@@ -11,15 +11,51 @@ class SciFlow_Email
 {
 
     /**
-     * Get the editor email for a given event.
+     * Get editor emails for a given event by querying users with the matching role(s).
+     *
+     * Roles checked:
+     *   - enfrute → sciflow_enfrute_editor + sciflow_editor
+     *   - semco   → sciflow_semco_editor  + sciflow_editor
      */
     private function get_editor_email($event)
     {
-        $settings = get_option('sciflow_settings', array());
-        $raw = !empty($settings[$key]) ? $settings[$key] : get_option('admin_email');
-        // Support multiple emails separated by comma.
-        $emails = explode(',', $raw);
-        $emails = array_map('trim', $emails);
+        // Map each event to the relevant editor roles.
+        $role_map = array(
+            'enfrute' => array('sciflow_enfrute_editor', 'sciflow_editor'),
+            'semco' => array('sciflow_semco_editor', 'sciflow_editor'),
+        );
+
+        $roles = isset($role_map[$event]) ? $role_map[$event] : array('sciflow_editor');
+
+        $emails = array();
+        foreach ($roles as $role) {
+            $users = get_users(array(
+                'role' => $role,
+                'fields' => array('user_email'),
+            ));
+            foreach ($users as $user) {
+                if (!empty($user->user_email) && !in_array($user->user_email, $emails, true)) {
+                    $emails[] = $user->user_email;
+                }
+            }
+        }
+
+        // Always include admins.
+        $admins = get_users(array(
+            'role' => 'administrator',
+            'fields' => array('user_email'),
+        ));
+        foreach ($admins as $admin) {
+            if (!empty($admin->user_email) && !in_array($admin->user_email, $emails, true)) {
+                $emails[] = $admin->user_email;
+            }
+        }
+
+        // Final fallback: use admin_email if still empty.
+        if (empty($emails)) {
+            $emails[] = get_option('admin_email');
+        }
+
         return array_filter($emails);
     }
 
@@ -29,7 +65,7 @@ class SciFlow_Email
     private function get_event_label($event)
     {
         $labels = array(
-            'enfrute' => 'Enfrute — Congresso Nacional',
+            'enfrute' => 'Enfrute — Encontro Nacional sobre Fruticultura de Clima Temperado',
             'semco' => 'Semco — Seminário Catarinense de Olericultura',
         );
         return $labels[$event] ?? $event;
@@ -130,7 +166,31 @@ class SciFlow_Email
             'From: ' . get_bloginfo('name') . ' <' . get_option('admin_email') . '>',
         );
 
-        return wp_mail($to, $subject, $html, $headers);
+        // Capture wp_mail errors for debugging
+        $mail_error_data = null;
+        $error_handler = function ($wp_error) use (&$mail_error_data) {
+            $mail_error_data = $wp_error;
+        };
+        add_action('wp_mail_failed', $error_handler);
+
+        $result = wp_mail($to, $subject, $html, $headers);
+
+        remove_action('wp_mail_failed', $error_handler);
+
+        if (!$result || $mail_error_data) {
+            $to_str = is_array($to) ? implode(', ', $to) : $to;
+            $error_msg = $mail_error_data ? $mail_error_data->get_error_message() : 'wp_mail returned false';
+            if (function_exists('wc_get_logger')) {
+                wc_get_logger()->error(
+                    "SciFlow Email Failed. To: [{$to_str}] Subject: [{$subject}] Error: {$error_msg}",
+                    array('source' => 'sciflow_email')
+                );
+            } elseif (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                error_log("SciFlow Email Failed. To: [{$to_str}] Subject: [{$subject}] Error: {$error_msg}");
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -172,17 +232,36 @@ class SciFlow_Email
     // ─── Specific email methods ───
 
     /**
-     * 1. New submission → Editor.
+     * 1. New submission → All Editors.
      */
     public function send_new_submission($post_id, $event)
     {
         $vars = $this->get_template_vars($post_id);
         $vars['message'] = __('Um novo trabalho foi submetido e requer sua atenção.', 'sciflow-wp');
 
-        $editor_email = $this->get_editor_email($event);
+        $editor_emails = $this->get_editor_email($event);
+
+        if (empty($editor_emails)) {
+            return;
+        }
+
         $subject = sprintf(__('[%s] Novo Trabalho Submetido: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
-        $this->send($editor_email, $subject, 'new-submission', $vars);
+        $this->send($editor_emails, $subject, 'new-submission', $vars);
+    }
+
+    /**
+     * Get all editor emails across all configured events.
+     */
+    private function get_all_editor_emails()
+    {
+        $all_emails = array();
+        $events = array('enfrute', 'semco');
+        foreach ($events as $event) {
+            $emails = $this->get_editor_email($event);
+            $all_emails = array_merge($all_emails, $emails);
+        }
+        return array_unique($all_emails);
     }
 
     /**
@@ -252,6 +331,10 @@ class SciFlow_Email
             'reject' => __('Reprovado', 'sciflow-wp'),
             'return_to_author' => __('Devolvido para Alterações', 'sciflow-wp'),
             'approved_with_considerations' => __('Necessita Alterações', 'sciflow-wp'),
+            // Poster decisions.
+            'approve_poster'     => __('Pôster Aprovado', 'sciflow-wp'),
+            'reject_poster'      => __('Pôster Reprovado', 'sciflow-wp'),
+            'request_new_poster' => __('Pôster Necessita Correção', 'sciflow-wp'),
         );
 
         // Only notify author for these specific decisions.
@@ -352,5 +435,41 @@ class SciFlow_Email
         $subject = sprintf(__('[%s] Confirmação de Apresentação: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
         $this->send($recipients, $subject, 'confirmation-needed', $vars);
+    }
+
+    /**
+     * 8. Status Changed → Editor.
+     * Triggered for various status transitions where the editor needs to be informed,
+     * such as when a reviewer returns an evaluation.
+     */
+    public function send_status_change_to_editor($post_id, $new_status, $old_status)
+    {
+        // Only notify the editor when they need to take action.
+        // - 'aguardando_decisao'    → reviewer submitted a review, editor must decide
+        // - 'submetido_com_revisao' → author resubmitted after correction, editor must review again
+        // New submissions ('submetido') are already covered by send_new_submission().
+        $action_required_statuses = array(
+            'aguardando_decisao',
+            'submetido_com_revisao',
+        );
+
+        if (!in_array($new_status, $action_required_statuses, true)) {
+            return;
+        }
+
+        $vars = $this->get_template_vars($post_id);
+        $event = get_post_meta($post_id, '_sciflow_event', true);
+
+        $editor_email = $this->get_editor_email($event);
+        if (empty($editor_email)) {
+            return;
+        }
+
+        $sm = new SciFlow_Status_Manager();
+        $vars['old_status_label'] = $sm->get_status_label($old_status);
+
+        $subject = sprintf(__('[%s] Alteração de Status: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
+
+        $this->send($editor_email, $subject, 'editor-status-change', $vars);
     }
 }

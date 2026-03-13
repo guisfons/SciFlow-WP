@@ -47,6 +47,7 @@
 
         const content = editor.getContent({ format: 'text' }).replace(/\n/g, ' ').trim();
         const title = $('#sciflow-title').val() || '';
+        const ack = $('#sciflow-acknowledgement').val() || '';
 
         // Title counter
         const titleLen = title.length;
@@ -58,8 +59,8 @@
             $titleWrapper.css('color', '#666');
         }
 
-        // Combined counter (Title + Abstract)
-        const total = titleLen + content.length;
+        // Combined counter (Title + Abstract + Acknowledgement)
+        const total = titleLen + content.length + ack.length;
 
         const $counter = $('#sciflow-char-count');
         const $wrapper = $('#sciflow-char-counter');
@@ -96,19 +97,33 @@
                 const editor = tinyMCE.get('sciflow_content');
                 if (editor) {
                     clearInterval(waitForEditor);
-                    editor.on('keyup change blur', function() {
-                        // Strip <p>, <br> and any line breaks
+                    // Strip <p> and <br> tags ONLY on blur (when user leaves the field).
+                    // Using setContent() on 'change' resets the cursor to position 0 on every keystroke.
+                    editor.on('blur', function() {
                         const content = editor.getContent();
                         if (content.includes('<p>') || content.includes('<br')) {
                             const stripped = content.replace(/<\/?p>/g, '').replace(/<br\s*\/?>/g, ' ');
                             editor.setContent(stripped);
                         }
+                    });
+
+                    editor.on('keyup change blur', function() {
                         updateCharCount();
                     });
 
-                    // Prevent line breaks (Enter and Shift+Enter)
+                    // Prevent line breaks (Enter and Shift+Enter) via keydown
                     editor.on('keydown', function (e) {
                         if (e.keyCode === 13) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            return false;
+                        }
+                    });
+
+                    // Belt-and-suspenders: also block paragraph/linebreak insertion
+                    // at the TinyMCE command level (covers autocomplete, voice input, etc.)
+                    editor.on('BeforeExecCommand', function (e) {
+                        if (e.command === 'InsertParagraph' || e.command === 'InsertLineBreak') {
                             e.preventDefault();
                             return false;
                         }
@@ -135,6 +150,7 @@
         }
 
         $('#sciflow-title').on('input change', updateCharCount);
+        $('#sciflow-acknowledgement').on('input change', updateCharCount);
 
         // Strip line breaks on paste for Title
         $('#sciflow-title').on('paste', function (e) {
@@ -290,6 +306,7 @@
         const area = $('select[name="knowledge_area"]').val() || '';
 
         let contentHtml = '';
+        let ackHtml = '';
         if (typeof tinyMCE !== 'undefined') {
             const editor = tinyMCE.get('sciflow_content');
             if (editor) contentHtml = editor.getContent();
@@ -303,6 +320,8 @@
             if (name) authors += '<strong>Coautor:</strong> ' + name + '<br>';
         });
 
+        ackHtml = $('#sciflow-acknowledgement').val() || '';
+
         const previewHtml = `
             <p><strong>Evento:</strong> ${event}</p>
             <p><strong>Cultura:</strong> ${cultura}</p>
@@ -311,6 +330,9 @@
             <h4>${title}</h4>
             <div style="margin-bottom: 15px; font-size: 13px;">${authors}</div>
             <div>${contentHtml}</div>
+            <hr>
+            <h5>Agradecimentos</h5>
+            <div style="margin-top: 15px; font-size: 13px;">${ackHtml}</div>
         `;
 
         $('#sciflow-preview-content').html(previewHtml);
@@ -571,6 +593,34 @@
         if (!confirm('Tem certeza que deseja ' + (labels[decision] || decision) + ' este trabalho?')) return;
 
         ajaxPost('sciflow_editorial_decision', { post_id: postId, decision: decision, notes: notes }, $btn)
+            .done(function (res) {
+                if (res.success) {
+                    showMessage('#sciflow-editor-messages', res.data.message, 'success');
+                    location.reload();
+                } else {
+                    showMessage('#sciflow-editor-messages', res.data.message, 'error');
+                }
+            });
+    });
+
+    // ─── Post Panel: Poster Decision ───
+
+    $(document).on('click', '.sciflow-poster-decision-btn', function () {
+        const $btn = $(this);
+        const $form = $btn.closest('.sciflow-decision-form');
+        const postId = $form.data('post-id');
+        const decision = $btn.data('decision');
+        const notes = $form.find('.sciflow-poster-decision-notes').val();
+
+        const labels = {
+            approve_poster: 'aprovar o pôster de',
+            reject_poster: 'reprovar o pôster de',
+            request_new_poster: 'pedir correção no pôster de'
+        };
+
+        if (!confirm('Tem certeza que deseja ' + (labels[decision] || decision) + ' este trabalho?')) return;
+
+        ajaxPost('sciflow_poster_decision', { post_id: postId, decision: decision, notes: notes }, $btn)
             .done(function (res) {
                 if (res.success) {
                     showMessage('#sciflow-editor-messages', res.data.message, 'success');
@@ -856,13 +906,16 @@
                     // Check if we are on the speaker form (the editor ID is shared for now but handled differently)
                     if ($('#sciflow-speaker-form').length) {
                         clearInterval(waitForEditor);
-                        editor.on('input change keyup blur', function() {
+                        editor.on('change blur', function() {
                             // Strip <p>, <br> and any line breaks
                             const content = editor.getContent();
                             if (content.includes('<p>') || content.includes('<br')) {
                                 const stripped = content.replace(/<\/?p>/g, '').replace(/<br\s*\/?>/g, ' ');
                                 editor.setContent(stripped);
                             }
+                        });
+                        
+                        editor.on('input change keyup blur', function() {
                             updateSpeakerCharCount();
                         });
 

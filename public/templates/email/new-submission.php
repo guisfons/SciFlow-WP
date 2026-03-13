@@ -56,7 +56,7 @@ if (!defined('ABSPATH'))
                 </tr>
             </table>
             <div style="text-align:center;margin:30px 0 10px;">
-                <a href="<?php echo esc_url($link); ?>"
+                <a href="<?php echo esc_url($link); ?>" target="_blank"
                     style="display:inline-block;padding:12px 30px;background:#2c5530;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
                     <?php esc_html_e('Acessar Painel', 'sciflow-wp'); ?>
                 </a>

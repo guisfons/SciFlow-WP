@@ -14,9 +14,9 @@ class SciFlow_Poster_Upload
     private $email;
 
     /**
-     * Max file size in bytes (10 MB).
+     * Max file size in bytes (5 MB).
      */
-    private const MAX_SIZE = 10485760;
+    private const MAX_SIZE = 5242880;
 
     public function __construct(SciFlow_Status_Manager $status_manager, SciFlow_Email $email)
     {
@@ -41,8 +41,8 @@ class SciFlow_Poster_Upload
         }
 
         $status = $this->status_manager->get_status($post_id);
-        if ($status !== 'aprovado' && $status !== 'poster_enviado') {
-            return new WP_Error('invalid_status', __('O trabalho precisa estar aprovado.', 'sciflow-wp'));
+        if (!in_array($status, array('aprovado', 'poster_em_correcao'), true)) {
+            return new WP_Error('invalid_status', __('O trabalho não está em um status que permite o envio de pôster.', 'sciflow-wp'));
         }
 
         // Validate file type.
@@ -54,7 +54,7 @@ class SciFlow_Poster_Upload
 
         // Validate size.
         if ($file['size'] > self::MAX_SIZE) {
-            return new WP_Error('file_too_large', __('O arquivo excede o limite de 10 MB.', 'sciflow-wp'));
+            return new WP_Error('file_too_large', __('O arquivo excede o limite de 5 MB.', 'sciflow-wp'));
         }
 
         // Use WP upload.
@@ -93,7 +93,9 @@ class SciFlow_Poster_Upload
         update_post_meta($post_id, '_sciflow_poster_id', $attachment_id);
 
         // Transition status.
-        if ($status === 'aprovado') {
+        if ($status === 'poster_em_correcao') {
+            $this->status_manager->transition($post_id, 'poster_reenviado');
+        } elseif ($status === 'aprovado') {
             $this->status_manager->transition($post_id, 'poster_enviado');
         }
 

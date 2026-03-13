@@ -109,7 +109,11 @@ class SciFlow_Admin
         // Ranking weights.
         $criteria = array('originalidade', 'objetividade', 'organizacao', 'metodologia', 'aderencia');
         foreach ($criteria as $key) {
-            $clean['ranking_weights'][$key] = floatval($input['ranking_weights'][$key] ?? 1);
+            $w_val = $input['ranking_weights'][$key] ?? 1;
+            if (is_string($w_val)) {
+                $w_val = str_replace(',', '.', $w_val);
+            }
+            $clean['ranking_weights'][$key] = floatval($w_val);
         }
 
         // WooCommerce product IDs.

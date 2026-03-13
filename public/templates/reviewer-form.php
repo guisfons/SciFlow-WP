@@ -254,12 +254,58 @@ $criteria = array(
                                     echo esc_html($decisions[$prev_decision] ?? $prev_decision);
                                     ?>
                                 </div>
-                                <?php if ($scores && is_array($scores)): ?>
-                                    <div style="font-size:18px;"><strong>
-                                            <?php esc_html_e('Média:', 'sciflow-wp'); ?>
-                                        </strong>
-                                        <?php echo number_format(get_post_meta($post->ID, '_sciflow_ranking_score', true), 2, ',', ''); ?>
-                                    </div>
+                                <?php if ($scores && is_array($scores)): 
+                                    $settings = get_option('sciflow_settings', array());
+                                    $weights  = $settings['ranking_weights'] ?? array();
+                                    $total_weighted = 0;
+                                    $total_weight   = 0;
+                                ?>
+                                    <table class="sciflow-score-breakdown" style="width:100%; border-collapse:collapse; margin-top:15px; font-size:12px;">
+                                        <thead>
+                                            <tr style="border-bottom:1px solid #ddd; text-align:left;">
+                                                <th style="padding:4px 0;"><?php esc_html_e('Critério', 'sciflow-wp'); ?></th>
+                                                <th style="padding:4px 0; text-align:center;"><?php esc_html_e('Nota', 'sciflow-wp'); ?></th>
+                                                <th style="padding:4px 0; text-align:center;"><?php esc_html_e('Peso', 'sciflow-wp'); ?></th>
+                                                <th style="padding:4px 0; text-align:right;"><?php esc_html_e('Pond.', 'sciflow-wp'); ?></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($criteria as $key => $label_text): 
+                                                $s_val = $scores[$key] ?? 0;
+                                                $w_val = $weights[$key] ?? 1;
+
+                                                // Handle comma in raw data
+                                                if (is_string($s_val)) $s_val = str_replace(',', '.', $s_val);
+                                                if (is_string($w_val)) $w_val = str_replace(',', '.', $w_val);
+                                                
+                                                $s_val = floatval($s_val);
+                                                $w_val = floatval($w_val);
+                                                if ($w_val <= 0) $w_val = 1;
+
+                                                $weighted = $s_val * $w_val;
+                                                $total_weighted += $weighted;
+                                                $total_weight   += $w_val;
+                                            ?>
+                                                <tr style="border-bottom:1px solid #eee;">
+                                                    <td style="padding:4px 0;"><?php echo esc_html($label_text); ?></td>
+                                                    <td style="padding:4px 0; text-align:center;"><?php echo number_format($s_val, 1, ',', ''); ?></td>
+                                                    <td style="padding:4px 0; text-align:center;"><?php echo number_format($w_val, 1, ',', ''); ?></td>
+                                                    <td style="padding:4px 0; text-align:right;"><?php echo number_format($weighted, 2, ',', ''); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr style="font-weight:bold; font-size:14px;">
+                                                <td colspan="3" style="padding:8px 0;"><?php esc_html_e('Nota Final (Média Ponderada):', 'sciflow-wp'); ?></td>
+                                                <td style="padding:8px 0; text-align:right; color:#2c5530;">
+                                                    <?php 
+                                                    $final = $total_weight > 0 ? ($total_weighted / $total_weight) : 0;
+                                                    echo number_format($final, 2, ',', ''); 
+                                                    ?>
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
                                 <?php endif; ?>
                                 <p class="mt-2 text-muted small" style="margin-top:10px; font-size:12px;">
                                     <em><i class="dashicons dashicons-lock"></i>

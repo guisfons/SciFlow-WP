@@ -172,10 +172,30 @@ $events = array(
                                         <strong>
                                             #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> - <?php echo esc_html($post->post_title); ?>
                                         </strong>
-                                        <button class="sciflow-btn sciflow-btn--link sciflow-toggle-content"
-                                            data-target="content-<?php echo esc_attr($post->ID); ?>">
-                                            <?php esc_html_e('Ver conteúdo', 'sciflow-wp'); ?>
-                                        </button>
+                                        <div class="sciflow-table-meta-links" style="display: flex; gap: 10px; margin-top: 5px;">
+                                            <?php 
+                                            $can_decide = array('aguardando_decisao', 'submetido_com_revisao', 'em_avaliacao', 'submetido', 'aprovado', 'poster_enviado', 'poster_reenviado');
+                                            $finalized_poster = array('apto_publicacao', 'poster_aprovado', 'poster_reprovado');
+                                            if (in_array($status, $can_decide, true) && !in_array($status, $finalized_poster, true)): ?>
+                                                <!-- Decision dropdown -->
+                                                <button class="sciflow-btn sciflow-btn--link sciflow-toggle-content"
+                                                    data-target="content-<?php echo esc_attr($post->ID); ?>" style="padding:0; font-size:12px;">
+                                                    <?php esc_html_e('Tomar Decisão', 'sciflow-wp'); ?>
+                                                </button>
+                                            <?php endif; ?>
+                                            <button class="sciflow-btn sciflow-btn--link sciflow-toggle-content"
+                                                data-target="content-<?php echo esc_attr($post->ID); ?>" style="padding:0; font-size:12px;">
+                                                <?php esc_html_e('Ver conteúdo', 'sciflow-wp'); ?>
+                                            </button>
+                                            <?php 
+                                            $poster_id = get_post_meta($post->ID, '_sciflow_poster_id', true);
+                                            if ($poster_id): ?>
+                                                <a href="<?php echo esc_url(wp_get_attachment_url($poster_id)); ?>" target="_blank" 
+                                                   class="sciflow-text--success" style="font-size:12px; text-decoration:none;">
+                                                    <i class="bi bi-file-earmark-pdf"></i> <?php esc_html_e('Ver Pôster', 'sciflow-wp'); ?>
+                                                </a>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td>
                                         <?php 
@@ -212,6 +232,20 @@ $events = array(
                                                 <button class="sciflow-btn sciflow-btn--primary sciflow-btn--sm sciflow-assign-btn"
                                                     data-post-id="<?php echo esc_attr($post->ID); ?>">
                                                     <?php esc_html_e('Atribuir', 'sciflow-wp'); ?>
+                                                </button>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <?php if ($poster_id && !in_array($status, array('apto_publicacao', 'poster_reprovado'))): ?>
+                                            <div class="sciflow-decision-form" data-post-id="<?php echo esc_attr($post->ID); ?>" style="display:flex; gap:5px;">
+                                                <button class="sciflow-btn sciflow-btn--success sciflow-btn--sm sciflow-poster-decision-btn" data-decision="approve_poster" title="<?php esc_attr_e('Aprovar Pôster', 'sciflow-wp'); ?>">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                                <button class="sciflow-btn sciflow-btn--warning sciflow-btn--sm sciflow-poster-decision-btn" data-decision="request_new_poster" title="<?php esc_attr_e('Pedir Correção', 'sciflow-wp'); ?>">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </button>
+                                                <button class="sciflow-btn sciflow-btn--danger sciflow-btn--sm sciflow-poster-decision-btn" data-decision="reject_poster" title="<?php esc_attr_e('Reprovar', 'sciflow-wp'); ?>">
+                                                    <i class="bi bi-x-lg"></i>
                                                 </button>
                                             </div>
                                         <?php endif; ?>
@@ -254,13 +288,24 @@ $events = array(
                                                     </h4>
                                                     <?php echo wp_kses_post($post->post_content); ?>
                                                 </div>
+
+                                                <?php
+                                                $ack = get_post_meta($post->ID, '_sciflow_acknowledgement', true);
+                                                if (!empty($ack)): ?>
+                                                    <div style="margin-top:12px; padding:12px; background:#f9f9f9; border:1px solid #eee; border-radius:6px;">
+                                                        <strong><?php esc_html_e('Agradecimentos:', 'sciflow-wp'); ?></strong>
+                                                        <p style="margin:5px 0 0; white-space:pre-wrap;"><?php echo esc_html($ack); ?></p>
+                                                    </div>
+                                                <?php endif; ?>
                                             </div>
 
                                             <!-- RIGHT COLUMN: Decisions & History -->
                                             <div class="sciflow-editorial-sidebar"
                                                 style="flex: 1; min-width: 300px; background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
 
-                                                <?php if ($status === 'aguardando_decisao' || $status === 'em_correcao' || $status === 'em_avaliacao'):
+                                                <?php 
+                                                $decision_ready = array('aguardando_decisao', 'em_correcao', 'em_avaliacao', 'submetido', 'aprovado', 'poster_enviado', 'poster_aprovado', 'poster_em_correcao', 'poster_reprovado', 'poster_reenviado');
+                                                if (in_array($status, $decision_ready, true)):
                                                     $history = SciFlow_Editorial::get_message_history($post->ID);
                                                     ?>
                                                     <!-- Editorial History -->
@@ -292,21 +337,92 @@ $events = array(
                                                         </div>
                                                     <?php endif; ?>
 
-                                                    <?php if ($status === 'aguardando_decisao' || $status === 'submetido_com_revisao'): ?>
+                                                    <?php 
+                                                    $direct_decision = array('aguardando_decisao', 'submetido_com_revisao', 'submetido', 'em_avaliacao');
+                                                    if (in_array($status, $direct_decision, true)): 
+                                                        ?>
                                                         <!-- Reviewer Recommendation -->
-                                                        <?php if ($rev_decision): ?>
+                                                        <?php if ($rev_decision): 
+                                                            $scores   = get_post_meta($post->ID, '_sciflow_scores', true);
+                                                            $settings = get_option('sciflow_settings', array());
+                                                            $weights  = $settings['ranking_weights'] ?? array();
+                                                            $criteria = array(
+                                                                'originalidade' => __('Originalidade', 'sciflow-wp'),
+                                                                'objetividade'  => __('Objetividade', 'sciflow-wp'),
+                                                                'organizacao'   => __('Organização', 'sciflow-wp'),
+                                                                'metodologia'   => __('Metodologia', 'sciflow-wp'),
+                                                                'aderencia'     => __('Aderência aos Objetivos', 'sciflow-wp'),
+                                                            );
+                                                        ?>
                                                             <div class="sciflow-reviewer-recommendation mb-3"
-                                                                style="padding:10px; background:#e9f5ff; border-radius:4px; color:#00509e;">
-                                                                <strong><?php esc_html_e('Recomendação do Revisor:', 'sciflow-wp'); ?></strong><br>
-                                                                <?php
-                                                                $recs = array(
-                                                                    'approved' => __('Aprovar', 'sciflow-wp'),
-                                                                    'approved_with_considerations' => __('Aprovar com Considerações', 'sciflow-wp'),
-                                                                    'reject' => __('Reprovado', 'sciflow-wp'),
-                                                                    'rejected' => __('Reprovar', 'sciflow-wp'),
-                                                                );
-                                                                echo esc_html($recs[$rev_decision] ?? $rev_decision);
-                                                                ?>
+                                                                style="padding:15px; background:#f0f7ff; border-radius:6px; color:#00509e; border:1px solid #cce3ff;">
+                                                                <strong style="display:block; margin-bottom:10px;"><?php esc_html_e('Detalhamento da Avaliação:', 'sciflow-wp'); ?></strong>
+                                                                
+                                                                <?php if ($scores && is_array($scores)): ?>
+                                                                    <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:15px;">
+                                                                        <thead>
+                                                                            <tr style="border-bottom:1px solid #b6d4fe;">
+                                                                                <th style="padding:4px 0; text-align:left;"><?php esc_html_e('Critério', 'sciflow-wp'); ?></th>
+                                                                                <th style="padding:4px 0; text-align:center;"><?php esc_html_e('Nota', 'sciflow-wp'); ?></th>
+                                                                                <th style="padding:4px 0; text-align:center;"><?php esc_html_e('Peso', 'sciflow-wp'); ?></th>
+                                                                                <th style="padding:4px 0; text-align:right;"><?php esc_html_e('Pond.', 'sciflow-wp'); ?></th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            <?php 
+                                                                            $total_weighted = 0;
+                                                                            $total_weight   = 0;
+                                                                            foreach ($criteria as $key => $label_text): 
+                                                                                $s_val = $scores[$key] ?? 0;
+                                                                                $w_val = $weights[$key] ?? 1;
+
+                                                                                if (is_string($s_val)) $s_val = str_replace(',', '.', $s_val);
+                                                                                if (is_string($w_val)) $w_val = str_replace(',', '.', $w_val);
+                                                                                
+                                                                                $s_val = floatval($s_val);
+                                                                                $w_val = floatval($w_val);
+                                                                                if ($w_val <= 0) $w_val = 1;
+
+                                                                                $weighted = $s_val * $w_val;
+                                                                                $total_weighted += $weighted;
+                                                                                $total_weight   += $w_val;
+                                                                            ?>
+                                                                                <tr style="border-bottom:1px solid #e2efff;">
+                                                                                    <td style="padding:4px 0;"><?php echo esc_html($label_text); ?></td>
+                                                                                    <td style="padding:4px 0; text-align:center;"><?php echo number_format($s_val, 1, ',', ''); ?></td>
+                                                                                    <td style="padding:4px 0; text-align:center;"><?php echo number_format($w_val, 1, ',', ''); ?></td>
+                                                                                    <td style="padding:4px 0; text-align:right;"><?php echo number_format($weighted, 2, ',', ''); ?></td>
+                                                                                </tr>
+                                                                            <?php endforeach; ?>
+                                                                        </tbody>
+                                                                        <tfoot>
+                                                                            <tr style="font-weight:bold; font-size:13px;">
+                                                                                <td colspan="3" style="padding:8px 0;"><?php esc_html_e('Média Ponderada:', 'sciflow-wp'); ?></td>
+                                                                                <td style="padding:8px 0; text-align:right;">
+                                                                                    <?php 
+                                                                                    $final = $total_weight > 0 ? ($total_weighted / $total_weight) : 0;
+                                                                                    echo number_format($final, 2, ',', ''); 
+                                                                                    ?>
+                                                                                </td>
+                                                                            </tr>
+                                                                        </tfoot>
+                                                                    </table>
+                                                                <?php endif; ?>
+
+                                                                <div style="margin-top:10px; padding-top:10px; border-top:1px solid #b6d4fe;">
+                                                                    <strong><?php esc_html_e('Recomendação Final:', 'sciflow-wp'); ?></strong>
+                                                                    <span style="margin-left:5px;">
+                                                                        <?php
+                                                                        $recs = array(
+                                                                            'approved' => __('Aprovar', 'sciflow-wp'),
+                                                                            'approved_with_considerations' => __('Aprovar com Considerações', 'sciflow-wp'),
+                                                                            'reject' => __('Reprovado', 'sciflow-wp'),
+                                                                            'rejected' => __('Reprovar', 'sciflow-wp'),
+                                                                        );
+                                                                        echo esc_html($recs[$rev_decision] ?? $rev_decision);
+                                                                        ?>
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                         <?php endif; ?>
 
@@ -345,6 +461,55 @@ $events = array(
                                                             </div>
                                                         </div>
                                                     <?php endif; ?>
+                                                <?php endif; ?>
+
+                                                <?php 
+                                                $poster_id = get_post_meta($post->ID, '_sciflow_poster_id', true);
+                                                if ($poster_id):
+                                                    $history   = SciFlow_Editorial::get_message_history($post->ID);
+                                                    ?>
+                                                    <!-- Poster Decision Form -->
+                                                    <div class="sciflow-decision-form" data-post-id="<?php echo esc_attr($post->ID); ?>">
+                                                        <h5 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:8px;">
+                                                            <?php esc_html_e('Decisão do Pôster', 'sciflow-wp'); ?>
+                                                        </h5>
+                                                        <?php if ($poster_id): ?>
+                                                            <p style="margin-bottom:12px;">
+                                                                <a href="<?php echo esc_url(wp_get_attachment_url($poster_id)); ?>" target="_blank" class="sciflow-btn sciflow-btn--link">
+                                                                    📄 <?php esc_html_e('Visualizar Pôster Enviado', 'sciflow-wp'); ?>
+                                                                </a>
+                                                            </p>
+                                                        <?php endif; ?>
+
+                                                        <?php if (!empty($history)): ?>
+                                                            <div style="max-height:200px; overflow-y:auto; margin-bottom:12px;">
+                                                                <?php foreach ($history as $msg): ?>
+                                                                    <div style="margin-bottom:10px; padding:8px; background:#f9f9f9; border-left:3px solid #ccc;">
+                                                                        <div style="font-size:0.85em; color:#666; margin-bottom:4px;">
+                                                                            <strong><?php echo esc_html(ucfirst($msg['role'])); ?></strong>
+                                                                            &bull; <?php echo date_i18n('d/m/Y H:i', strtotime($msg['timestamp'])); ?>
+                                                                        </div>
+                                                                        <div style="font-size:0.9em;"><?php echo wp_kses_post($msg['content']); ?></div>
+                                                                    </div>
+                                                                <?php endforeach; ?>
+                                                            </div>
+                                                        <?php endif; ?>
+
+                                                        <textarea class="sciflow-field__textarea sciflow-poster-decision-notes"
+                                                            placeholder="<?php esc_attr_e('Observações para o autor sobre o pôster...', 'sciflow-wp'); ?>"
+                                                            rows="3" style="width:100%; margin-bottom:10px;"></textarea>
+                                                        <div style="display:flex; flex-direction:column; gap:8px;">
+                                                            <button class="sciflow-btn sciflow-btn--success sciflow-poster-decision-btn" data-decision="approve_poster" style="width:100%;">
+                                                                <?php esc_html_e('Aprovar Pôster', 'sciflow-wp'); ?>
+                                                            </button>
+                                                            <button class="sciflow-btn sciflow-btn--warning sciflow-poster-decision-btn" data-decision="request_new_poster" style="width:100%;">
+                                                                <?php esc_html_e('Pedir Novo Pôster (com considerações)', 'sciflow-wp'); ?>
+                                                            </button>
+                                                            <button class="sciflow-btn sciflow-btn--danger sciflow-poster-decision-btn" data-decision="reject_poster" style="width:100%;">
+                                                                <?php esc_html_e('Reprovar Pôster', 'sciflow-wp'); ?>
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 <?php endif; ?>
 
                                             </div>

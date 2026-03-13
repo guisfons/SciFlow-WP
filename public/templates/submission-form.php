@@ -36,6 +36,7 @@ $keywords = $edit_post ? get_post_meta($post_id, '_sciflow_keywords', true) : ar
 if (!is_array($keywords)) $keywords = array();
 $coauthors = $edit_post ? get_post_meta($post_id, '_sciflow_coauthors', true) : array();
 if (!is_array($coauthors)) $coauthors = array();
+$acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgement', true) : '';
 ?>
 
 <div class="sciflow-form-wrapper" id="sciflow-submission-form">
@@ -88,7 +89,7 @@ if (!is_array($coauthors)) $coauthors = array();
             </label>
             <select id="sciflow-event" name="event" required class="sciflow-field__select">
                 <option value=""><?php esc_html_e( 'Selecione o evento', 'sciflow-wp' ); ?></option>
-                <option value="enfrute" <?php selected($event, 'enfrute'); ?>>Enfrute — Congresso Nacional</option>
+                <option value="enfrute" <?php selected($event, 'enfrute'); ?>>Enfrute — Encontro Nacional sobre Fruticultura de Clima Temperado</option>
                 <option value="semco" <?php selected($event, 'semco'); ?>>Semco — Seminário Catarinense de Olericultura</option>
             </select>
         </div>
@@ -257,14 +258,32 @@ if (!is_array($coauthors)) $coauthors = array();
                 'media_buttons' => false,
                 'quicktags'     => false,
                 'tinymce'       => array(
-                    'toolbar1' => 'bold,italic,bullist,numlist,link,unlink,undo,redo',
-                    'toolbar2' => '',
+                    'toolbar1'          => 'bold,italic,link,unlink,undo,redo',
+                    'toolbar2'          => '',
+                    'forced_root_block' => false,
+                    'newline_behavior'  => 'default',
+                    'paste_as_text'     => true,
                 ),
             ) );
             ?>
             <div class="sciflow-char-counter" id="sciflow-char-counter">
                 <span id="sciflow-char-count">0</span> / 4000
-                <span class="sciflow-char-counter__label"><?php esc_html_e( 'caracteres (mín. 3000, máx. 4000)', 'sciflow-wp' ); ?></span>
+                <span class="sciflow-char-counter__label"><?php esc_html_e( 'caracteres (Título + Resumo + Agradecimentos)', 'sciflow-wp' ); ?></span>
+            </div>
+        </div>
+
+        <!-- Acknowledgements -->
+        <div class="sciflow-field">
+            <label for="sciflow-acknowledgement" class="sciflow-field__label">
+                <?php esc_html_e( 'Agradecimentos', 'sciflow-wp' ); ?>
+            </label>
+            <textarea id="sciflow-acknowledgement" name="acknowledgement"
+                      class="sciflow-field__textarea"
+                      maxlength="250"
+                      rows="3"
+                      placeholder="<?php esc_attr_e( 'Campo opcional — máximo de 250 caracteres.', 'sciflow-wp' ); ?>"><?php echo esc_textarea($acknowledgement); ?></textarea>
+            <div class="sciflow-char-counter" style="margin-top: 5px; font-size: 12px; color: #666;">
+                <span id="sciflow-ack-count">0</span> / 250 <?php esc_html_e( 'caracteres', 'sciflow-wp' ); ?>
             </div>
         </div>
 
@@ -284,7 +303,6 @@ if (!is_array($coauthors)) $coauthors = array();
                        <?php echo $i < 3 ? 'required' : ''; ?>>
             <?php endfor; ?>
         </div>
-
 
         <!-- Submit -->
         <?php 
@@ -317,3 +335,17 @@ if (!is_array($coauthors)) $coauthors = array();
         </div>
     </div>
 </div>
+
+<script>
+(function() {
+    var textarea = document.getElementById('sciflow-acknowledgement');
+    var counter  = document.getElementById('sciflow-ack-count');
+    if (textarea && counter) {
+        function updateCount() {
+            counter.textContent = textarea.value.length;
+        }
+        textarea.addEventListener('input', updateCount);
+        updateCount(); // initialise with pre-filled value
+    }
+})();
+</script>

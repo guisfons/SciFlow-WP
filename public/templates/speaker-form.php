@@ -34,7 +34,7 @@ $current_user = wp_get_current_user();
                 <option value="">
                     <?php esc_html_e('Selecione o evento', 'sciflow-wp'); ?>
                 </option>
-                <option value="enfrute">Enfrute — Congresso Nacional</option>
+                <option value="enfrute">Enfrute — Encontro Nacional sobre Fruticultura de Clima Temperado</option>
                 <option value="semco">Semco — Seminário Catarinense de Olericultura</option>
             </select>
         </div>
@@ -53,16 +53,16 @@ $current_user = wp_get_current_user();
                 <?php esc_html_e('Resumo / Conteúdo (16.000 a 25.000 caracteres) *', 'sciflow-wp'); ?>
             </label>
             <?php
-            wp_editor( $content, 'sciflow_content', array(
+            wp_editor($content, 'sciflow_content', array(
                 'textarea_name' => 'content',
                 'textarea_rows' => 12,
                 'media_buttons' => false,
-                'quicktags'     => false,
-                'tinymce'       => array(
+                'quicktags' => false,
+                'tinymce' => array(
                     'toolbar1' => 'bold,italic,bullist,numlist,link,unlink,undo,redo',
                     'toolbar2' => '',
                 ),
-            ) );
+            ));
             ?>
             <div class="sciflow-field__help" id="speaker-char-count">Caracteres: 0 / 25000 (Mínimo: 16000)</div>
         </div>

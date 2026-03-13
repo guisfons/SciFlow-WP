@@ -58,6 +58,7 @@ class SciFlow_Submission
         // Validate content length (3000-4000 chars). Skip if it's a draft.
         $title = sanitize_text_field($data['title'] ?? '');
         $content = wp_kses_post($data['content'] ?? '');
+        $acknowledgement = sanitize_textarea_field($data['acknowledgement'] ?? '');
 
         if (!$is_draft) {
             // Title limit.
@@ -65,14 +66,14 @@ class SciFlow_Submission
                 return new WP_Error('title_limit', __('O título deve ter no máximo 180 caracteres.', 'sciflow-wp'));
             }
 
-            // Combined Title + Content.
-            $char_count = mb_strlen($title) + mb_strlen(trim(wp_strip_all_tags($content)));
+            // Combined Title + Content + Acknowledgement.
+            $char_count = mb_strlen($title) + mb_strlen(trim(wp_strip_all_tags($content))) + mb_strlen(trim($acknowledgement));
 
             if ($char_count < 3000 || $char_count > 4000) {
                 return new WP_Error(
                     'char_limit',
                     sprintf(
-                        __('O título + resumo deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'),
+                        __('O título + resumo + agradecimentos deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'),
                         $char_count
                     )
                 );
@@ -211,6 +212,13 @@ class SciFlow_Submission
         update_post_meta($post_id, '_sciflow_language', $language);
         update_post_meta($post_id, '_sciflow_payment_status', 'confirmed');
 
+        // Acknowledgements (optional, max 250 chars).
+        // Already sanitized earlier for validation.
+        if (mb_strlen($acknowledgement) > 250) {
+            $acknowledgement = mb_substr($acknowledgement, 0, 250);
+        }
+        update_post_meta($post_id, '_sciflow_acknowledgement', $acknowledgement);
+
         // If resubmitting from correction, add a system message.
         if (!empty($was_in_correction) && !$is_draft) {
             $editorial = new SciFlow_Editorial($this->status_manager, $this->email);
@@ -233,11 +241,6 @@ class SciFlow_Submission
     {
         update_post_meta($post_id, '_sciflow_payment_status', 'confirmed');
         $result = $this->status_manager->transition($post_id, 'submetido');
-
-        if (!is_wp_error($result)) {
-            $event = get_post_meta($post_id, '_sciflow_event', true);
-            $this->email->send_new_submission($post_id, $event);
-        }
 
         return $result;
     }
@@ -263,14 +266,15 @@ class SciFlow_Submission
         // Update content.
         $title = sanitize_text_field($data['title'] ?? '');
         $content = wp_kses_post($data['content'] ?? '');
+        $acknowledgement = sanitize_textarea_field($data['acknowledgement'] ?? '');
 
         // Re-validate limits on resubmit as well
         if (mb_strlen($title) > 180) {
             return new WP_Error('title_limit', __('O título deve ter no máximo 180 caracteres.', 'sciflow-wp'));
         }
-        $char_count = mb_strlen($title) + mb_strlen(trim(wp_strip_all_tags($content)));
+        $char_count = mb_strlen($title) + mb_strlen(trim(wp_strip_all_tags($content))) + mb_strlen(trim($acknowledgement));
         if ($char_count < 3000 || $char_count > 4000) {
-            return new WP_Error('char_limit', sprintf(__('O título + resumo deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'), $char_count));
+            return new WP_Error('char_limit', sprintf(__('O título + resumo + agradecimentos deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'), $char_count));
         }
 
         // Link blocking check.
@@ -348,6 +352,15 @@ class SciFlow_Submission
 
         if (isset($data['language'])) {
             update_post_meta($post_id, '_sciflow_language', sanitize_text_field($data['language']));
+        }
+
+        // Acknowledgements (optional, max 250 chars).
+        if (isset($data['acknowledgement'])) {
+            // Already sanitized earlier for validation.
+            if (mb_strlen($acknowledgement) > 250) {
+                $acknowledgement = mb_substr($acknowledgement, 0, 250);
+            }
+            update_post_meta($post_id, '_sciflow_acknowledgement', $acknowledgement);
         }
 
         // Transition to the new submetido com revisao status.
