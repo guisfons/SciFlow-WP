@@ -451,6 +451,8 @@ class SciFlow_Email
         $action_required_statuses = array(
             'aguardando_decisao',
             'submetido_com_revisao',
+            'poster_enviado',
+            'poster_reenviado',
         );
 
         if (!in_array($new_status, $action_required_statuses, true)) {
@@ -459,6 +461,12 @@ class SciFlow_Email
 
         $vars = $this->get_template_vars($post_id);
         $event = get_post_meta($post_id, '_sciflow_event', true);
+
+        if ($new_status === 'poster_enviado') {
+            $vars['message'] = __('O autor enviou o pôster final para este trabalho.', 'sciflow-wp');
+        } elseif ($new_status === 'poster_reenviado') {
+            $vars['message'] = __('O autor reenviou o pôster após as correções solicitadas.', 'sciflow-wp');
+        }
 
         $editor_email = $this->get_editor_email($event);
         if (empty($editor_email)) {
