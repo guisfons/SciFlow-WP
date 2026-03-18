@@ -1,16 +1,9 @@
 <?php
 /**
- * Email template: Editorial Decision → Author.
+ * Email template: Submission Confirmation.
  */
 if (!defined('ABSPATH'))
     exit;
-$color = '#2c5530';
-if (!empty($decision_label)) {
-    if (strpos($decision_label, 'Reprovado') !== false)
-        $color = '#c0392b';
-    elseif (strpos($decision_label, 'Devolvido') !== false)
-        $color = '#e67e22';
-}
 ?>
 <!DOCTYPE html>
 <html>
@@ -22,13 +15,12 @@ if (!empty($decision_label)) {
 <body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f7fa;">
     <div
         style="max-width:600px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-        <div
-            style="background:linear-gradient(135deg,<?php echo $color; ?>,<?php echo $color; ?>cc);padding:30px;text-align:center;">
+        <div style="background:linear-gradient(135deg,#2c5530,#4a8f4f);padding:30px;text-align:center;">
             <h1 style="color:#fff;margin:0;font-size:22px;">
                 <?php echo esc_html($site_name); ?>
             </h1>
             <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">
-                <?php esc_html_e('Decisão Editorial', 'sciflow-wp'); ?>
+                <?php esc_html_e('Confirmação de Submissão', 'sciflow-wp'); ?>
             </p>
         </div>
         <div style="padding:30px;">
@@ -54,19 +46,22 @@ if (!empty($decision_label)) {
                 </tr>
                 <tr>
                     <td style="padding:8px 12px;color:#666;font-weight:600;">
-                        <?php esc_html_e('Decisão', 'sciflow-wp'); ?>
+                        <?php esc_html_e('Status', 'sciflow-wp'); ?>
                     </td>
-                    <td style="padding:8px 12px;color:#333;font-weight:700;">
-                        <?php echo esc_html($decision_label ?? ''); ?>
+                    <td style="padding:8px 12px;color:#333;">
+                        <?php echo esc_html($status); ?>
                     </td>
                 </tr>
             </table>
             <div style="text-align:center;margin:30px 0 10px;">
                 <a href="<?php echo esc_url($link); ?>"
-                    style="display:inline-block;padding:12px 30px;background:<?php echo $color; ?>;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
-                    <?php esc_html_e('Acessar Meus Resumos', 'sciflow-wp'); ?>
+                    style="display:inline-block;padding:12px 30px;background:#2c5530;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
+                    <?php esc_html_e('Ver no Dashboard', 'sciflow-wp'); ?>
                 </a>
             </div>
+        </div>
+        <div style="background:#f4f7fa;padding:15px;text-align:center;font-size:12px;color:#999;">
+            <?php echo esc_html($site_name); ?>
         </div>
     </div>
 </body>

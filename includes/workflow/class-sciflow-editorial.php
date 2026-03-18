@@ -44,11 +44,17 @@ class SciFlow_Editorial
             return new WP_Error('not_reviewer', __('O usuário não tem papel de revisor.', 'sciflow-wp'));
         }
 
+        $author_id = get_post_field('post_author', $post_id);
+        if ((int)$reviewer_id === (int)$author_id) {
+            return new WP_Error('invalid_reviewer', __('O autor do trabalho não pode ser atribuído como revisor de seu próprio trabalho.', 'sciflow-wp'));
+        }
+
         update_post_meta($post_id, '_sciflow_reviewer_id', $reviewer_id);
         $result = $this->status_manager->transition($post_id, 'em_avaliacao');
 
         if (!is_wp_error($result)) {
             $this->email->send_assigned_reviewer($post_id, $reviewer_id);
+            $this->email->send_evaluation_notification($post_id);
         }
 
         return $result;
@@ -63,6 +69,11 @@ class SciFlow_Editorial
     {
         if (!current_user_can('manage_sciflow')) {
             return new WP_Error('unauthorized', __('Permissão insuficiente.', 'sciflow-wp'));
+        }
+
+        $author_id = get_post_field('post_author', $post_id);
+        if ((int)get_current_user_id() === (int)$author_id && !current_user_can('administrator')) {
+            return new WP_Error('unauthorized', __('Você não pode tomar decisões sobre o seu próprio trabalho.', 'sciflow-wp'));
         }
 
         $current = $this->status_manager->get_status($post_id);
@@ -121,6 +132,11 @@ class SciFlow_Editorial
             return new WP_Error('unauthorized', __('Permissão insuficiente.', 'sciflow-wp'));
         }
 
+        $author_id = get_post_field('post_author', $post_id);
+        if ((int)get_current_user_id() === (int)$author_id && !current_user_can('administrator')) {
+            return new WP_Error('unauthorized', __('Você não pode tomar decisões sobre o seu próprio pôster.', 'sciflow-wp'));
+        }
+
         $poster_id = get_post_meta($post_id, '_sciflow_poster_id', true);
         if (!$poster_id) {
             return new WP_Error('no_poster', __('O trabalho precisa ter um pôster enviado para receber uma decisão.', 'sciflow-wp'));
@@ -161,10 +177,13 @@ class SciFlow_Editorial
             return array();
         }
 
+        $current_user_id = get_current_user_id();
+
         $args = array(
             'post_type' => $post_type,
             'posts_per_page' => -1,
             'post_status' => 'any',
+            // 'author__not_in' => array($current_user_id),
         );
 
         if ($status) {

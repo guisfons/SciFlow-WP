@@ -46,7 +46,7 @@ $poster_template_url = $settings['poster_template_url'] ?? '';
             ?>
             <div class="sciflow-upload-card">
                 <h3>
-                    <?php echo esc_html($post->post_title); ?>
+                    #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> - <?php echo esc_html($post->post_title); ?>
                 </h3>
 
                 <?php if ($poster_id): ?>
@@ -63,11 +63,14 @@ $poster_template_url = $settings['poster_template_url'] ?? '';
                         <strong><?php esc_html_e('O editor solicitou o envio de um novo pôster.', 'sciflow-wp'); ?></strong>
                         <?php
                         $hist = SciFlow_Editorial::get_message_history($post->ID);
-                        $last_msg = !empty($hist) ? end($hist) : null;
-                        if ($last_msg && $last_msg['role'] === 'editor'):
+                        if (!empty($hist)):
+                            foreach ($hist as $msg):
+                                if ($msg['role'] === 'editor'):
+                                    echo '<br><em>' . esc_html($msg['content']) . '</em>';
+                                endif;
+                            endforeach;
+                        endif;
                         ?>
-                            <br><em><?php echo esc_html($last_msg['content']); ?></em>
-                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
 

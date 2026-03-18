@@ -53,10 +53,12 @@
         const titleLen = title.length;
         $('#sciflow-title-count').text(titleLen);
         const $titleWrapper = $('#sciflow-title-counter');
+        
+        $titleWrapper.removeClass('is-over is-valid');
         if (titleLen > 180) {
-            $titleWrapper.css('color', 'red');
-        } else {
-            $titleWrapper.css('color', '#666');
+            $titleWrapper.addClass('is-over');
+        } else if (titleLen > 0) {
+            $titleWrapper.addClass('is-valid');
         }
 
         // Combined counter (Title + Abstract + Acknowledgement)
@@ -66,11 +68,13 @@
         const $wrapper = $('#sciflow-char-counter');
         $counter.text(total);
 
-        $wrapper.removeClass('is-over is-valid');
+        $wrapper.removeClass('is-over is-valid is-too-short');
         if (total > 4000) {
             $wrapper.addClass('is-over');
         } else if (total >= 3000) {
             $wrapper.addClass('is-valid');
+        } else if (total > 0) {
+            $wrapper.addClass('is-too-short');
         }
     }
 

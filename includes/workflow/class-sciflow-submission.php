@@ -180,9 +180,7 @@ class SciFlow_Submission
             } else {
                 update_post_meta($post_id, '_sciflow_status', 'submetido');
             }
-            // Notify editor on new submission (if not a draft).
-            $this->email->send_new_submission($post_id, $event);
-            $this->email->send_submission_confirmation($post_id);
+            // We'll send these after updating meta since we need meta for recipients.
         }
 
         update_post_meta($post_id, '_sciflow_event', $event);
@@ -223,7 +221,12 @@ class SciFlow_Submission
         if (!empty($was_in_correction) && !$is_draft) {
             $editorial = new SciFlow_Editorial($this->status_manager, $this->email);
             $editorial->add_message($post_id, 'autor', __('O autor enviou as alterações solicitadas.', 'sciflow-wp'));
-            // Note: send_new_submission was already called above if not a draft.
+        }
+
+        // Notify editor on new submission (if not a draft).
+        if (!$is_draft) {
+            $this->email->send_new_submission($post_id, $event);
+            $this->email->send_submission_confirmation($post_id);
         }
 
         /**

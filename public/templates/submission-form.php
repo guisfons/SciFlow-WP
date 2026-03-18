@@ -268,7 +268,7 @@ $acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgemen
             ?>
             <div class="sciflow-char-counter" id="sciflow-char-counter">
                 <span id="sciflow-char-count">0</span> / 4000
-                <span class="sciflow-char-counter__label"><?php esc_html_e( 'caracteres (Título + Resumo + Agradecimentos)', 'sciflow-wp' ); ?></span>
+                <span class="sciflow-char-counter__label"><?php esc_html_e( 'caracteres (Mínimo: 3.000 / Máximo: 4.000)', 'sciflow-wp' ); ?></span>
             </div>
         </div>
 

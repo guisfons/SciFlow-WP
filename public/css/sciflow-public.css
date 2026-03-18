@@ -255,6 +255,10 @@
     color: var(--sciflow-success);
 }
 
+.sciflow-char-counter.is-too-short {
+    color: var(--sciflow-warning);
+}
+
 /* ── Co-author row ── */
 .sciflow-coauthor-row, .sciflow-coauthor-item {
     display: grid;

@@ -27,7 +27,7 @@ get_header();
             // Filter to only approved works.
             $approved = array_filter($submissions, function ($post) {
                 $status = get_post_meta($post->ID, '_sciflow_status', true);
-                return in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao'), true);
+                return in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'apto_publicacao', 'poster_aprovado', 'poster_reprovado'), true);
             });
 
             if (!is_user_logged_in()) {

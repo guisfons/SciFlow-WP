@@ -300,6 +300,24 @@ class SciFlow_Email
     }
 
     /**
+     * Notify author that work has been assigned to a reviewer and is under evaluation.
+     */
+    public function send_evaluation_notification($post_id)
+    {
+        $vars = $this->get_template_vars($post_id);
+        $recipients = $this->get_author_recipients($post_id);
+
+        if (empty($recipients)) {
+            return;
+        }
+
+        $vars['message'] = __('Seu trabalho foi enviado para avaliação pela Comissão Científica. Você receberá uma notificação assim que o parecer estiver disponível.', 'sciflow-wp');
+        $subject = sprintf(__('[%s] Trabalho em Avaliação: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
+
+        $this->send($recipients, $subject, 'evaluation-notification', $vars);
+    }
+
+    /**
      * 3. Review complete → Editor.
      */
     public function send_review_complete($post_id)
@@ -331,6 +349,7 @@ class SciFlow_Email
             'reject' => __('Reprovado', 'sciflow-wp'),
             'return_to_author' => __('Devolvido para Alterações', 'sciflow-wp'),
             'approved_with_considerations' => __('Necessita Alterações', 'sciflow-wp'),
+            'return_to_reviewer' => __('Enviado para Reavaliação', 'sciflow-wp'),
             // Poster decisions.
             'approve_poster'     => __('Pôster Aprovado', 'sciflow-wp'),
             'reject_poster'      => __('Pôster Reprovado', 'sciflow-wp'),

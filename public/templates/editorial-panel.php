@@ -337,14 +337,11 @@ $events = array(
                                                         </div>
                                                     <?php endif; ?>
 
+                                                    <!-- Reviewer Recommendation -->
                                                     <?php 
-                                                    $direct_decision = array('aguardando_decisao', 'submetido_com_revisao', 'submetido', 'em_avaliacao');
-                                                    if (in_array($status, $direct_decision, true)): 
-                                                        ?>
-                                                        <!-- Reviewer Recommendation -->
-                                                        <?php if ($rev_decision): 
-                                                            $scores   = get_post_meta($post->ID, '_sciflow_scores', true);
-                                                            $settings = get_option('sciflow_settings', array());
+                                                    $scores   = get_post_meta($post->ID, '_sciflow_scores', true);
+                                                    if ($rev_decision || !empty($scores)): 
+                                                        $settings = get_option('sciflow_settings', array());
                                                             $weights  = $settings['ranking_weights'] ?? array();
                                                             $criteria = array(
                                                                 'originalidade' => __('Originalidade', 'sciflow-wp'),
@@ -426,6 +423,10 @@ $events = array(
                                                             </div>
                                                         <?php endif; ?>
 
+                                                    <?php 
+                                                    $direct_decision = array('aguardando_decisao', 'submetido_com_revisao', 'submetido', 'em_avaliacao');
+                                                    if (in_array($status, $direct_decision, true)): 
+                                                        ?>
                                                         <!-- Editorial decision form -->
                                                         <div class="sciflow-decision-form"
                                                             data-post-id="<?php echo esc_attr($post->ID); ?>">
@@ -476,7 +477,7 @@ $events = array(
                                                         <?php if ($poster_id): ?>
                                                             <p style="margin-bottom:12px;">
                                                                 <a href="<?php echo esc_url(wp_get_attachment_url($poster_id)); ?>" target="_blank" class="sciflow-btn sciflow-btn--link">
-                                                                    📄 <?php esc_html_e('Visualizar Pôster Enviado', 'sciflow-wp'); ?>
+                                                                    📄 <?php esc_html_e('Visualizar Pôster Enviado', 'sciflow-wp'); ?> - #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?>
                                                                 </a>
                                                             </p>
                                                         <?php endif; ?>

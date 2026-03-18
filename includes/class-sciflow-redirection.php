@@ -20,6 +20,69 @@ class SciFlow_Redirection
 
         // Back-end redirects (Admin)
         add_action('admin_init', array($this, 'redirect_admin'));
+
+        // Login redirects
+        add_filter('login_redirect', array($this, 'handle_login_redirect'), 10, 3);
+        add_filter('woocommerce_login_redirect', array($this, 'handle_woo_login_redirect'), 10, 2);
+    }
+
+    /**
+     * Get the redirect URL based on user roles.
+     */
+    private function get_redirect_url_by_role($user)
+    {
+        if (!$user || !isset($user->roles)) {
+            return false;
+        }
+
+        $roles = (array) $user->roles;
+
+        $editor_roles = array(
+            'sciflow_editor',
+            'sciflow_semco_editor',
+            'sciflow_enfrute_editor'
+        );
+
+        $reviewer_roles = array(
+            'sciflow_revisor',
+            'sciflow_semco_revisor',
+            'sciflow_enfrute_revisor'
+        );
+
+        $settings = get_option('sciflow_settings', array());
+        $editor_url = !empty($settings['editor_dashboard_url']) ? $settings['editor_dashboard_url'] : home_url('/editor/dashboard/');
+        $reviewer_url = !empty($settings['reviewer_dashboard_url']) ? $settings['reviewer_dashboard_url'] : home_url('/revisor/dashboard/');
+
+        foreach ($editor_roles as $role) {
+            if (in_array($role, $roles, true)) {
+                return $editor_url;
+            }
+        }
+
+        // --- AUTHOR EXCEPTION ---
+        // If the user is a reviewer but is ALREADY on an author page, don't redirect them away.
+        $current_url = home_url(add_query_arg(array(), $GLOBALS['wp']->request));
+        $author_pages = array('/meus-artigos', '/submissao', '/meus-trabalhos');
+        foreach ($author_pages as $page) {
+            if (strpos($current_url, $page) !== false) {
+                return false;
+            }
+        }
+        // --- /AUTHOR EXCEPTION ---
+
+        foreach ($reviewer_roles as $role) {
+            if (in_array($role, $roles, true)) {
+                return $reviewer_url;
+            }
+        }
+
+        if (in_array('sciflow_inscrito', $roles, true)) {
+            if ($this->woocommerce && $this->woocommerce->has_paid_registration($user->ID)) {
+                return home_url('/meus-artigos');
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -36,32 +99,30 @@ class SciFlow_Redirection
         }
 
         $user = wp_get_current_user();
-        $roles = (array) $user->roles;
+        $redirect_url = $this->get_redirect_url_by_role($user);
 
-        // 1. Inscritos with paid registration
-        if (in_array('sciflow_inscrito', $roles, true)) {
-            if ($this->woocommerce && $this->woocommerce->has_paid_registration($user->ID)) {
-                wp_safe_redirect(home_url('/meus-artigos'));
-                exit;
-            }
+        if ($redirect_url) {
+            wp_safe_redirect($redirect_url);
+            exit;
         }
+    }
 
-        // 2. Editors and Reviewers
-        $editorial_roles = array(
-            'sciflow_editor',
-            'sciflow_revisor',
-            'sciflow_semco_editor',
-            'sciflow_semco_revisor',
-            'sciflow_enfrute_editor',
-            'sciflow_enfrute_revisor'
-        );
+    /**
+     * Handle WP Login redirect.
+     */
+    public function handle_login_redirect($redirect_to, $request, $user)
+    {
+        $role_redirect = $this->get_redirect_url_by_role($user);
+        return $role_redirect ? $role_redirect : $redirect_to;
+    }
 
-        foreach ($editorial_roles as $role) {
-            if (in_array($role, $roles, true)) {
-                wp_safe_redirect(home_url('/artigos-publicados'));
-                exit;
-            }
-        }
+    /**
+     * Handle WooCommerce Login redirect.
+     */
+    public function handle_woo_login_redirect($redirect_to, $user)
+    {
+        $role_redirect = $this->get_redirect_url_by_role($user);
+        return $role_redirect ? $role_redirect : $redirect_to;
     }
 
     /**
@@ -77,27 +138,17 @@ class SciFlow_Redirection
         // but the goal is to keep them out of admin entirely.
 
         $user = wp_get_current_user();
-        $roles = (array) $user->roles;
-
+        
         // Administrators should always have access to the dashboard.
-        if (in_array('administrator', $roles, true)) {
+        if (in_array('administrator', (array) $user->roles, true)) {
             return;
         }
 
-        $editorial_roles = array(
-            'sciflow_editor',
-            'sciflow_revisor',
-            'sciflow_semco_editor',
-            'sciflow_semco_revisor',
-            'sciflow_enfrute_editor',
-            'sciflow_enfrute_revisor'
-        );
+        $redirect_url = $this->get_redirect_url_by_role($user);
 
-        foreach ($editorial_roles as $role) {
-            if (in_array($role, $roles, true)) {
-                wp_safe_redirect(home_url('/artigos-publicados'));
-                exit;
-            }
+        if ($redirect_url) {
+            wp_safe_redirect($redirect_url);
+            exit;
         }
     }
 }

@@ -35,6 +35,12 @@ class SciFlow_Review
             return new WP_Error('unauthorized', __('Você não é o revisor designado.', 'sciflow-wp'));
         }
 
+        // Conflict of Interest check
+        $post = get_post($post_id);
+        if ($post && (int) $post->post_author === $user_id) {
+            return new WP_Error('conflict_of_interest', __('Você não pode revisar o seu próprio trabalho.', 'sciflow-wp'));
+        }
+
         $current = $this->status_manager->get_status($post_id);
         if (!in_array($current, array('em_avaliacao', 'em_correcao', 'submetido'), true)) {
             return new WP_Error('invalid_status', __('O trabalho não está em fase de avaliação.', 'sciflow-wp'));

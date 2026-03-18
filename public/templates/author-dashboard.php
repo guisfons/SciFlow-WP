@@ -13,7 +13,7 @@ if (!defined('ABSPATH'))
 
 <div class="sciflow-dashboard">
     <h2 class="sciflow-dashboard__title">
-        <?php esc_html_e('Meus Trabalhos', 'sciflow-wp'); ?>
+        <?php esc_html_e('Meus Resumos', 'sciflow-wp'); ?>
     </h2>
 
     <div class="sciflow-notice" id="sciflow-dashboard-messages" style="display:none;"></div>

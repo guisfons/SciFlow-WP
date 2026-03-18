@@ -32,16 +32,16 @@ class SciFlow_Status_Manager
             'reprovado' => __('Reprovado', 'sciflow-wp'),
             'aprovado_com_consideracoes' => __('Aprovado com Considerações', 'sciflow-wp'),
             'apto_revisao' => __('Apto para Revisão', 'sciflow-wp'),
-            'apto_publicacao' => __('Apto para Publicação', 'sciflow-wp'),
+            'apto_publicacao' => __('Aprovado / Concluído', 'sciflow-wp'),
             'poster_enviado' => __('Pôster Enviado', 'sciflow-wp'),
             'poster_aprovado' => __('Pôster Aprovado', 'sciflow-wp'),
             'poster_em_correcao' => __('Pôster em Correção', 'sciflow-wp'),
             'poster_reenviado' => __('Pôster Reenviado', 'sciflow-wp'),
             'poster_reprovado' => __('Pôster Reprovado', 'sciflow-wp'),
             'aguardando_confirmacao' => __('Aguardando Confirmação', 'sciflow-wp'),
-            'confirmado'             => __('Confirmado', 'sciflow-wp'),
+            'confirmado' => __('Confirmado', 'sciflow-wp'),
             // Virtual display-only status (not stored in DB).
-            'aguardando_poster'      => __('Aguardando Envio do Pôster', 'sciflow-wp'),
+            'aguardando_poster' => __('Aguardando Envio do Pôster', 'sciflow-wp'),
         );
     }
 
@@ -85,11 +85,11 @@ class SciFlow_Status_Manager
             return new WP_Error(
                 'invalid_transition',
                 sprintf(
-                    __('Transição inválida: %s → %s', 'sciflow-wp'),
-                    $current,
-                    $new_status
-                )
-            );
+                __('Transição inválida: %s → %s', 'sciflow-wp'),
+                $current,
+                $new_status
+            )
+                );
         }
 
         update_post_meta($post_id, '_sciflow_status', $new_status);
@@ -148,9 +148,9 @@ class SciFlow_Status_Manager
             'poster_em_correcao' => 'warning',
             'poster_reprovado' => 'danger',
             'aguardando_confirmacao' => 'warning',
-            'confirmado'             => 'success',
+            'confirmado' => 'success',
             // Virtual display-only.
-            'aguardando_poster'      => 'warning',
+            'aguardando_poster' => 'warning',
         );
 
         return isset($colors[$status]) ? $colors[$status] : 'secondary';

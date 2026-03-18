@@ -95,6 +95,15 @@ class SciFlow_Roles
             $revisor->add_cap('read_semco_trabalhos');
             $revisor->add_cap('read_private_semco_trabalhos');
             $revisor->add_cap('sciflow_review');
+            
+            // Allow reviewers to also submit/edit their own articles
+            $revisor->add_cap('edit_enfrute_trabalhos');
+            $revisor->add_cap('edit_published_enfrute_trabalhos');
+            $revisor->add_cap('delete_enfrute_trabalhos');
+            $revisor->add_cap('edit_semco_trabalhos');
+            $revisor->add_cap('edit_published_semco_trabalhos');
+            $revisor->add_cap('delete_semco_trabalhos');
+            $revisor->add_cap('upload_files');
         }
 
         // ---------- Editor ----------
@@ -136,6 +145,12 @@ class SciFlow_Roles
             $semco_revisor->add_cap('read_semco_trabalhos');
             $semco_revisor->add_cap('read_private_semco_trabalhos');
             $semco_revisor->add_cap('sciflow_review');
+
+            // Authoring caps for their event
+            $semco_revisor->add_cap('edit_semco_trabalhos');
+            $semco_revisor->add_cap('edit_published_semco_trabalhos');
+            $semco_revisor->add_cap('delete_semco_trabalhos');
+            $semco_revisor->add_cap('upload_files');
         }
 
         // ---------- Enfrute Editor ----------
@@ -156,6 +171,12 @@ class SciFlow_Roles
             $enfrute_revisor->add_cap('read_enfrute_trabalhos');
             $enfrute_revisor->add_cap('read_private_enfrute_trabalhos');
             $enfrute_revisor->add_cap('sciflow_review');
+
+            // Authoring caps for their event
+            $enfrute_revisor->add_cap('edit_enfrute_trabalhos');
+            $enfrute_revisor->add_cap('edit_published_enfrute_trabalhos');
+            $enfrute_revisor->add_cap('delete_enfrute_trabalhos');
+            $enfrute_revisor->add_cap('upload_files');
         }
 
         // ---------- Administrator ----------

@@ -262,6 +262,12 @@ class SciFlow_Ajax_Handler
         $post_id = absint($_POST['post_id'] ?? 0);
         $reviewer_id = absint($_POST['reviewer_id'] ?? 0);
 
+        // Conflict of Interest check: Author cannot review their own work
+        $post = get_post($post_id);
+        if ($post && (int)$post->post_author === $reviewer_id) {
+            wp_send_json_error(array('message' => __('Um autor não pode ser revisor do seu próprio trabalho.', 'sciflow-wp')));
+        }
+
         $result = $this->editorial->assign_reviewer($post_id, $reviewer_id);
 
         if (is_wp_error($result)) {
