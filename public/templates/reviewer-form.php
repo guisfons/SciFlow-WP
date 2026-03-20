@@ -319,3 +319,32 @@ $criteria = array(
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
+
+<script>
+(function() {
+    // Validate required score fields before review form submission.
+    document.querySelectorAll('.sciflow-review-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            var scoreInputs = form.querySelectorAll('input[type="number"]');
+            var missing = [];
+            scoreInputs.forEach(function(input) {
+                if (input.value === '' || input.value === null) {
+                    missing.push(input.closest('.sciflow-score-field').querySelector('label').textContent.trim());
+                    input.style.borderColor = '#dc3545';
+                } else {
+                    input.style.borderColor = '';
+                }
+            });
+            var decisionSelect = form.querySelector('select[name="decision"]');
+            if (decisionSelect && !decisionSelect.value) {
+                missing.push('<?php esc_js(esc_html_e('Parecer', 'sciflow-wp')); ?>');
+                decisionSelect.style.borderColor = '#dc3545';
+            }
+            if (missing.length > 0) {
+                e.preventDefault();
+                alert('<?php echo esc_js(__('Por favor, preencha todos os campos obrigatórios antes de enviar a avaliação:', 'sciflow-wp')); ?> ' + missing.join(', '));
+            }
+        });
+    });
+})();
+</script>

@@ -134,7 +134,7 @@ if (!defined('ABSPATH'))
 
                     <div class="sciflow-work-card__actions">
 
-                        <?php if (in_array($status, array('rascunho', 'em_correcao', 'aprovado_com_consideracoes', 'reprovado'), true)): ?>
+                        <?php if (in_array($status, array('rascunho', 'em_correcao', 'aprovado_com_consideracoes'), true)): ?>
                             <button class="sciflow-btn sciflow-btn--primary sciflow-btn--sm sciflow-edit-btn"
                                 data-post-id="<?php echo esc_attr($post->ID); ?>">
                                 <?php

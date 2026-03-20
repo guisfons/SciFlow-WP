@@ -44,8 +44,10 @@ class SciFlow_Editorial
             return new WP_Error('not_reviewer', __('O usuário não tem papel de revisor.', 'sciflow-wp'));
         }
 
+        // Editors/admins may review or audit their own work.
+        // Only block the conflict for regular users without manage_sciflow.
         $author_id = get_post_field('post_author', $post_id);
-        if ((int)$reviewer_id === (int)$author_id) {
+        if ((int)$reviewer_id === (int)$author_id && !current_user_can('manage_sciflow')) {
             return new WP_Error('invalid_reviewer', __('O autor do trabalho não pode ser atribuído como revisor de seu próprio trabalho.', 'sciflow-wp'));
         }
 
@@ -71,10 +73,8 @@ class SciFlow_Editorial
             return new WP_Error('unauthorized', __('Permissão insuficiente.', 'sciflow-wp'));
         }
 
-        $author_id = get_post_field('post_author', $post_id);
-        if ((int)get_current_user_id() === (int)$author_id && !current_user_can('administrator')) {
-            return new WP_Error('unauthorized', __('Você não pode tomar decisões sobre o seu próprio trabalho.', 'sciflow-wp'));
-        }
+        // Editors and admins (manage_sciflow) may decide on their own work.
+        // This check is already covered by the manage_sciflow gate above.
 
         $current = $this->status_manager->get_status($post_id);
         if (!in_array($current, array('aguardando_decisao', 'submetido_com_revisao', 'submetido'), true)) {
@@ -132,10 +132,8 @@ class SciFlow_Editorial
             return new WP_Error('unauthorized', __('Permissão insuficiente.', 'sciflow-wp'));
         }
 
-        $author_id = get_post_field('post_author', $post_id);
-        if ((int)get_current_user_id() === (int)$author_id && !current_user_can('administrator')) {
-            return new WP_Error('unauthorized', __('Você não pode tomar decisões sobre o seu próprio pôster.', 'sciflow-wp'));
-        }
+        // Editors and admins (manage_sciflow) may decide on their own poster.
+        // The manage_sciflow gate above already ensures only editors/admins reach here.
 
         $poster_id = get_post_meta($post_id, '_sciflow_poster_id', true);
         if (!$poster_id) {

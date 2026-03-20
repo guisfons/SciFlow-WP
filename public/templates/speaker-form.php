@@ -67,7 +67,16 @@ $current_user = wp_get_current_user();
             <div class="sciflow-field__help" id="speaker-char-count">Caracteres: 0 / 25000 (Mínimo: 16000)</div>
         </div>
 
-        <!-- Terms -->
+        <!-- References / Links -->
+        <div class="sciflow-field">
+            <label for="sciflow-speaker-references" class="sciflow-field__label">
+                <?php esc_html_e('Referências (opcional)', 'sciflow-wp'); ?>
+            </label>
+            <textarea id="sciflow-speaker-references" name="references" class="sciflow-field__textarea" rows="6"
+                placeholder="<?php esc_attr_e('Insira as referências bibliográficas ou links de referência aqui...', 'sciflow-wp'); ?>"></textarea>
+            <p class="sciflow-field__help"><?php esc_html_e('Links e referências são permitidos neste campo.', 'sciflow-wp'); ?></p>
+        </div>
+
         <div class="sciflow-field">
             <label class="sciflow-field__checkbox-label">
                 <input type="checkbox" name="terms" required value="1">

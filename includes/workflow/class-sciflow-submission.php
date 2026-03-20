@@ -220,7 +220,7 @@ class SciFlow_Submission
         // If resubmitting from correction, add a system message.
         if (!empty($was_in_correction) && !$is_draft) {
             $editorial = new SciFlow_Editorial($this->status_manager, $this->email);
-            $editorial->add_message($post_id, 'autor', __('O autor enviou as alterações solicitadas.', 'sciflow-wp'));
+            $editorial->add_message($post_id, 'autor', __('O autor enviou o resumo com alterações.', 'sciflow-wp'));
         }
 
         // Notify editor on new submission (if not a draft).
@@ -371,7 +371,7 @@ class SciFlow_Submission
 
         if (!is_wp_error($result)) {
             $editorial = new SciFlow_Editorial($this->status_manager, $this->email);
-            $editorial->add_message($post_id, 'autor', __('O autor enviou as alterações solicitadas.', 'sciflow-wp'));
+            $editorial->add_message($post_id, 'autor', __('O autor enviou o resumo com alterações.', 'sciflow-wp'));
 
             $event = get_post_meta($post_id, '_sciflow_event', true);
             $this->email->send_new_submission($post_id, $event);

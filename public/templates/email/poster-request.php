@@ -42,6 +42,7 @@ if (!defined('ABSPATH'))
                     </td>
                 </tr>
             </table>
+            <?php if (!empty($is_request)) : ?>
             <div style="background:#e8f5e9;border-radius:8px;padding:20px;margin:20px 0;">
                 <p style="margin:0;color:#2e7d32;font-size:14px;">
                     <strong>
@@ -50,12 +51,15 @@ if (!defined('ABSPATH'))
                     <?php esc_html_e('Envie seu pôster em formato PDF pela plataforma.', 'sciflow-wp'); ?>
                 </p>
             </div>
+            <?php endif; ?>
+            <?php if (!empty($is_request)) : ?>
             <div style="text-align:center;margin:20px 0 10px;">
                 <a href="<?php echo esc_url($link); ?>"
                     style="display:inline-block;padding:12px 30px;background:#27ae60;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
                     <?php esc_html_e('Enviar Pôster', 'sciflow-wp'); ?>
                 </a>
             </div>
+            <?php endif; ?>
         </div>
     </div>
 </body>

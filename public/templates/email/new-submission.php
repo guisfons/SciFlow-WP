@@ -22,7 +22,7 @@ if (!defined('ABSPATH'))
                 <?php echo esc_html($site_name); ?>
             </h1>
             <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">
-                <?php esc_html_e('Novo Trabalho Submetido', 'sciflow-wp'); ?>
+                <?php echo esc_html($headline ?? __('Novo Trabalho Submetido', 'sciflow-wp')); ?>
             </p>
         </div>
         <div style="padding:30px;">

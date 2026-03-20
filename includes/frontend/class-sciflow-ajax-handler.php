@@ -147,18 +147,18 @@ class SciFlow_Ajax_Handler
             wp_send_json_error(array('message' => __('O texto excedeu o limite de 25.000 caracteres.', 'sciflow-wp')));
         }
 
-        // Link blocking.
+        // Link blocking only applies to title, not content (references may contain URLs).
         $regex = '/(https?:\/\/[^\s]+|www\.[^\s]+)/i';
-        if (preg_match($regex, $title) || preg_match($regex, $content)) {
-            wp_send_json_error(array('message' => __('Título ou Resumo não podem conter links/URLs.', 'sciflow-wp')));
+        if (preg_match($regex, $title)) {
+            wp_send_json_error(array('message' => __('O título não pode conter links/URLs.', 'sciflow-wp')));
         }
 
         $post_data = array(
-            'post_title' => $title,
+            'post_title'   => $title,
             'post_content' => $content,
-            'post_type' => 'sciflow_palestra',
-            'post_status' => 'publish',
-            'post_author' => get_current_user_id()
+            'post_type'    => 'sciflow_palestra',
+            'post_status'  => 'publish',
+            'post_author'  => get_current_user_id()
         );
 
         $post_id = wp_insert_post($post_data, true);
@@ -169,6 +169,12 @@ class SciFlow_Ajax_Handler
 
         if ($event) {
             update_post_meta($post_id, '_sciflow_event', $event);
+        }
+
+        // Save reference links field.
+        $references = wp_kses_post(trim($_POST['references'] ?? ''));
+        if (!empty($references)) {
+            update_post_meta($post_id, '_sciflow_references', $references);
         }
 
         wp_send_json_success(array(
@@ -208,6 +214,12 @@ class SciFlow_Ajax_Handler
         if (is_wp_error($result)) {
             error_log('SciFlow Resubmit Error: ' . $result->get_error_message());
             wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        // If the author left a message for the editor, record it in message history.
+        $author_message = wp_kses_post(trim($_POST['author_message'] ?? ''));
+        if (!empty($author_message)) {
+            $this->editorial->add_message($post_id, 'autor', $author_message);
         }
 
         error_log('SciFlow Resubmit Success. Post ID: ' . $post_id);
@@ -262,12 +274,6 @@ class SciFlow_Ajax_Handler
         $post_id = absint($_POST['post_id'] ?? 0);
         $reviewer_id = absint($_POST['reviewer_id'] ?? 0);
 
-        // Conflict of Interest check: Author cannot review their own work
-        $post = get_post($post_id);
-        if ($post && (int)$post->post_author === $reviewer_id) {
-            wp_send_json_error(array('message' => __('Um autor não pode ser revisor do seu próprio trabalho.', 'sciflow-wp')));
-        }
-
         $result = $this->editorial->assign_reviewer($post_id, $reviewer_id);
 
         if (is_wp_error($result)) {
@@ -315,6 +321,10 @@ class SciFlow_Ajax_Handler
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
+
+        // Notify the author that their poster was received.
+        $email = new SciFlow_Email();
+        $email->send_poster_submitted($post_id);
 
         wp_send_json_success(array('message' => __('Pôster enviado com sucesso!', 'sciflow-wp')));
     }

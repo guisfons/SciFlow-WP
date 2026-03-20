@@ -21,7 +21,7 @@ if ($edit_post && (int)$edit_post->post_author !== (int)$current_user->ID) {
 // Status check: only allowed statuses can be edited
 if ($edit_post) {
     $status = get_post_meta($post_id, '_sciflow_status', true);
-    $allowed_edit_statuses = array('rascunho', 'em_correcao', 'aprovado_com_consideracoes', 'reprovado');
+    $allowed_edit_statuses = array('rascunho', 'em_correcao', 'aprovado_com_consideracoes');
     if (!in_array($status, $allowed_edit_statuses, true)) {
         echo '<div class="sciflow-notice sciflow-notice--warning">Este trabalho já foi submetido e ainda não foi liberado pelo editor para alterações.</div>';
         return;
@@ -303,6 +303,19 @@ $acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgemen
                        <?php echo $i < 3 ? 'required' : ''; ?>>
             <?php endfor; ?>
         </div>
+
+        <?php if ($sciflow_status === 'em_correcao'): ?>
+        <div class="sciflow-field">
+            <label for="sciflow-author-message" class="sciflow-field__label">
+                <?php esc_html_e('Mensagem ao Editor (opcional)', 'sciflow-wp'); ?>
+            </label>
+            <textarea id="sciflow-author-message" name="author_message"
+                      class="sciflow-field__textarea"
+                      rows="4"
+                      placeholder="<?php esc_attr_e('Deixe uma mensagem ao editor explicando as alterações realizadas ou argumentando sobre o trabalho...', 'sciflow-wp'); ?>"></textarea>
+            <p class="sciflow-field__help"><?php esc_html_e('Esta mensagem ficará visível no histórico para o editor e o revisor.', 'sciflow-wp'); ?></p>
+        </div>
+        <?php endif; ?>
 
         <!-- Submit -->
         <?php 

@@ -398,7 +398,11 @@ class SciFlow_Email
     public function send_poster_request($post_id)
     {
         $vars = $this->get_template_vars($post_id);
+        // Override status with a friendlier label for the author email.
+        $vars['status'] = __('Aprovado — Aguardando Pôster', 'sciflow-wp');
         $vars['link'] = $this->get_poster_upload_url(); // Specific URL for poster upload
+        $vars['headline'] = __('Trabalho Aprovado', 'sciflow-wp');
+        $vars['is_request'] = true;
         $recipients = $this->get_author_recipients($post_id);
 
         if (empty($recipients)) {
@@ -408,6 +412,36 @@ class SciFlow_Email
         $vars['message'] = __('Seu trabalho foi aprovado! Por favor, envie o pôster em formato PDF.', 'sciflow-wp');
 
         $subject = sprintf(__('[%s] Trabalho Aprovado — Envie Seu Pôster: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
+
+        $this->send($recipients, $subject, 'poster-request', $vars);
+    }
+
+    /**
+     * Confirmation email to the author after submitting a poster.
+     */
+    public function send_poster_submitted($post_id)
+    {
+        $vars = $this->get_template_vars($post_id);
+        $recipients = $this->get_author_recipients($post_id);
+
+        if (empty($recipients)) {
+            return;
+        }
+
+        $status = get_post_meta($post_id, '_sciflow_status', true);
+        $is_resubmit = ($status === 'poster_reenviado');
+
+        $vars['message'] = $is_resubmit
+            ? __('Seu p\u00f4ster corrigido foi recebido. O comit\u00ea ir\u00e1 avaliar e voc\u00ea ser\u00e1 notificado em breve.', 'sciflow-wp')
+            : __('Recebemos seu p\u00f4ster! Ele est\u00e1 sendo avaliado pelo comit\u00ea cient\u00edfico.', 'sciflow-wp');
+        $vars['headline'] = $is_resubmit
+            ? __('P\u00f4ster Corrigido Recebido', 'sciflow-wp')
+            : __('P\u00f4ster Recebido com Sucesso', 'sciflow-wp');
+        $vars['is_request'] = false;
+
+        $subject = $is_resubmit
+            ? sprintf(__('[%s] P\u00f4ster Corrigido Recebido: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo'])
+            : sprintf(__('[%s] P\u00f4ster Enviado: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
         $this->send($recipients, $subject, 'poster-request', $vars);
     }
@@ -481,10 +515,22 @@ class SciFlow_Email
         $vars = $this->get_template_vars($post_id);
         $event = get_post_meta($post_id, '_sciflow_event', true);
 
-        if ($new_status === 'poster_enviado') {
+        // Choose a context-specific headline and subject.
+        if ($new_status === 'submetido_com_revisao') {
+            $vars['message'] = __('O autor submeteu o trabalho com alterações.', 'sciflow-wp');
+            $vars['headline'] = __('Trabalho Submetido com Alterações', 'sciflow-wp');
+            $subject_key = __('[%s] Trabalho Submetido com Alterações: %s', 'sciflow-wp');
+        } elseif ($new_status === 'poster_enviado') {
             $vars['message'] = __('O autor enviou o pôster final para este trabalho.', 'sciflow-wp');
+            $vars['headline'] = __('Pôster Enviado pelo Autor', 'sciflow-wp');
+            $subject_key = __('[%s] Alteração de Status: %s', 'sciflow-wp');
         } elseif ($new_status === 'poster_reenviado') {
             $vars['message'] = __('O autor reenviou o pôster após as correções solicitadas.', 'sciflow-wp');
+            $vars['headline'] = __('Pôster Corrigido Enviado', 'sciflow-wp');
+            $subject_key = __('[%s] Alteração de Status: %s', 'sciflow-wp');
+        } else {
+            $vars['headline'] = __('Alteração de Status', 'sciflow-wp');
+            $subject_key = __('[%s] Alteração de Status: %s', 'sciflow-wp');
         }
 
         $editor_email = $this->get_editor_email($event);
@@ -495,7 +541,7 @@ class SciFlow_Email
         $sm = new SciFlow_Status_Manager();
         $vars['old_status_label'] = $sm->get_status_label($old_status);
 
-        $subject = sprintf(__('[%s] Alteração de Status: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
+        $subject = sprintf($subject_key, $vars['evento'], $vars['titulo']);
 
         $this->send($editor_email, $subject, 'editor-status-change', $vars);
     }

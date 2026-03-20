@@ -133,20 +133,10 @@
                         }
                     });
 
-                    // Strip line breaks on paste
-                    editor.on('paste', function (e) {
-                        e.preventDefault();
-                        let text = '';
-                        if (e.clipboardData || e.originalEvent.clipboardData) {
-                            text = (e.originalEvent || e).clipboardData.getData('text/plain');
-                        } else if (window.clipboardData) {
-                            text = window.clipboardData.getData('Text');
-                        }
-                        
-                        // Replace newlines/carriage returns with space and trim
-                        const sanitized = text.replace(/[\r\n]+/g, ' ').trim();
-                        editor.insertContent(sanitized);
-                    });
+                    // NOTE: Do NOT add a custom 'paste' handler here.
+                    // TinyMCE's built-in paste_as_text:true (set in PHP) already
+                    // strips formatting on paste. Adding a second insertContent() call
+                    // causes the pasted text to appear twice.
 
                     updateCharCount();
                 }
