@@ -4,11 +4,14 @@
  */
 if (!defined('ABSPATH'))
     exit;
-$color = '#2c5530';
+
+$is_poster_decision = in_array($decision_label ?? '', array('Pôster Aprovado', 'Pôster Reprovado', 'Pôster Necessita Correção'), true);
+
+$color = '#2c5530'; // default green
 if (!empty($decision_label)) {
     if (strpos($decision_label, 'Reprovado') !== false)
         $color = '#c0392b';
-    elseif (strpos($decision_label, 'Devolvido') !== false)
+    elseif (strpos($decision_label, 'Devolvido') !== false || strpos($decision_label, 'Correção') !== false || strpos($decision_label, 'Alterações') !== false)
         $color = '#e67e22';
 }
 ?>
@@ -28,7 +31,7 @@ if (!empty($decision_label)) {
                 <?php echo esc_html($site_name); ?>
             </h1>
             <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">
-                <?php esc_html_e('Decisão Editorial', 'sciflow-wp'); ?>
+                <?php echo $is_poster_decision ? esc_html__('Decisão sobre o Pôster', 'sciflow-wp') : esc_html__('Decisão Editorial', 'sciflow-wp'); ?>
             </p>
         </div>
         <div style="padding:30px;">
@@ -54,17 +57,27 @@ if (!empty($decision_label)) {
                 </tr>
                 <tr>
                     <td style="padding:8px 12px;color:#666;font-weight:600;">
-                        <?php esc_html_e('Decisão', 'sciflow-wp'); ?>
+                        <?php echo $is_poster_decision ? esc_html__('Decisão (Pôster)', 'sciflow-wp') : esc_html__('Decisão', 'sciflow-wp'); ?>
                     </td>
                     <td style="padding:8px 12px;color:#333;font-weight:700;">
                         <?php echo esc_html($decision_label ?? ''); ?>
                     </td>
                 </tr>
             </table>
+            <?php if (!empty($notes)): ?>
+            <div style="background:#fff8e1;border-left:4px solid #f0ad4e;border-radius:4px;padding:15px 20px;margin:20px 0;">
+                <strong style="display:block;margin-bottom:6px;color:#856404;font-size:14px;">
+                    <?php esc_html_e('Observações do Comitê:', 'sciflow-wp'); ?>
+                </strong>
+                <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">
+                    <?php echo wp_kses_post($notes); ?>
+                </p>
+            </div>
+            <?php endif; ?>
             <div style="text-align:center;margin:30px 0 10px;">
                 <a href="<?php echo esc_url($link); ?>"
                     style="display:inline-block;padding:12px 30px;background:<?php echo $color; ?>;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
-                    <?php esc_html_e('Acessar Meus Resumos', 'sciflow-wp'); ?>
+                    <?php esc_html_e('Acessar Meu Painel', 'sciflow-wp'); ?>
                 </a>
             </div>
         </div>

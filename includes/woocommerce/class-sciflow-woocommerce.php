@@ -36,6 +36,23 @@ class SciFlow_WooCommerce
     }
 
     /**
+     * Get the product/variation IDs that grant the tecnico epagri role.
+     *
+     * @return array Product IDs.
+     */
+    private function get_tecnico_epagri_product_ids()
+    {
+        $settings = get_option('sciflow_settings', array());
+        $raw = $settings['woo_tecnico_epagri_product_ids'] ?? '';
+
+        if (empty($raw)) {
+            return array();
+        }
+
+        return array_filter(array_map('absint', explode(',', $raw)));
+    }
+
+    /**
      * Get the product/variation IDs that grant the speaker role.
      *
      * @return array Product IDs.
@@ -77,7 +94,9 @@ class SciFlow_WooCommerce
         // Check if order contains any qualifying product.
         $found_inscrito = false;
         $found_speaker = false;
+        $found_tecnico = false;
         $speaker_ids = $this->get_speaker_product_ids();
+        $tecnico_ids = $this->get_tecnico_epagri_product_ids();
 
         foreach ($order->get_items() as $item) {
             $pid = $item->get_product_id();
@@ -93,12 +112,17 @@ class SciFlow_WooCommerce
                 $found_speaker = true;
             }
 
-            if ($found_inscrito && $found_speaker) {
+            // Check for tecnico epagri
+            if (in_array($pid, $tecnico_ids, true) || ($variation_id && in_array($variation_id, $tecnico_ids, true)) || ($variation_id && in_array($pid, $tecnico_ids, true))) {
+                $found_tecnico = true;
+            }
+
+            if ($found_inscrito && $found_speaker && $found_tecnico) {
                 break;
             }
         }
 
-        if (!$found_inscrito && !$found_speaker) {
+        if (!$found_inscrito && !$found_speaker && !$found_tecnico) {
             return;
         }
 
@@ -117,6 +141,11 @@ class SciFlow_WooCommerce
             $user->add_role('sciflow_speaker');
             do_action('sciflow_role_assigned_via_woo', $user_id, $order_id, 'sciflow_speaker');
         }
+
+        if ($found_tecnico && !in_array('sciflow_tecnico_epagri', $user->roles, true)) {
+            $user->add_role('sciflow_tecnico_epagri');
+            do_action('sciflow_role_assigned_via_woo', $user_id, $order_id, 'sciflow_tecnico_epagri');
+        }
     }
 
     /**
@@ -131,8 +160,14 @@ class SciFlow_WooCommerce
             return false;
         }
 
-        // Admin, Editor, Reviewer, and Speaker roles bypass the payment requirement so they can also act as authors
+        // Admin, Editor, Reviewer, Speaker and Tecnico Epagri roles bypass the payment requirement
         if (user_can($user_id, 'manage_sciflow') || user_can($user_id, 'manage_options') || user_can($user_id, 'sciflow_speaker') || user_can($user_id, 'sciflow_review')) {
+            return true;
+        }
+
+        // Tecnico Epagri counts as a paid registration
+        $user_obj = get_userdata($user_id);
+        if ($user_obj && in_array('sciflow_tecnico_epagri', (array) $user_obj->roles, true)) {
             return true;
         }
 

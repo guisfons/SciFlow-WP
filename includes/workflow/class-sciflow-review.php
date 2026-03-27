@@ -125,11 +125,11 @@ class SciFlow_Review
         $scores = array();
 
         foreach ($criteria as $key) {
-            if (!isset($raw[$key])) {
-                return new WP_Error('missing_score', sprintf(__('Nota obrigatória: %s', 'sciflow-wp'), $key));
+            if (!isset($raw[$key]) || $raw[$key] === '') {
+                return new WP_Error('missing_score', sprintf(__('Nota obrigatória ausente: %s. Por favor, preencha todas as notas antes de enviar.', 'sciflow-wp'), $key));
             }
 
-            $val = $this->parse_float($raw[$key] ?? 0);
+            $val = $this->parse_float($raw[$key]);
             if ($val < 0 || $val > 10) {
                 return new WP_Error('invalid_score', sprintf(__('Nota fora do intervalo (0-10): %s', 'sciflow-wp'), $key));
             }

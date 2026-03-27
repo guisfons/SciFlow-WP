@@ -57,6 +57,11 @@ class SciFlow_Roles
         add_role('sciflow_enfrute_revisor', __('Revisor Enfrute (SciFlow)', 'sciflow-wp'), array(
             'read' => true,
         ));
+
+        // Técnico Epagri — inscrição especial; pode acumular revisor e/ou palestrante.
+        add_role('sciflow_tecnico_epagri', __('Técnico Epagri (SciFlow)', 'sciflow-wp'), array(
+            'read' => true,
+        ));
     }
 
     /**
@@ -179,6 +184,19 @@ class SciFlow_Roles
             $enfrute_revisor->add_cap('upload_files');
         }
 
+        // ---------- Técnico Epagri ----------
+        $tecnico = get_role('sciflow_tecnico_epagri');
+        if ($tecnico) {
+            // Mesmas caps de inscrito: pode submeter e editar seus próprios trabalhos.
+            $tecnico->add_cap('edit_enfrute_trabalhos');
+            $tecnico->add_cap('edit_published_enfrute_trabalhos');
+            $tecnico->add_cap('delete_enfrute_trabalhos');
+            $tecnico->add_cap('edit_semco_trabalhos');
+            $tecnico->add_cap('edit_published_semco_trabalhos');
+            $tecnico->add_cap('delete_semco_trabalhos');
+            $tecnico->add_cap('upload_files');
+        }
+
         // ---------- Administrator ----------
         $admin = get_role('administrator');
         if ($admin) {
@@ -210,6 +228,7 @@ class SciFlow_Roles
         remove_role('sciflow_semco_revisor');
         remove_role('sciflow_enfrute_editor');
         remove_role('sciflow_enfrute_revisor');
+        remove_role('sciflow_tecnico_epagri');
     }
 
     /**

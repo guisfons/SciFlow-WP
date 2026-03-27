@@ -26,6 +26,16 @@ class SciFlow_Admin
 
         // Handle ranking selection.
         add_action('admin_post_sciflow_select_top', array($this, 'handle_select_top'));
+
+        // AJAX for mass email.
+        add_action('wp_ajax_sciflow_get_recipient_count', array($this, 'ajax_get_recipient_count'));
+        add_action('wp_ajax_sciflow_send_mass_email_batch', array($this, 'ajax_send_mass_email_batch'));
+
+        // AJAX for tecnico role toggle.
+        add_action('wp_ajax_sciflow_toggle_tecnico_role', array($this, 'ajax_toggle_tecnico_role'));
+
+        // AJAX for historical backfill of tecnico roles.
+        add_action('wp_ajax_sciflow_backfill_tecnico_roles', array($this, 'ajax_backfill_tecnico_roles'));
     }
 
     /**
@@ -68,6 +78,24 @@ class SciFlow_Admin
             'manage_sciflow',
             'sciflow-certificates',
             array($this, 'render_certificates_page')
+        );
+
+        add_submenu_page(
+            'sciflow-settings',
+            __('Disparo de E-mail', 'sciflow-wp'),
+            __('Disparo de E-mail', 'sciflow-wp'),
+            'manage_sciflow',
+            'sciflow-mass-email',
+            array($this, 'render_mass_email_page')
+        );
+
+        add_submenu_page(
+            'sciflow-settings',
+            __('Técnicos Epagri', 'sciflow-wp'),
+            __('Técnicos Epagri', 'sciflow-wp'),
+            'manage_sciflow',
+            'sciflow-tecnicos',
+            array($this, 'render_tecnicos_page')
         );
     }
 
@@ -119,6 +147,7 @@ class SciFlow_Admin
         // WooCommerce product IDs.
         $clean['woo_product_ids'] = sanitize_text_field($input['woo_product_ids'] ?? '');
         $clean['woo_speaker_product_ids'] = sanitize_text_field($input['woo_speaker_product_ids'] ?? '');
+        $clean['woo_tecnico_epagri_product_ids'] = sanitize_text_field($input['woo_tecnico_epagri_product_ids'] ?? '');
 
         return $clean;
     }
@@ -317,6 +346,19 @@ class SciFlow_Admin
                                 placeholder="ex: 789 ou 789,1011">
                             <p class="description">
                                 <?php esc_html_e('ID(s) do produto ou variação WooCommerce que atribui o cargo de Palestrante.', 'sciflow-wp'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e('ID(s) do Produto/Variação de Técnico Epagri', 'sciflow-wp'); ?>
+                        </th>
+                        <td>
+                            <input type="text" name="sciflow_settings[woo_tecnico_epagri_product_ids]"
+                                value="<?php echo esc_attr($settings['woo_tecnico_epagri_product_ids'] ?? ''); ?>" class="regular-text"
+                                placeholder="ex: 321 ou 321,654">
+                            <p class="description">
+                                <?php esc_html_e('ID(s) do produto ou variação WooCommerce que atribui o cargo de Técnico Epagri. Técnicos podem ser promovidos a Revisor e/ou Palestrante na página "Técnicos Epagri".', 'sciflow-wp'); ?>
                             </p>
                         </td>
                     </tr>
@@ -632,6 +674,191 @@ class SciFlow_Admin
 
         wp_safe_redirect(add_query_arg('selected', count($selected), wp_get_referer() ?: admin_url('admin.php?page=sciflow-ranking')));
         exit;
+    }
+
+    /**
+     * Render tecnico epagri management page.
+     */
+    public function render_tecnicos_page()
+    {
+        include SCIFLOW_PATH . 'admin/templates/tecnicos-page.php';
+    }
+
+    /**
+     * Render mass email page.
+     */
+    public function render_mass_email_page()
+    {
+        include SCIFLOW_PATH . 'admin/templates/mass-email-page.php';
+    }
+
+    /**
+     * AJAX: Get recipient count for mass email.
+     */
+    public function ajax_get_recipient_count()
+    {
+        check_ajax_referer('sciflow_mass_email_nonce', 'nonce');
+        
+        if (!current_user_can('manage_sciflow')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $role = sanitize_text_field($_POST['role'] ?? '');
+        $event = sanitize_text_field($_POST['event'] ?? '');
+
+        require_once SCIFLOW_PATH . 'includes/email/class-sciflow-mass-email.php';
+        $mass_email = new SciFlow_Mass_Email();
+        $recipients = $mass_email->get_recipients($role, $event);
+
+        wp_send_json_success(array('count' => count($recipients)));
+    }
+
+    /**
+     * AJAX: Send mass email batch.
+     */
+    public function ajax_send_mass_email_batch()
+    {
+        check_ajax_referer('sciflow_mass_email_nonce', 'nonce');
+
+        if (!current_user_can('manage_sciflow')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $role    = sanitize_text_field($_POST['role'] ?? '');
+        $event   = sanitize_text_field($_POST['event'] ?? '');
+        $subject = sanitize_text_field($_POST['subject'] ?? '');
+        $content = wp_kses_post(wp_unslash($_POST['content'] ?? ''));
+        $offset  = absint($_POST['offset'] ?? 0);
+        $batchsize = 20;
+
+        require_once SCIFLOW_PATH . 'includes/email/class-sciflow-mass-email.php';
+        $mass_email = new SciFlow_Mass_Email();
+        $recipients = $mass_email->get_recipients($role, $event);
+        
+        $slice = array_slice($recipients, $offset, $batchsize);
+        $sent_count = 0;
+
+        foreach ($slice as $user_data) {
+            $mass_email->send_individual_mail($user_data, $subject, $content);
+            $sent_count++;
+        }
+
+        wp_send_json_success(array(
+            'sent' => $sent_count,
+            'new_offset' => $offset + $sent_count,
+            'total' => count($recipients),
+            'done' => ($offset + $sent_count) >= count($recipients)
+        ));
+    }
+
+    /**
+     * AJAX: Backfill sciflow_tecnico_epagri role for users with existing completed orders.
+     */
+    public function ajax_backfill_tecnico_roles()
+    {
+        check_ajax_referer('sciflow_backfill_tecnico_roles', 'nonce');
+
+        if (!current_user_can('manage_sciflow')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $settings = get_option('sciflow_settings', array());
+        $raw = $settings['woo_tecnico_epagri_product_ids'] ?? '';
+        $product_ids = array_filter(array_map('absint', explode(',', $raw)));
+
+        if (empty($product_ids)) {
+            wp_send_json_error('Nenhum ID de produto Técnico Epagri configurado nas settings.');
+        }
+
+        $orders = wc_get_orders(array(
+            'status' => array('wc-completed', 'wc-processing'),
+            'limit'  => -1,
+        ));
+
+        $assigned = 0;
+        $skipped  = 0;
+
+        foreach ($orders as $order) {
+            $user_id = $order->get_user_id();
+            if (!$user_id) {
+                continue;
+            }
+
+            $found = false;
+            foreach ($order->get_items() as $item) {
+                $pid = $item->get_product_id();
+                $vid = $item->get_variation_id();
+
+                if (in_array($pid, $product_ids, true) || ($vid && in_array($vid, $product_ids, true))) {
+                    $found = true;
+                    break;
+                }
+            }
+
+            if (!$found) {
+                continue;
+            }
+
+            $user = get_userdata($user_id);
+            if (!$user) {
+                continue;
+            }
+
+            if (!in_array('sciflow_tecnico_epagri', (array) $user->roles, true)) {
+                $user->add_role('sciflow_tecnico_epagri');
+                $assigned++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        wp_send_json_success(array(
+            'assigned' => $assigned,
+            'skipped'  => $skipped,
+        ));
+    }
+
+    /**
+     * AJAX: Toggle a secondary role (reviewer / speaker) for a tecnico epagri user.
+     */
+    public function ajax_toggle_tecnico_role()
+    {
+        check_ajax_referer('sciflow_toggle_tecnico_role', 'nonce');
+
+        if (!current_user_can('manage_sciflow')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $user_id  = absint($_POST['user_id'] ?? 0);
+        $role     = sanitize_key($_POST['role'] ?? '');
+        $action   = sanitize_key($_POST['toggle_action'] ?? ''); // 'add' or 'remove'
+
+        $allowed = array(
+            'sciflow_enfrute_revisor',
+            'sciflow_semco_revisor',
+            'sciflow_speaker',
+        );
+
+        if (!$user_id || !in_array($role, $allowed, true) || !in_array($action, array('add', 'remove'), true)) {
+            wp_send_json_error('Dados inválidos.');
+        }
+
+        $user = get_userdata($user_id);
+        if (!$user || !in_array('sciflow_tecnico_epagri', (array) $user->roles, true)) {
+            wp_send_json_error('Usuário não é um Técnico Epagri.');
+        }
+
+        if ($action === 'add') {
+            $user->add_role($role);
+        } else {
+            $user->remove_role($role);
+        }
+
+        wp_send_json_success(array(
+            'user_id' => $user_id,
+            'role'    => $role,
+            'action'  => $action,
+        ));
     }
 
     /**
