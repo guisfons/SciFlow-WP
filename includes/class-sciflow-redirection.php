@@ -76,7 +76,7 @@ class SciFlow_Redirection
             }
         }
 
-        if (in_array('sciflow_inscrito', $roles, true) || in_array('sciflow_tecnico_epagri', $roles, true)) {
+        if (in_array('sciflow_inscrito', $roles, true) || $user->has_cap('sciflow_tecnico_epagri')) {
             if ($this->woocommerce && $this->woocommerce->has_paid_registration($user->ID)) {
                 return home_url('/meus-artigos');
             }

@@ -804,7 +804,7 @@ class SciFlow_Admin
                 continue;
             }
 
-            if (!in_array('sciflow_tecnico_epagri', (array) $user->roles, true)) {
+            if (!$user->has_cap('sciflow_tecnico_epagri')) {
                 $user->add_role('sciflow_tecnico_epagri');
                 $assigned++;
             } else {
@@ -844,7 +844,7 @@ class SciFlow_Admin
         }
 
         $user = get_userdata($user_id);
-        if (!$user || !in_array('sciflow_tecnico_epagri', (array) $user->roles, true)) {
+        if (!$user || !$user->has_cap('sciflow_tecnico_epagri')) {
             wp_send_json_error('Usuário não é um Técnico Epagri.');
         }
 

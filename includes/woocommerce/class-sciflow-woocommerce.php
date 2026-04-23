@@ -142,7 +142,7 @@ class SciFlow_WooCommerce
             do_action('sciflow_role_assigned_via_woo', $user_id, $order_id, 'sciflow_speaker');
         }
 
-        if ($found_tecnico && !in_array('sciflow_tecnico_epagri', $user->roles, true)) {
+        if ($found_tecnico && !$user->has_cap('sciflow_tecnico_epagri')) {
             $user->add_role('sciflow_tecnico_epagri');
             do_action('sciflow_role_assigned_via_woo', $user_id, $order_id, 'sciflow_tecnico_epagri');
         }
@@ -167,7 +167,7 @@ class SciFlow_WooCommerce
 
         // Tecnico Epagri counts as a paid registration
         $user_obj = get_userdata($user_id);
-        if ($user_obj && in_array('sciflow_tecnico_epagri', (array) $user_obj->roles, true)) {
+        if ($user_obj && $user_obj->has_cap('sciflow_tecnico_epagri')) {
             return true;
         }
 
