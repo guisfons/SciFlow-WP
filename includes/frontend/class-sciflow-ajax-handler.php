@@ -126,7 +126,7 @@ class SciFlow_Ajax_Handler
             wp_send_json_error(array('message' => __('Sessão expirada. Recarregue a página.', 'sciflow-wp')));
         }
 
-        if (!is_user_logged_in() || !current_user_can('sciflow_speaker')) {
+        if (!is_user_logged_in() || (!current_user_can('sciflow_speaker') && !current_user_can('manage_sciflow'))) {
             wp_send_json_error(array('message' => __('Permissão negada.', 'sciflow-wp')));
         }
 

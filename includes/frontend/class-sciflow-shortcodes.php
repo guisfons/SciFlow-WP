@@ -84,7 +84,7 @@ class SciFlow_Shortcodes
                 . __('Fazer login', 'sciflow-wp') . '</a></div>';
         }
 
-        if (!current_user_can('sciflow_speaker')) {
+        if (!current_user_can('sciflow_speaker') && !current_user_can('manage_sciflow')) {
             return '<div class="sciflow-notice sciflow-notice--error">'
                 . __('Apenas usuários com o perfil de Palestrante podem acessar esta tela.', 'sciflow-wp') . '</div>';
         }
