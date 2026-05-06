@@ -85,7 +85,7 @@ class SciFlow_Ajax_Handler
 
         $data = array(
             'event' => sanitize_text_field($_POST['event'] ?? ''),
-            'title' => sanitize_text_field($_POST['title'] ?? ''),
+            'title' => SciFlow_Status_Manager::sanitize_title($_POST['title'] ?? ''),
             'content' => wp_kses_post($_POST['content'] ?? ''),
             'authors_text' => sanitize_text_field($_POST['authors_text'] ?? ''),
             'keywords' => array_map('sanitize_text_field', (array) ($_POST['keywords'] ?? array())),
@@ -131,17 +131,19 @@ class SciFlow_Ajax_Handler
         }
 
         $event = sanitize_text_field($_POST['event'] ?? '');
-        $title = sanitize_text_field($_POST['title'] ?? '');
+        $title = SciFlow_Status_Manager::sanitize_title($_POST['title'] ?? '');
         $content = wp_kses_post($_POST['content'] ?? '');
 
         if (empty($title) || empty($content)) {
             wp_send_json_error(array('message' => __('Título e Resumo são obrigatórios.', 'sciflow-wp')));
         }
 
-        $total_length = mb_strlen(strip_tags($title . ' ' . $content));
+        $duration = sanitize_text_field($_POST['duration'] ?? '40');
+        $min_chars = ($duration === '20') ? 8000 : 16000;
+        $total_length = mb_strlen(wp_strip_all_tags($title . ' ' . $content));
 
-        if ($total_length < 16000) {
-            wp_send_json_error(array('message' => __('O texto deve ter no mínimo 16.000 caracteres.', 'sciflow-wp')));
+        if ($total_length < $min_chars) {
+            wp_send_json_error(array('message' => sprintf(__('O texto deve ter no mínimo %s caracteres.', 'sciflow-wp'), number_format($min_chars, 0, ',', '.'))));
         }
         if ($total_length > 25000) {
             wp_send_json_error(array('message' => __('O texto excedeu o limite de 25.000 caracteres.', 'sciflow-wp')));
@@ -171,6 +173,8 @@ class SciFlow_Ajax_Handler
             update_post_meta($post_id, '_sciflow_event', $event);
         }
 
+        update_post_meta($post_id, '_sciflow_duration', $duration);
+
         // Save reference links field.
         $references = wp_kses_post(trim($_POST['references'] ?? ''));
         if (!empty($references)) {
@@ -193,7 +197,7 @@ class SciFlow_Ajax_Handler
         $post_id = absint($_POST['post_id'] ?? 0);
 
         $data = array(
-            'title' => sanitize_text_field($_POST['title'] ?? ''),
+            'title' => SciFlow_Status_Manager::sanitize_title($_POST['title'] ?? ''),
             'content' => wp_kses_post($_POST['content'] ?? ''),
             'keywords' => array_map('sanitize_text_field', (array) ($_POST['keywords'] ?? array())),
             'coauthors' => $_POST['coauthors'] ?? array(),

@@ -18,9 +18,10 @@ if ($edit_post && (int)$edit_post->post_author !== (int)$current_user->ID) {
     return;
 }
 
+$status = $edit_post ? get_post_meta($post_id, '_sciflow_status', true) : '';
+
 // Status check: only allowed statuses can be edited
 if ($edit_post) {
-    $status = get_post_meta($post_id, '_sciflow_status', true);
     $allowed_edit_statuses = array('rascunho', 'em_correcao', 'aprovado_com_consideracoes');
     if (!in_array($status, $allowed_edit_statuses, true)) {
         echo '<div class="sciflow-notice sciflow-notice--warning">Este trabalho já foi submetido e ainda não foi liberado pelo editor para alterações.</div>';
@@ -162,9 +163,14 @@ $acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgemen
         </div>
 
         <div class="sciflow-field">
-            <label for="sciflow-title" class="sciflow-field__label">
-                <?php esc_html_e( 'Título do Trabalho *', 'sciflow-wp' ); ?>
-            </label>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
+                <label for="sciflow-title" class="sciflow-field__label" style="margin-bottom: 0;">
+                    <?php esc_html_e( 'Título do Trabalho *', 'sciflow-wp' ); ?>
+                </label>
+                <button type="button" id="sciflow-title-italic-btn" class="sciflow-btn-mini" title="<?php esc_attr_e('Aplicar Itálico', 'sciflow-wp'); ?>" style="padding: 2px 10px; font-style: italic; font-family: serif; font-weight: bold;">
+                    I
+                </button>
+            </div>
             <input type="text" id="sciflow-title" name="title" required
                    class="sciflow-field__input"
                    value="<?php echo esc_attr($title); ?>"
@@ -304,7 +310,7 @@ $acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgemen
             <?php endfor; ?>
         </div>
 
-        <?php if ($sciflow_status === 'em_correcao'): ?>
+        <?php if ($status === 'em_correcao'): ?>
         <div class="sciflow-field">
             <label for="sciflow-author-message" class="sciflow-field__label">
                 <?php esc_html_e('Mensagem ao Editor (opcional)', 'sciflow-wp'); ?>
@@ -319,8 +325,7 @@ $acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgemen
 
         <!-- Submit -->
         <?php 
-        $sciflow_status = $edit_post ? get_post_meta($post_id, '_sciflow_status', true) : '';
-        $hide_draft = ($sciflow_status === 'rascunho') ? 'style="display:none;"' : '';
+        $hide_draft = ($status === 'rascunho') ? 'style="display:none;"' : '';
         ?>
         <div class="sciflow-field sciflow-field--actions">
             <button type="button" class="sciflow-btn sciflow-btn--secondary" id="sciflow-draft-btn" <?php echo $hide_draft; ?>>
@@ -351,6 +356,7 @@ $acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgemen
 
 <script>
 (function() {
+    // Character counter for Acknowledgements
     var textarea = document.getElementById('sciflow-acknowledgement');
     var counter  = document.getElementById('sciflow-ack-count');
     if (textarea && counter) {
@@ -358,7 +364,41 @@ $acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgemen
             counter.textContent = textarea.value.length;
         }
         textarea.addEventListener('input', updateCount);
-        updateCount(); // initialise with pre-filled value
+        updateCount();
+    }
+
+    // Italic helper for Title
+    var titleInput = document.getElementById('sciflow-title');
+    var italicBtn = document.getElementById('sciflow-title-italic-btn');
+    
+    if (titleInput && italicBtn) {
+        italicBtn.addEventListener('click', function() {
+            var start = titleInput.selectionStart;
+            var end = titleInput.selectionEnd;
+            var text = titleInput.value;
+            var selectedText = text.substring(start, end);
+            
+            if (selectedText.length > 0) {
+                var before = text.substring(0, start);
+                var after = text.substring(end);
+                
+                // Toggle italic if already wrapped
+                if (selectedText.startsWith('<i>') && selectedText.endsWith('</i>')) {
+                    var newText = selectedText.substring(3, selectedText.length - 4);
+                    titleInput.value = before + newText + after;
+                    titleInput.setSelectionRange(start, start + newText.length);
+                } else {
+                    titleInput.value = before + '<i>' + selectedText + '</i>' + after;
+                    titleInput.setSelectionRange(start, end + 7);
+                }
+                
+                // Trigger input event to update counter (cleans tags in the listener)
+                titleInput.dispatchEvent(new Event('input'));
+                titleInput.focus();
+            } else {
+                alert('<?php esc_html_e("Selecione o texto que deseja deixar em itálico primeiro.", "sciflow-wp"); ?>');
+            }
+        });
     }
 })();
 </script>

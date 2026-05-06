@@ -50,7 +50,8 @@
         const ack = $('#sciflow-acknowledgement').val() || '';
 
         // Title counter
-        const titleLen = title.length;
+        const titleClean = title.replace(/<\/?[^>]+(>|$)/g, "");
+        const titleLen = titleClean.length;
         $('#sciflow-title-count').text(titleLen);
         const $titleWrapper = $('#sciflow-title-counter');
         
@@ -804,9 +805,11 @@
         const total = title.length + content.length;
 
         const $counter = $('#speaker-char-count');
-        $counter.text('Caracteres: ' + total + ' / 25000 (Mínimo: 16000)');
+        const duration = $('#sciflow-speaker-duration').val() || '40';
+        const minLimit = (duration === '20') ? 8000 : 16000;
+        $counter.text('Caracteres: ' + total.toLocaleString() + ' / 25.000 (Mínimo: ' + minLimit.toLocaleString() + ')');
 
-        if (total < 16000 || total > 25000) {
+        if (total < minLimit || total > 25000) {
             $counter.css('color', '#dc3545'); // red
         } else {
             $counter.css('color', '#198754'); // green
