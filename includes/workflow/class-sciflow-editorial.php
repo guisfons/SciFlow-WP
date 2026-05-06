@@ -236,4 +236,19 @@ class SciFlow_Editorial
             'orderby' => 'display_name',
         ));
     }
+
+    /**
+     * Get all speaker talks (lectures).
+     */
+    public function get_all_lectures()
+    {
+        $args = array(
+            'post_type' => 'sciflow_palestra',
+            'posts_per_page' => -1,
+            'post_status' => 'publish',
+        );
+
+        $query = new WP_Query($args);
+        return $query->posts;
+    }
 }

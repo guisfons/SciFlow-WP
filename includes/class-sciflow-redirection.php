@@ -40,7 +40,8 @@ class SciFlow_Redirection
         $editor_roles = array(
             'sciflow_editor',
             'sciflow_semco_editor',
-            'sciflow_enfrute_editor'
+            'sciflow_enfrute_editor',
+            'sciflow_tecnico_admin'
         );
 
         $reviewer_roles = array(
@@ -55,6 +56,10 @@ class SciFlow_Redirection
 
         foreach ($editor_roles as $role) {
             if (in_array($role, $roles, true)) {
+                // If it's the Technical Manager, send to admin dashboard.
+                if ($role === 'sciflow_tecnico_admin') {
+                    return admin_url();
+                }
                 return $editor_url;
             }
         }
@@ -139,8 +144,8 @@ class SciFlow_Redirection
 
         $user = wp_get_current_user();
         
-        // Administrators should always have access to the dashboard.
-        if (in_array('administrator', (array) $user->roles, true)) {
+        // Administrators and Technical Managers should always have access to the dashboard.
+        if (in_array('administrator', (array) $user->roles, true) || in_array('sciflow_tecnico_admin', (array) $user->roles, true)) {
             return;
         }
 

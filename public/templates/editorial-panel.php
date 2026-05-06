@@ -32,6 +32,9 @@ $events = array(
                 <?php echo esc_html($label); ?>
             </button>
         <?php endforeach; ?>
+        <button class="sciflow-tab" data-event="palestras">
+            <?php esc_html_e('Palestras', 'sciflow-wp'); ?>
+        </button>
     </div>
 
     <?php foreach ($events as $event_key => $event_label):
@@ -166,11 +169,11 @@ $events = array(
                                     data-search="<?php 
                                         $is_editor = current_user_can('manage_sciflow');
                                         $search_author = ($is_editor || current_user_can('administrator')) ? ($author ? $author->display_name : '') : '';
-                                        echo esc_attr(strtolower($post->post_title . ' ' . $search_author . ' ' . ($reviewer ? $reviewer->display_name : '') . ' ' . $cultura . ' ' . $area)); 
+                                        echo esc_attr(strtolower(wp_strip_all_tags($post->post_title) . ' ' . $search_author . ' ' . ($reviewer ? $reviewer->display_name : '') . ' ' . $cultura . ' ' . $area)); 
                                     ?>">
                                     <td>
                                         <strong>
-                                            #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> - <?php echo esc_html($post->post_title); ?>
+                                            #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> - <?php echo SciFlow_Status_Manager::render_title($post->post_title); ?>
                                         </strong>
                                         <div class="sciflow-table-meta-links" style="display: flex; gap: 10px; margin-top: 5px;">
                                             <?php 
@@ -523,4 +526,83 @@ $events = array(
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>
+
+    <!-- Palestras Tab Content -->
+    <div class="sciflow-tab-content" id="sciflow-tab-palestras">
+        <?php $lectures = $editorial->get_all_lectures(); ?>
+        
+        <?php if (empty($lectures)): ?>
+            <div class="sciflow-empty">
+                <p><?php esc_html_e('Nenhuma palestra cadastrada.', 'sciflow-wp'); ?></p>
+            </div>
+        <?php else: ?>
+            <div class="sciflow-filters" style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px;">
+                <div class="sciflow-filter-group">
+                    <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px;"><?php esc_html_e('Buscar Palestra', 'sciflow-wp'); ?></label>
+                    <input type="text" class="sciflow-filter-input sciflow-filter-text" 
+                           data-event="palestras" 
+                           placeholder="<?php esc_attr_e('Buscar por título ou palestrante...', 'sciflow-wp'); ?>"
+                           style="padding:6px; border:1px solid #ccc; border-radius:4px; width: 300px;">
+                </div>
+            </div>
+
+            <table class="sciflow-table sciflow-table-palestras">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;"><?php esc_html_e('ID', 'sciflow-wp'); ?></th>
+                        <th><?php esc_html_e('Palestra', 'sciflow-wp'); ?></th>
+                        <th><?php esc_html_e('Palestrante', 'sciflow-wp'); ?></th>
+                        <th><?php esc_html_e('Evento', 'sciflow-wp'); ?></th>
+                        <th><?php esc_html_e('Duração', 'sciflow-wp'); ?></th>
+                        <th style="width: 120px;"><?php esc_html_e('Ações', 'sciflow-wp'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($lectures as $lecture): 
+                        $author = get_userdata($lecture->post_author);
+                        $author_name = $author ? $author->display_name : __('Desconhecido', 'sciflow-wp');
+                        $lecture_event = get_post_meta($lecture->ID, '_sciflow_event', true);
+                        $duration = get_post_meta($lecture->ID, '_sciflow_duration', true);
+                        $search_data = strtolower(SciFlow_Status_Manager::render_title($lecture->post_title) . ' ' . $author_name);
+                    ?>
+                        <tr class="sciflow-table__row" data-search="<?php echo esc_attr($search_data); ?>" data-post-id="<?php echo $lecture->ID; ?>">
+                            <td>#<?php echo $lecture->ID; ?></td>
+                            <td><strong><?php echo SciFlow_Status_Manager::render_title($lecture->post_title); ?></strong></td>
+                            <td><?php echo esc_html($author_name); ?></td>
+                            <td><?php echo esc_html(ucfirst($lecture_event)); ?></td>
+                            <td><?php echo $duration ? sprintf(__('%s Minutos', 'sciflow-wp'), $duration) : '-'; ?></td>
+                            <td>
+                                <button type="button" class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm sciflow-toggle-content" 
+                                        data-target="content-lecture-<?php echo $lecture->ID; ?>">
+                                    <?php esc_html_e('Ver Conteúdo', 'sciflow-wp'); ?>
+                                </button>
+                            </td>
+                        </tr>
+                        <tr id="content-lecture-<?php echo $lecture->ID; ?>" style="display:none; background: #fff;">
+                            <td colspan="6">
+                                <div style="padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+                                    <h4 style="margin-top: 0; color: var(--sciflow-primary);"><?php echo SciFlow_Status_Manager::render_title($lecture->post_title); ?></h4>
+                                    <div class="sciflow-lecture-meta" style="margin-bottom: 15px; font-size: 13px; color: #666;">
+                                        <strong><?php esc_html_e('Resumo da Palestra:', 'sciflow-wp'); ?></strong>
+                                    </div>
+                                    <div class="sciflow-lecture-body" style="line-height: 1.6; white-space: pre-wrap;">
+                                        <?php echo wp_kses_post($lecture->post_content); ?>
+                                    </div>
+                                    
+                                    <?php 
+                                    $references = get_post_meta($lecture->ID, '_sciflow_references', true);
+                                    if (!empty($references)): ?>
+                                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc;">
+                                            <h5 style="margin-bottom: 8px;"><?php esc_html_e('Referências:', 'sciflow-wp'); ?></h5>
+                                            <div style="font-size: 13px; color: #444;"><?php echo nl2br(esc_html($references)); ?></div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
     </div>
+</div>

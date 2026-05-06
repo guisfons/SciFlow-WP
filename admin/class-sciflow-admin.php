@@ -46,7 +46,7 @@ class SciFlow_Admin
         add_menu_page(
             __('SciFlow', 'sciflow-wp'),
             __('SciFlow', 'sciflow-wp'),
-            'manage_sciflow',
+            'manage_sciflow_tecnicos',
             'sciflow-settings',
             array($this, 'render_settings_page'),
             'dashicons-welcome-learn-more',
@@ -93,7 +93,7 @@ class SciFlow_Admin
             'sciflow-settings',
             __('Técnicos Epagri', 'sciflow-wp'),
             __('Técnicos Epagri', 'sciflow-wp'),
-            'manage_sciflow',
+            'manage_sciflow_tecnicos',
             'sciflow-tecnicos',
             array($this, 'render_tecnicos_page')
         );
@@ -173,6 +173,9 @@ class SciFlow_Admin
      */
     public function render_settings_page()
     {
+        if (!current_user_can('manage_sciflow')) {
+            wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
+        }
         $settings = get_option('sciflow_settings', array());
         ?>
         <div class="wrap">
@@ -375,6 +378,9 @@ class SciFlow_Admin
      */
     public function render_ranking_page()
     {
+        if (!current_user_can('manage_sciflow')) {
+            wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
+        }
         $ranking = new SciFlow_Ranking();
         ?>
         <div class="wrap">
@@ -442,7 +448,7 @@ class SciFlow_Admin
 
             echo '<tr>';
             echo '<td>' . $pos . '</td>';
-            echo '<td><strong>' . esc_html($post->post_title) . '</strong></td>';
+            echo '<td><strong>' . SciFlow_Status_Manager::render_title($post->post_title) . '</strong></td>';
             echo '<td>' . number_format($score, 2, ',', '') . '</td>';
             echo '<td>' . $sm->get_status_badge($status) . '</td>';
             echo '<td>' . ($selected ? '✅' : '—') . '</td>';
@@ -471,6 +477,9 @@ class SciFlow_Admin
      */
     public function render_certificates_page()
     {
+        if (!current_user_can('manage_sciflow')) {
+            wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
+        }
         $certificates = new SciFlow_Certificates();
         ?>
         <div class="wrap">
@@ -524,7 +533,7 @@ class SciFlow_Admin
                             $eligible = $certificates->is_eligible($post->ID);
 
                             echo '<tr>';
-                            echo '<td>' . esc_html($post->post_title) . '</td>';
+                            echo '<td>' . SciFlow_Status_Manager::render_title($post->post_title) . '</td>';
                             echo '<td>' . ($author ? esc_html($author->display_name) : '—') . '</td>';
                             echo '<td>' . esc_html(ucfirst($event)) . '</td>';
                             echo '<td>' . ($eligible ? '✅' : '❌') . '</td>';
@@ -689,6 +698,9 @@ class SciFlow_Admin
      */
     public function render_mass_email_page()
     {
+        if (!current_user_can('manage_sciflow')) {
+            wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
+        }
         include SCIFLOW_PATH . 'admin/templates/mass-email-page.php';
     }
 
@@ -758,7 +770,7 @@ class SciFlow_Admin
     {
         check_ajax_referer('sciflow_backfill_tecnico_roles', 'nonce');
 
-        if (!current_user_can('manage_sciflow')) {
+        if (!current_user_can('manage_sciflow_tecnicos')) {
             wp_send_json_error('Unauthorized');
         }
 
@@ -825,7 +837,7 @@ class SciFlow_Admin
     {
         check_ajax_referer('sciflow_toggle_tecnico_role', 'nonce');
 
-        if (!current_user_can('manage_sciflow')) {
+        if (!current_user_can('manage_sciflow_tecnicos')) {
             wp_send_json_error('Unauthorized');
         }
 

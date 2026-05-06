@@ -62,6 +62,15 @@ class SciFlow_Roles
         add_role('sciflow_tecnico_epagri', __('Técnico Epagri (SciFlow)', 'sciflow-wp'), array(
             'read' => true,
         ));
+
+        // Gestor Técnico — pode gerenciar WooCommerce e Técnicos SciFlow.
+        add_role('sciflow_tecnico_admin', __('Gestor Técnico (SciFlow)', 'sciflow-wp'), array(
+            'read' => true,
+            'manage_woocommerce' => true,
+            'view_woocommerce_reports' => true,
+            'edit_shop_orders' => true,
+            'read_shop_order' => true,
+        ));
     }
 
     /**
@@ -129,7 +138,20 @@ class SciFlow_Roles
             $editor->add_cap('sciflow_review');
             $editor->add_cap('assign_sciflow_reviewers');
             $editor->add_cap('manage_sciflow');
+            $editor->add_cap('manage_sciflow_tecnicos');
             $editor->add_cap('upload_files');
+        }
+
+        // ---------- Gestor Técnico SciFlow ----------
+        $gestor_tecnico = get_role('sciflow_tecnico_admin');
+        if ($gestor_tecnico) {
+            $gestor_tecnico->add_cap('manage_sciflow_tecnicos');
+            $gestor_tecnico->add_cap('read');
+            // WooCommerce specific
+            $gestor_tecnico->add_cap('manage_woocommerce');
+            $gestor_tecnico->add_cap('view_woocommerce_reports');
+            $gestor_tecnico->add_cap('edit_shop_orders');
+            $gestor_tecnico->add_cap('read_shop_order');
         }
 
         // ---------- Semco Editor ----------
@@ -212,6 +234,7 @@ class SciFlow_Roles
             $admin->add_cap('sciflow_review');
             $admin->add_cap('assign_sciflow_reviewers');
             $admin->add_cap('manage_sciflow');
+            $admin->add_cap('manage_sciflow_tecnicos');
         }
     }
 
@@ -229,6 +252,7 @@ class SciFlow_Roles
         remove_role('sciflow_enfrute_editor');
         remove_role('sciflow_enfrute_revisor');
         remove_role('sciflow_tecnico_epagri');
+        remove_role('sciflow_tecnico_admin');
     }
 
     /**
