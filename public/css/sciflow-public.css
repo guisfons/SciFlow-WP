@@ -233,6 +233,22 @@
     font-size: 13px;
 }
 
+.sciflow-btn-mini {
+    background: var(--sciflow-gray-100);
+    border: 1px solid var(--sciflow-gray-300);
+    border-radius: 4px;
+    color: var(--sciflow-gray-700);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all var(--sciflow-transition);
+}
+
+.sciflow-btn-mini:hover {
+    background: var(--sciflow-primary);
+    border-color: var(--sciflow-primary);
+    color: #fff;
+}
+
 .sciflow-field--actions {
     margin-top: 30px;
     padding-top: 20px;

@@ -226,4 +226,23 @@ class SciFlow_Status_Manager
 
         return $visual_id;
     }
+
+    /**
+     * Sanitize title with italic support.
+     */
+    public static function sanitize_title($title)
+    {
+        return wp_kses($title, array(
+            'i'  => array(),
+            'em' => array(),
+        ));
+    }
+
+    /**
+     * Render title with italic support.
+     */
+    public static function render_title($title)
+    {
+        return self::sanitize_title($title);
+    }
 }

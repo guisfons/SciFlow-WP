@@ -122,11 +122,11 @@ $criteria = array(
             <div class="sciflow-review-card" data-post-id="<?php echo esc_attr($post->ID); ?>"
                 data-event="<?php echo esc_attr($event); ?>" data-cultura="<?php echo esc_attr($cultura); ?>"
                 data-area="<?php echo esc_attr($area); ?>"
-                data-search="<?php echo esc_attr(strtolower($post->post_title . ' ' . $search_author . ' ' . $cultura . ' ' . $area)); ?>">
+                data-search="<?php echo esc_attr(strtolower(wp_strip_all_tags($post->post_title) . ' ' . $search_author . ' ' . $cultura . ' ' . $area)); ?>">
                 <div class="sciflow-work-card__header">
                     <h3>
                         #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> -
-                        <?php echo esc_html($post->post_title); ?>
+                        <?php echo SciFlow_Status_Manager::render_title($post->post_title); ?>
                     </h3>
                     <?php echo $status_manager->get_status_badge($status); ?>
                 </div>

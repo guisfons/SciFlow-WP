@@ -44,7 +44,7 @@ if (!empty($decision_label)) {
                         <?php esc_html_e('Título', 'sciflow-wp'); ?>
                     </td>
                     <td style="padding:8px 12px;color:#333;">
-                        <?php echo esc_html($titulo); ?>
+                        <?php echo SciFlow_Status_Manager::render_title($titulo); ?>
                     </td>
                 </tr>
                 <tr style="background:#f9f9f9;">

@@ -432,16 +432,16 @@ class SciFlow_Email
         $is_resubmit = ($status === 'poster_reenviado');
 
         $vars['message'] = $is_resubmit
-            ? __('Seu p\u00f4ster corrigido foi recebido. O comit\u00ea ir\u00e1 avaliar e voc\u00ea ser\u00e1 notificado em breve.', 'sciflow-wp')
-            : __('Recebemos seu p\u00f4ster! Ele est\u00e1 sendo avaliado pelo comit\u00ea cient\u00edfico.', 'sciflow-wp');
+            ? __('Seu pôster corrigido foi recebido. O comitê irá avaliar e você será notificado em breve.', 'sciflow-wp')
+            : __('Recebemos seu pôster! Ele está sendo avaliado pelo comitê científico.', 'sciflow-wp');
         $vars['headline'] = $is_resubmit
-            ? __('P\u00f4ster Corrigido Recebido', 'sciflow-wp')
-            : __('P\u00f4ster Recebido com Sucesso', 'sciflow-wp');
+            ? __('Pôster Corrigido Recebido', 'sciflow-wp')
+            : __('Pôster Recebido com Sucesso', 'sciflow-wp');
         $vars['is_request'] = false;
 
         $subject = $is_resubmit
-            ? sprintf(__('[%s] P\u00f4ster Corrigido Recebido: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo'])
-            : sprintf(__('[%s] P\u00f4ster Enviado: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
+            ? sprintf(__('[%s] Pôster Corrigido Recebido: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo'])
+            : sprintf(__('[%s] Pôster Enviado: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
         $this->send($recipients, $subject, 'poster-request', $vars);
     }

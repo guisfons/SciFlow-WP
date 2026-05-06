@@ -46,7 +46,7 @@ $poster_template_url = $settings['poster_template_url'] ?? '';
             ?>
             <div class="sciflow-upload-card">
                 <h3>
-                    #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> - <?php echo esc_html($post->post_title); ?>
+                    #<?php echo SciFlow_Status_Manager::get_visual_id($post->ID); ?> - <?php echo SciFlow_Status_Manager::render_title($post->post_title); ?>
                 </h3>
 
                 <?php if ($poster_id): ?>

@@ -56,18 +56,18 @@ class SciFlow_Submission
         $is_draft = !empty($data['is_draft']);
 
         // Validate content length (3000-4000 chars). Skip if it's a draft.
-        $title = sanitize_text_field($data['title'] ?? '');
+        $title = SciFlow_Status_Manager::sanitize_title($data['title'] ?? '');
         $content = wp_kses_post($data['content'] ?? '');
         $acknowledgement = sanitize_textarea_field($data['acknowledgement'] ?? '');
 
         if (!$is_draft) {
             // Title limit.
-            if (mb_strlen($title) > 180) {
+            if (mb_strlen(wp_strip_all_tags($title)) > 180) {
                 return new WP_Error('title_limit', __('O título deve ter no máximo 180 caracteres.', 'sciflow-wp'));
             }
 
             // Combined Title + Content + Acknowledgement.
-            $char_count = mb_strlen($title) + mb_strlen(trim(wp_strip_all_tags($content))) + mb_strlen(trim($acknowledgement));
+            $char_count = mb_strlen(trim(wp_strip_all_tags($title))) + mb_strlen(trim(wp_strip_all_tags($content))) + mb_strlen(trim($acknowledgement));
 
             if ($char_count < 3000 || $char_count > 4000) {
                 return new WP_Error(
@@ -267,15 +267,15 @@ class SciFlow_Submission
         }
 
         // Update content.
-        $title = sanitize_text_field($data['title'] ?? '');
+        $title = SciFlow_Status_Manager::sanitize_title($data['title'] ?? '');
         $content = wp_kses_post($data['content'] ?? '');
         $acknowledgement = sanitize_textarea_field($data['acknowledgement'] ?? '');
 
         // Re-validate limits on resubmit as well
-        if (mb_strlen($title) > 180) {
+        if (mb_strlen(wp_strip_all_tags($title)) > 180) {
             return new WP_Error('title_limit', __('O título deve ter no máximo 180 caracteres.', 'sciflow-wp'));
         }
-        $char_count = mb_strlen($title) + mb_strlen(trim(wp_strip_all_tags($content))) + mb_strlen(trim($acknowledgement));
+        $char_count = mb_strlen(trim(wp_strip_all_tags($title))) + mb_strlen(trim(wp_strip_all_tags($content))) + mb_strlen(trim($acknowledgement));
         if ($char_count < 3000 || $char_count > 4000) {
             return new WP_Error('char_limit', sprintf(__('O título + resumo + agradecimentos deve ter entre 3.000 e 4.000 caracteres (atual: %d).', 'sciflow-wp'), $char_count));
         }

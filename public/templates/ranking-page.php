@@ -98,7 +98,7 @@ function sciflow_render_ranking_table($posts, $status_manager, $show_event = fal
                             echo ' 🏆';
                         ?>
                     </td>
-                    <td><?php echo esc_html($post->post_title); ?></td>
+                    <td><?php echo SciFlow_Status_Manager::render_title($post->post_title); ?></td>
                     <?php if ($show_event): ?>
                         <td><?php echo esc_html(ucfirst($event)); ?></td>
                     <?php endif; ?>
