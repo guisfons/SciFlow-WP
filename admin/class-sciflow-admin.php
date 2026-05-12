@@ -36,6 +36,13 @@ class SciFlow_Admin
 
         // AJAX for historical backfill of tecnico roles.
         add_action('wp_ajax_sciflow_backfill_tecnico_roles', array($this, 'ajax_backfill_tecnico_roles'));
+
+        // AJAX for gestor tecnico permission management.
+        add_action('wp_ajax_sciflow_toggle_gestor_capability', array($this, 'ajax_toggle_gestor_capability'));
+        add_action('wp_ajax_sciflow_remove_gestor_role', array($this, 'ajax_remove_gestor_role'));
+
+        // Restrict editable roles for Gestor Técnico.
+        add_filter('editable_roles', array($this, 'filter_editable_roles_for_gestor'));
     }
 
     /**
@@ -96,6 +103,15 @@ class SciFlow_Admin
             'manage_sciflow_tecnicos',
             'sciflow-tecnicos',
             array($this, 'render_tecnicos_page')
+        );
+
+        add_submenu_page(
+            'sciflow-settings',
+            __('Permissões Gestor', 'sciflow-wp'),
+            __('Permissões Gestor', 'sciflow-wp'),
+            'manage_options',
+            'sciflow-gestor-permissions',
+            array($this, 'render_gestor_permissions_page')
         );
     }
 
@@ -874,6 +890,148 @@ class SciFlow_Admin
     }
 
     /**
+     * Render gestor tecnico permission management page.
+     */
+    public function render_gestor_permissions_page()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
+        }
+        include SCIFLOW_PATH . 'admin/templates/gestor-permissions-page.php';
+    }
+
+    /**
+     * AJAX: Toggle a capability for the gestor tecnico role.
+     */
+    public function ajax_toggle_gestor_capability()
+    {
+        check_ajax_referer('sciflow_gestor_permissions_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $group_key = sanitize_text_field($_POST['group'] ?? '');
+        $action    = sanitize_text_field($_POST['toggle_action'] ?? 'add');
+
+        $role = get_role('sciflow_tecnico_admin');
+        if (!$role) {
+            wp_send_json_error('Role Gestor Técnico não encontrada.');
+        }
+
+        // Define capability groups
+        $groups = array(
+            'sciflow' => array(
+                'manage_sciflow',
+                'manage_sciflow_tecnicos',
+                'assign_sciflow_reviewers',
+                'sciflow_review'
+            ),
+            'woocommerce' => array(
+                'manage_woocommerce',
+                'view_woocommerce_reports',
+                'edit_shop_orders',
+                'read_shop_order'
+            ),
+            'content' => array(
+                'edit_posts',
+                'edit_others_posts',
+                'edit_published_posts',
+                'publish_posts',
+                'edit_pages',
+                'edit_others_pages',
+                'edit_published_pages',
+                'publish_pages',
+                'upload_files'
+            ),
+            'settings' => array(
+                'manage_options',
+                'edit_theme_options'
+            ),
+            'users' => array(
+                'list_users',
+                'edit_users',
+                'promote_users'
+            )
+        );
+
+        if (!isset($groups[$group_key])) {
+            wp_send_json_error('Grupo de permissões inválido.');
+        }
+
+        foreach ($groups[$group_key] as $cap) {
+            if ($action === 'add') {
+                $role->add_cap($cap);
+            } else {
+                $role->remove_cap($cap);
+            }
+        }
+
+        wp_send_json_success(array(
+            'group'  => $group_key,
+            'action' => $action
+        ));
+    }
+
+    /**
+     * AJAX: Remove sciflow_tecnico_admin role from a user.
+     */
+    public function ajax_remove_gestor_role()
+    {
+        check_ajax_referer('sciflow_gestor_permissions_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $user_id = absint($_POST['user_id'] ?? 0);
+        $user = get_userdata($user_id);
+
+        if (!$user) {
+            wp_send_json_error('Usuário não encontrado.');
+        }
+
+        $user->remove_role('sciflow_tecnico_admin');
+
+        wp_send_json_success('Cargo removido com sucesso.');
+    }
+
+    /**
+     * Restrict the roles that a Gestor Técnico can assign.
+     */
+    public function filter_editable_roles_for_gestor($roles)
+    {
+        $user = wp_get_current_user();
+        
+        // Only apply if the user is a Gestor Técnico and NOT an Administrator.
+        if (in_array('sciflow_tecnico_admin', (array) $user->roles) && !in_array('administrator', (array) $user->roles)) {
+            $allowed_roles = array(
+                'subscriber', 
+                'contributor', 
+                'author', 
+                'editor',
+                'sciflow_inscrito',
+                'sciflow_speaker',
+                'sciflow_revisor',
+                'sciflow_editor',
+                'sciflow_semco_editor',
+                'sciflow_semco_revisor',
+                'sciflow_enfrute_editor',
+                'sciflow_enfrute_revisor',
+                'sciflow_tecnico_epagri'
+            );
+
+            foreach ($roles as $role_key => $role_data) {
+                if (!in_array($role_key, $allowed_roles)) {
+                    unset($roles[$role_key]);
+                }
+            }
+        }
+
+        return $roles;
+    }
+
+    /**
      * Enqueue admin CSS.
      */
     public function enqueue_admin_assets($hook)
@@ -883,3 +1041,5 @@ class SciFlow_Admin
         }
     }
 }
+
+
