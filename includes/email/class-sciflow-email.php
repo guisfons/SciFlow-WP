@@ -146,7 +146,7 @@ class SciFlow_Email
         $sm = new SciFlow_Status_Manager();
 
         return array(
-            'titulo' => $post->post_title,
+            'titulo' => wp_strip_all_tags($post->post_title),
             'evento' => $this->get_event_label($event),
             'status' => $sm->get_status_label($status),
             'link' => $this->get_dashboard_url($post_id),

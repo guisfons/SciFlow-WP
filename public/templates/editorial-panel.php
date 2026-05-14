@@ -586,7 +586,28 @@ $events = array(
                                         <strong><?php esc_html_e('Resumo da Palestra:', 'sciflow-wp'); ?></strong>
                                     </div>
                                     <div class="sciflow-lecture-body" style="line-height: 1.6; white-space: pre-wrap;">
-                                        <?php echo wp_kses_post($lecture->post_content); ?>
+                                        <?php 
+                                        $file_id = get_post_meta($lecture->ID, '_sciflow_attachment_id', true);
+                                        $file_url = $file_id ? wp_get_attachment_url($file_id) : '';
+
+                                        if ($file_url): ?>
+                                            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; margin-bottom: 20px;">
+                                                <a href="<?php echo esc_url($file_url); ?>" target="_blank" class="sciflow-btn sciflow-btn--primary">
+                                                    <i class="bi bi-file-earmark-word"></i> <?php esc_html_e('Baixar Conteúdo (Word)', 'sciflow-wp'); ?>
+                                                </a>
+                                                <small style="display:block; margin-top:5px; color:#666;">ID Anexo: <?php echo esc_html($file_id); ?></small>
+                                            </div>
+                                        <?php elseif (!empty($lecture->post_content)): ?>
+                                            <div class="sciflow-content-legacy">
+                                                <?php echo wp_kses_post($lecture->post_content); ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <div style="padding: 15px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 6px; color: #c53030;">
+                                                <i class="bi bi-exclamation-triangle-fill"></i> 
+                                                <?php esc_html_e('Nenhum arquivo ou resumo encontrado para esta palestra.', 'sciflow-wp'); ?>
+                                                <br><small>Post ID: <?php echo $lecture->ID; ?></small>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                     
                                     <?php 

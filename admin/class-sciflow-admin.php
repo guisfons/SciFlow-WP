@@ -43,6 +43,9 @@ class SciFlow_Admin
 
         // Restrict editable roles for Gestor Técnico.
         add_filter('editable_roles', array($this, 'filter_editable_roles_for_gestor'));
+
+        // Hide unwanted menus for Gestor Técnico.
+        add_action('admin_menu', array($this, 'restrict_gestor_menus'), 999);
     }
 
     /**
@@ -55,7 +58,7 @@ class SciFlow_Admin
             __('SciFlow', 'sciflow-wp'),
             'manage_sciflow_tecnicos',
             'sciflow-settings',
-            array($this, 'render_settings_page'),
+            array($this, 'render_main_page'),
             'dashicons-welcome-learn-more',
             30
         );
@@ -182,6 +185,20 @@ class SciFlow_Admin
             }
         }
         return implode(', ', $clean);
+    }
+
+    /**
+     * Render main SciFlow page based on user capabilities.
+     * If user can manage_sciflow, show settings.
+     * Otherwise, if they can manage_sciflow_tecnicos, show tecnicos page.
+     */
+    public function render_main_page()
+    {
+        if (current_user_can('manage_sciflow')) {
+            $this->render_settings_page();
+        } else {
+            $this->render_tecnicos_page();
+        }
     }
 
     /**
@@ -589,6 +606,15 @@ class SciFlow_Admin
                 'high'
             );
         }
+
+        add_meta_box(
+            'sciflow_palestra_meta',
+            __('SciFlow — Dados da Palestra', 'sciflow-wp'),
+            array($this, 'render_palestra_meta_box'),
+            'sciflow_palestra',
+            'normal',
+            'high'
+        );
     }
 
     /**
@@ -670,6 +696,52 @@ class SciFlow_Admin
             echo '<button type="submit" class="button">' . esc_html__('Confirmar Pagamento Manualmente', 'sciflow-wp') . '</button>';
             echo '</form>';
         }
+    }
+
+    /**
+     * Render the palestra meta box.
+     */
+    public function render_palestra_meta_box($post)
+    {
+        $event = get_post_meta($post->ID, '_sciflow_event', true);
+        $duration = get_post_meta($post->ID, '_sciflow_duration', true);
+        $file_id = get_post_meta($post->ID, '_sciflow_attachment_id', true);
+        $file_url = $file_id ? wp_get_attachment_url($file_id) : '';
+        $references = get_post_meta($post->ID, '_sciflow_references', true);
+
+        echo '<div class="sciflow-admin-meta-box">';
+        echo '<p><strong>' . esc_html__('Evento:', 'sciflow-wp') . '</strong> ' . esc_html(ucfirst($event)) . '</p>';
+        echo '<p><strong>' . esc_html__('Duração:', 'sciflow-wp') . '</strong> ' . ($duration ? esc_html($duration) . ' min' : '—') . '</p>';
+        
+        echo '<hr><h3>' . esc_html__('Conteúdo da Palestra', 'sciflow-wp') . '</h3>';
+        
+        if ($file_url) {
+            echo '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6; display: inline-block; min-width: 300px;">';
+            echo '<div style="display: flex; align-items: center; margin-bottom: 15px;">';
+            echo '<span class="dashicons dashicons-media-document" style="font-size: 40px; width: 40px; height: 40px; margin-right: 15px; color: #2b6cb0;"></span>';
+            echo '<div>';
+            echo '<div style="font-weight: bold; font-size: 14px;">Arquivo Word Enviado</div>';
+            echo '<div style="font-size: 11px; color: #666;">ID do Anexo: ' . $file_id . '</div>';
+            echo '</div>';
+            echo '</div>';
+            echo '<a href="' . esc_url($file_url) . '" target="_blank" class="button button-primary button-large" style="width: 100%; text-align: center;">';
+            echo '<span class="dashicons dashicons-download" style="margin-top: 4px;"></span> ';
+            echo esc_html__('Baixar Documento', 'sciflow-wp');
+            echo '</a>';
+            echo '</div>';
+        } else {
+            echo '<div class="notice notice-warning inline"><p>' . esc_html__('Nenhum arquivo Word anexado.', 'sciflow-wp') . '</p></div>';
+            if (!empty($post->post_content)) {
+                echo '<h4>' . esc_html__('Resumo (Texto Legado):', 'sciflow-wp') . '</h4>';
+                echo '<div style="background: #fff; border: 1px solid #ccc; padding: 10px;">' . wp_kses_post($post->post_content) . '</div>';
+            }
+        }
+
+        if ($references) {
+            echo '<hr><h3>' . esc_html__('Referências / Links', 'sciflow-wp') . '</h3>';
+            echo '<div style="white-space: pre-wrap; font-family: monospace; background: #fafafa; padding: 10px; border: 1px solid #eee; font-size: 12px;">' . esc_html($references) . '</div>';
+        }
+        echo '</div>';
     }
 
     /**
@@ -930,8 +1002,38 @@ class SciFlow_Admin
             'woocommerce' => array(
                 'manage_woocommerce',
                 'view_woocommerce_reports',
+                'edit_products',
+                'edit_others_products',
+                'publish_products',
+                'read_private_products',
+                'delete_products',
+                'delete_private_products',
+                'delete_published_products',
+                'delete_others_products',
+                'edit_product_terms',
+                'assign_product_terms',
                 'edit_shop_orders',
-                'read_shop_order'
+                'read_shop_order',
+                'edit_others_shop_orders',
+                'publish_shop_orders',
+                'read_private_shop_orders',
+                'delete_shop_orders',
+                'delete_private_shop_orders',
+                'delete_published_shop_orders',
+                'delete_others_shop_orders',
+                'edit_shop_order_terms',
+                'assign_shop_order_terms',
+                'edit_shop_coupons',
+                'edit_others_shop_coupons',
+                'publish_shop_coupons',
+                'read_private_shop_coupons',
+                'delete_shop_coupons',
+                'delete_private_shop_coupons',
+                'delete_published_shop_coupons',
+                'delete_others_shop_coupons',
+                'edit_shop_coupon_terms',
+                'assign_shop_coupon_terms',
+                'upload_files'
             ),
             'content' => array(
                 'edit_posts',
@@ -1029,6 +1131,27 @@ class SciFlow_Admin
         }
 
         return $roles;
+    }
+
+    /**
+     * Hide unwanted menu pages for Gestor Técnico role.
+     */
+    public function restrict_gestor_menus()
+    {
+        $user = wp_get_current_user();
+        
+        // Only apply if the user is a Gestor Técnico and NOT an Administrator.
+        if (in_array('sciflow_tecnico_admin', (array) $user->roles) && !in_array('administrator', (array) $user->roles)) {
+            remove_menu_page('edit.php'); // Posts
+            remove_menu_page('edit.php?post_type=page'); // Pages
+            remove_menu_page('edit-comments.php'); // Comments
+            remove_menu_page('edit.php?post_type=enfrute_trabalhos');
+            remove_menu_page('edit.php?post_type=semco_trabalhos');
+            remove_menu_page('edit.php?post_type=sciflow_palestra');
+            
+            // Also hide Tools if they don't need it
+            // remove_menu_page('tools.php');
+        }
     }
 
     /**

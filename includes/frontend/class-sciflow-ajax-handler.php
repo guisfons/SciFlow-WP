@@ -117,9 +117,6 @@ class SciFlow_Ajax_Handler
         ));
     }
 
-    /**
-     * Handle speaker talk submission.
-     */
     public function handle_submit_speaker_talk()
     {
         if (!check_ajax_referer('sciflow_speaker_nonce', 'nonce', false)) {
@@ -132,24 +129,37 @@ class SciFlow_Ajax_Handler
 
         $event = sanitize_text_field($_POST['event'] ?? '');
         $title = SciFlow_Status_Manager::sanitize_title($_POST['title'] ?? '');
-        $content = wp_kses_post($_POST['content'] ?? '');
 
-        if (empty($title) || empty($content)) {
-            wp_send_json_error(array('message' => __('Título e Resumo são obrigatórios.', 'sciflow-wp')));
+        if (empty($title)) {
+            wp_send_json_error(array('message' => __('O título é obrigatório.', 'sciflow-wp')));
         }
 
-        $duration = sanitize_text_field($_POST['duration'] ?? '40');
-        $min_chars = ($duration === '20') ? 8000 : 16000;
-        $total_length = mb_strlen(wp_strip_all_tags($title . ' ' . $content));
-
-        if ($total_length < $min_chars) {
-            wp_send_json_error(array('message' => sprintf(__('O texto deve ter no mínimo %s caracteres.', 'sciflow-wp'), number_format($min_chars, 0, ',', '.'))));
-        }
-        if ($total_length > 25000) {
-            wp_send_json_error(array('message' => __('O texto excedeu o limite de 25.000 caracteres.', 'sciflow-wp')));
+        if (empty($_FILES['speaker_file']) || $_FILES['speaker_file']['error'] === UPLOAD_ERR_NO_FILE) {
+            wp_send_json_error(array('message' => __('O arquivo da palestra é obrigatório.', 'sciflow-wp')));
         }
 
-        // Link blocking only applies to title, not content (references may contain URLs).
+        $file = $_FILES['speaker_file'];
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            wp_send_json_error(array('message' => sprintf(__('Erro no upload do arquivo (Erro %s).', 'sciflow-wp'), $file['error'])));
+        }
+
+        if ($file['size'] > 10485760) {
+            wp_send_json_error(array('message' => __('O arquivo excede o limite de 10 MB.', 'sciflow-wp')));
+        }
+
+        // Validate file type (Word)
+        $allowed_mimes = array(
+            'doc'  => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        );
+        $file_info = wp_check_filetype(basename($file['name']), $allowed_mimes);
+
+        if (!$file_info['ext']) {
+            wp_send_json_error(array('message' => __('Apenas arquivos Word (.doc, .docx) são aceitos.', 'sciflow-wp')));
+        }
+
+        // Link blocking only applies to title.
         $regex = '/(https?:\/\/[^\s]+|www\.[^\s]+)/i';
         if (preg_match($regex, $title)) {
             wp_send_json_error(array('message' => __('O título não pode conter links/URLs.', 'sciflow-wp')));
@@ -157,7 +167,7 @@ class SciFlow_Ajax_Handler
 
         $post_data = array(
             'post_title'   => $title,
-            'post_content' => $content,
+            'post_content' => '', // Content is now in the attachment
             'post_type'    => 'sciflow_palestra',
             'post_status'  => 'publish',
             'post_author'  => get_current_user_id()
@@ -169,17 +179,44 @@ class SciFlow_Ajax_Handler
             wp_send_json_error(array('message' => __('Erro ao salvar a palestra.', 'sciflow-wp')));
         }
 
+        // Handle File Upload
+        if (!function_exists('wp_handle_upload')) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+        }
+        if (!function_exists('wp_insert_attachment')) {
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+            require_once ABSPATH . 'wp-admin/includes/media.php';
+        }
+
+        $upload = wp_handle_upload($file, array('test_form' => false));
+
+        if (isset($upload['error'])) {
+            wp_delete_post($post_id, true);
+            wp_send_json_error(array('message' => $upload['error']));
+        }
+
+        // Create attachment
+        $attachment_id = wp_insert_attachment(array(
+            'post_title'     => sanitize_file_name($file['name']),
+            'post_mime_type' => $upload['type'],
+            'post_status'    => 'inherit',
+        ), $upload['file'], $post_id);
+
+        if (is_wp_error($attachment_id) || !$attachment_id) {
+            wp_delete_post($post_id, true);
+            $err_msg = is_wp_error($attachment_id) ? $attachment_id->get_error_message() : __('Erro desconhecido ao criar anexo.', 'sciflow-wp');
+            wp_send_json_error(array('message' => __('Erro ao processar o anexo: ', 'sciflow-wp') . $err_msg));
+        }
+
+        // Update meta
+        update_post_meta($post_id, '_sciflow_attachment_id', $attachment_id);
+
         if ($event) {
             update_post_meta($post_id, '_sciflow_event', $event);
         }
 
+        $duration = sanitize_text_field($_POST['duration'] ?? '40');
         update_post_meta($post_id, '_sciflow_duration', $duration);
-
-        // Save reference links field.
-        $references = wp_kses_post(trim($_POST['references'] ?? ''));
-        if (!empty($references)) {
-            update_post_meta($post_id, '_sciflow_references', $references);
-        }
 
         wp_send_json_success(array(
             'message' => __('Palestra enviada com sucesso.', 'sciflow-wp'),

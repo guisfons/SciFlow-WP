@@ -41,7 +41,7 @@ class SciFlow_Palestra_CPT
             'menu_icon' => 'dashicons-megaphone',
             'capability_type' => 'sciflow_palestra',
             'map_meta_cap' => true,
-            'supports' => array('title', 'editor', 'author'),
+            'supports' => array('title', 'author'),
             'has_archive' => false,
             'rewrite' => false,
             'show_in_rest' => false,

@@ -147,11 +147,53 @@ class SciFlow_Roles
         if ($gestor_tecnico) {
             $gestor_tecnico->add_cap('manage_sciflow_tecnicos');
             $gestor_tecnico->add_cap('read');
-            // WooCommerce specific
+            $gestor_tecnico->add_cap('upload_files');
+            
+            // Users management (needed for technical roles panel)
+            $gestor_tecnico->add_cap('list_users');
+            $gestor_tecnico->add_cap('edit_users');
+            $gestor_tecnico->add_cap('promote_users');
+
+            // WooCommerce full access (Shop Manager level)
             $gestor_tecnico->add_cap('manage_woocommerce');
             $gestor_tecnico->add_cap('view_woocommerce_reports');
+            
+            // Products
+            $gestor_tecnico->add_cap('edit_products');
+            $gestor_tecnico->add_cap('edit_others_products');
+            $gestor_tecnico->add_cap('publish_products');
+            $gestor_tecnico->add_cap('read_private_products');
+            $gestor_tecnico->add_cap('delete_products');
+            $gestor_tecnico->add_cap('delete_private_products');
+            $gestor_tecnico->add_cap('delete_published_products');
+            $gestor_tecnico->add_cap('delete_others_products');
+            $gestor_tecnico->add_cap('edit_product_terms');
+            $gestor_tecnico->add_cap('assign_product_terms');
+
+            // Orders
             $gestor_tecnico->add_cap('edit_shop_orders');
             $gestor_tecnico->add_cap('read_shop_order');
+            $gestor_tecnico->add_cap('edit_others_shop_orders');
+            $gestor_tecnico->add_cap('publish_shop_orders');
+            $gestor_tecnico->add_cap('read_private_shop_orders');
+            $gestor_tecnico->add_cap('delete_shop_orders');
+            $gestor_tecnico->add_cap('delete_private_shop_orders');
+            $gestor_tecnico->add_cap('delete_published_shop_orders');
+            $gestor_tecnico->add_cap('delete_others_shop_orders');
+            $gestor_tecnico->add_cap('edit_shop_order_terms');
+            $gestor_tecnico->add_cap('assign_shop_order_terms');
+
+            // Coupons
+            $gestor_tecnico->add_cap('edit_shop_coupons');
+            $gestor_tecnico->add_cap('edit_others_shop_coupons');
+            $gestor_tecnico->add_cap('publish_shop_coupons');
+            $gestor_tecnico->add_cap('read_private_shop_coupons');
+            $gestor_tecnico->add_cap('delete_shop_coupons');
+            $gestor_tecnico->add_cap('delete_private_shop_coupons');
+            $gestor_tecnico->add_cap('delete_published_shop_coupons');
+            $gestor_tecnico->add_cap('delete_others_shop_coupons');
+            $gestor_tecnico->add_cap('edit_shop_coupon_terms');
+            $gestor_tecnico->add_cap('assign_shop_coupon_terms');
         }
 
         // ---------- Semco Editor ----------
@@ -163,6 +205,7 @@ class SciFlow_Roles
             $semco_editor->add_cap('sciflow_review');
             $semco_editor->add_cap('assign_sciflow_reviewers');
             $semco_editor->add_cap('manage_sciflow'); // Needed for some dashboard checks
+            $semco_editor->add_cap('manage_sciflow_tecnicos');
             $semco_editor->add_cap('upload_files');
         }
 
@@ -189,6 +232,7 @@ class SciFlow_Roles
             $enfrute_editor->add_cap('sciflow_review');
             $enfrute_editor->add_cap('assign_sciflow_reviewers');
             $enfrute_editor->add_cap('manage_sciflow');
+            $enfrute_editor->add_cap('manage_sciflow_tecnicos');
             $enfrute_editor->add_cap('upload_files');
         }
 
@@ -277,6 +321,7 @@ class SciFlow_Roles
      * Use this if new roles or caps are added but don't show up in DB.
      */
     public function refresh_roles() {
+        $this->remove_roles();
         $this->add_roles();
         $this->add_caps();
     }

@@ -842,25 +842,6 @@
     $('#sciflow-speaker-form').on('submit', function (e) {
         e.preventDefault();
 
-        // Sync TinyMCE if present.
-        if (typeof tinyMCE !== 'undefined') {
-            const editor = tinyMCE.get('sciflow_content');
-            if (editor) editor.save();
-        }
-
-        const title = $('#sciflow-speaker-title').val() || '';
-        const content = $('#sciflow-speaker-content').val() || '';
-        const total = title.length + content.length;
-
-        if (total < 16000) {
-            alert('O texto deve ter no mínimo 16.000 caracteres. Atual: ' + total);
-            return;
-        }
-        if (total > 25000) {
-            alert('O texto excedeu o limite de 25.000 caracteres. Atual: ' + total);
-            return;
-        }
-
         const $form = $(this);
         const $btn = $form.find('button[type="submit"]');
         const data = new FormData(this);
