@@ -144,8 +144,8 @@ class SciFlow_Ajax_Handler
             wp_send_json_error(array('message' => sprintf(__('Erro no upload do arquivo (Erro %s).', 'sciflow-wp'), $file['error'])));
         }
 
-        if ($file['size'] > 10485760) {
-            wp_send_json_error(array('message' => __('O arquivo excede o limite de 10 MB.', 'sciflow-wp')));
+        if ($file['size'] > 52428800) {
+            wp_send_json_error(array('message' => __('O arquivo excede o limite de 50 MB.', 'sciflow-wp')));
         }
 
         // Validate file type (Word)

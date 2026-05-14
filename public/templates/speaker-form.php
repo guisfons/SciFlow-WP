@@ -69,7 +69,7 @@ $current_user = wp_get_current_user();
                 <?php esc_html_e('Anexo em Word (.doc, .docx) *', 'sciflow-wp'); ?>
             </label>
             <input type="file" id="sciflow-speaker-file" name="speaker_file" accept=".doc,.docx" required class="sciflow-field__input">
-            <p class="sciflow-field__help"><?php esc_html_e('Suba o arquivo contendo o conteúdo completo da sua palestra. Tamanho máximo permitido: 10 MB.', 'sciflow-wp'); ?></p>
+            <p class="sciflow-field__help"><?php esc_html_e('Suba o arquivo contendo o conteúdo completo da sua palestra. Tamanho máximo permitido: 50 MB.', 'sciflow-wp'); ?></p>
         </div>
 
         <div class="sciflow-field">
