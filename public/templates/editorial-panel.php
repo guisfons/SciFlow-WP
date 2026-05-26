@@ -191,6 +191,18 @@ $events = array(
                                                 <?php esc_html_e('Ver conteúdo', 'sciflow-wp'); ?>
                                             </button>
                                             <?php 
+                                            $attachment_id = get_post_meta($post->ID, '_sciflow_attachment_id', true);
+                                            if ($attachment_id): 
+                                                $attachment_url = wp_get_attachment_url($attachment_id);
+                                                $file_ext = pathinfo($attachment_url, PATHINFO_EXTENSION);
+                                                $icon_class = in_array(strtolower($file_ext), array('pdf'), true) ? 'bi-file-earmark-pdf' : 'bi-file-earmark-word';
+                                            ?>
+                                                <a href="<?php echo esc_url($attachment_url); ?>" target="_blank" 
+                                                   class="sciflow-text--primary" style="font-size:12px; text-decoration:none;">
+                                                    <i class="bi <?php echo esc_attr($icon_class); ?>"></i> <?php esc_html_e('Baixar Trabalho', 'sciflow-wp'); ?>
+                                                </a>
+                                            <?php endif; ?>
+                                            <?php 
                                             $poster_id = get_post_meta($post->ID, '_sciflow_poster_id', true);
                                             if ($poster_id): ?>
                                                 <a href="<?php echo esc_url(wp_get_attachment_url($poster_id)); ?>" target="_blank" 
@@ -281,6 +293,21 @@ $events = array(
                                                                 <strong><?php esc_html_e('Área do Conhecimento:', 'sciflow-wp'); ?></strong>
                                                                 <?php echo esc_html($area); ?></div>
                                                         <?php endif; ?>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php 
+                                                $attachment_id = get_post_meta($post->ID, '_sciflow_attachment_id', true);
+                                                if ($attachment_id): 
+                                                    $attachment_url = wp_get_attachment_url($attachment_id);
+                                                    $file_ext = pathinfo($attachment_url, PATHINFO_EXTENSION);
+                                                    $icon_class = in_array(strtolower($file_ext), array('pdf'), true) ? 'bi-file-earmark-pdf' : 'bi-file-earmark-word';
+                                                ?>
+                                                    <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; margin-bottom: 20px; display: inline-block;">
+                                                        <a href="<?php echo esc_url($attachment_url); ?>" target="_blank" class="sciflow-btn sciflow-btn--primary">
+                                                            <i class="bi <?php echo esc_attr($icon_class); ?>"></i> <?php esc_html_e('Baixar Trabalho', 'sciflow-wp'); ?>
+                                                        </a>
+                                                        <small style="display:block; margin-top:5px; color:#666;"><?php printf(__('ID Anexo: %s', 'sciflow-wp'), esc_html($attachment_id)); ?></small>
                                                     </div>
                                                 <?php endif; ?>
 
@@ -566,7 +593,10 @@ $events = array(
                         $search_data = strtolower(SciFlow_Status_Manager::render_title($lecture->post_title) . ' ' . $author_name);
                     ?>
                         <tr class="sciflow-table__row" data-search="<?php echo esc_attr($search_data); ?>" data-post-id="<?php echo $lecture->ID; ?>">
-                            <td>#<?php echo $lecture->ID; ?></td>
+                            <td>#<?php 
+                                $l_visual_id = SciFlow_Status_Manager::get_visual_id($lecture->ID);
+                                echo esc_html(str_pad($l_visual_id, 4, '0', STR_PAD_LEFT)); 
+                            ?></td>
                             <td><strong><?php echo SciFlow_Status_Manager::render_title($lecture->post_title); ?></strong></td>
                             <td><?php echo esc_html($author_name); ?></td>
                             <td><?php echo esc_html(ucfirst($lecture_event)); ?></td>

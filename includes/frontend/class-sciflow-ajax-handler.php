@@ -218,6 +218,9 @@ class SciFlow_Ajax_Handler
         $duration = sanitize_text_field($_POST['duration'] ?? '40');
         update_post_meta($post_id, '_sciflow_duration', $duration);
 
+        // Generate and assign visual ID immediately
+        SciFlow_Status_Manager::get_visual_id($post_id);
+
         wp_send_json_success(array(
             'message' => __('Palestra enviada com sucesso.', 'sciflow-wp'),
             'post_id' => $post_id

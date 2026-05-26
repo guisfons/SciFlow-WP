@@ -19,6 +19,7 @@ class SciFlow_Admin
         add_action('admin_menu', array($this, 'add_menu_pages'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
+        add_action('save_post', array($this, 'save_admin_grades'), 10, 2);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
 
         // Handle manual payment confirmation.
@@ -670,7 +671,32 @@ class SciFlow_Admin
             echo '<p><strong>' . esc_html__('Revisor:', 'sciflow-wp') . '</strong> ' . ($rev_user ? esc_html($rev_user->display_name) : '—') . '</p>';
         }
 
-        if ($score) {
+        if (current_user_can('administrator')) {
+            $scores = get_post_meta($post->ID, '_sciflow_scores', true) ?: array();
+            $criteria = array(
+                'originalidade' => __('Originalidade', 'sciflow-wp'),
+                'objetividade'  => __('Objetividade', 'sciflow-wp'),
+                'organizacao'   => __('Organização', 'sciflow-wp'),
+                'metodologia'   => __('Metodologia', 'sciflow-wp'),
+                'aderencia'     => __('Aderência aos Objetivos', 'sciflow-wp'),
+            );
+            
+            echo '<hr><p><strong>' . esc_html__('Editar Notas (Apenas Admin):', 'sciflow-wp') . '</strong></p>';
+            wp_nonce_field('sciflow_save_grades', 'sciflow_grades_nonce');
+            
+            foreach ($criteria as $key => $label) {
+                $val = isset($scores[$key]) ? $scores[$key] : '';
+                if (is_string($val)) {
+                    $val = str_replace(',', '.', $val);
+                }
+                echo '<p><label><strong>' . esc_html($label) . ':</strong><br>';
+                echo '<input type="number" step="0.1" min="0" max="10" name="sciflow_admin_scores[' . esc_attr($key) . ']" value="' . esc_attr($val) . '" style="width:100%; max-width:200px;">';
+                echo '</label></p>';
+            }
+            if ($score) {
+                echo '<p><strong>' . esc_html__('Nota Final Atual:', 'sciflow-wp') . '</strong> ' . number_format($score, 2, ',', '') . '</p>';
+            }
+        } elseif ($score) {
             echo '<p><strong>' . esc_html__('Nota:', 'sciflow-wp') . '</strong> ' . number_format($score, 2, ',', '') . '</p>';
         }
 
@@ -1161,6 +1187,64 @@ class SciFlow_Admin
     {
         if (strpos($hook, 'sciflow') !== false) {
             wp_enqueue_style('sciflow-admin', SCIFLOW_URL . 'admin/css/admin.css', array(), SCIFLOW_VERSION);
+        }
+    }
+
+    public function save_admin_grades($post_id, $post)
+    {
+        if (!isset($_POST['sciflow_grades_nonce']) || !wp_verify_nonce($_POST['sciflow_grades_nonce'], 'sciflow_save_grades')) {
+            return;
+        }
+
+        if (!current_user_can('administrator')) {
+            return;
+        }
+
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+
+        if (!in_array($post->post_type, array('enfrute_trabalhos', 'semco_trabalhos'), true)) {
+            return;
+        }
+
+        if (!isset($_POST['sciflow_admin_scores']) || !is_array($_POST['sciflow_admin_scores'])) {
+            return;
+        }
+
+        $raw_scores = $_POST['sciflow_admin_scores'];
+        $criteria = array('originalidade', 'objetividade', 'organizacao', 'metodologia', 'aderencia');
+        $scores = array();
+
+        foreach ($criteria as $key) {
+            if (isset($raw_scores[$key]) && $raw_scores[$key] !== '') {
+                $val = str_replace(',', '.', $raw_scores[$key]);
+                $scores[$key] = floatval($val);
+            }
+        }
+
+        if (!empty($scores)) {
+            update_post_meta($post_id, '_sciflow_scores', $scores);
+
+            // Recalculate average
+            $settings = get_option('sciflow_settings', array());
+            $weights = $settings['ranking_weights'] ?? array();
+            $total_weight = 0;
+            $weighted_sum = 0;
+
+            foreach ($criteria as $key) {
+                $w_val = $weights[$key] ?? 1;
+                if (is_string($w_val)) $w_val = str_replace(',', '.', $w_val);
+                $weight = floatval($w_val);
+                if ($weight <= 0) $weight = 1;
+
+                $s_val = $scores[$key] ?? 0;
+                $weighted_sum += $s_val * $weight;
+                $total_weight += $weight;
+            }
+
+            $ranking_score = $total_weight > 0 ? round($weighted_sum / $total_weight, 2) : 0;
+            update_post_meta($post_id, '_sciflow_ranking_score', $ranking_score);
         }
     }
 }

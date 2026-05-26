@@ -194,7 +194,19 @@ class SciFlow_Editorial
         }
 
         $query = new WP_Query($args);
-        return $query->posts;
+        $posts = $query->posts;
+
+        if (!empty($posts)) {
+            $visual_ids = array();
+            foreach ($posts as $post) {
+                $visual_ids[$post->ID] = (int) SciFlow_Status_Manager::get_visual_id($post->ID);
+            }
+            usort($posts, function ($a, $b) use ($visual_ids) {
+                return $visual_ids[$a->ID] <=> $visual_ids[$b->ID];
+            });
+        }
+
+        return $posts;
     }
 
     /**
@@ -249,6 +261,19 @@ class SciFlow_Editorial
         );
 
         $query = new WP_Query($args);
-        return $query->posts;
+        $posts = $query->posts;
+
+        if (!empty($posts)) {
+            usort($posts, function($a, $b) {
+                $time_a = strtotime($a->post_date);
+                $time_b = strtotime($b->post_date);
+                if ($time_a === $time_b) {
+                    return $b->ID <=> $a->ID;
+                }
+                return $time_b <=> $time_a;
+            });
+        }
+
+        return $posts;
     }
 }

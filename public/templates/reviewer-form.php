@@ -172,6 +172,20 @@ $criteria = array(
                         <h4 style="margin-top:0;">
                             <?php esc_html_e('Conteúdo do Trabalho', 'sciflow-wp'); ?>
                         </h4>
+                        <?php 
+                        $attachment_id = get_post_meta($post->ID, '_sciflow_attachment_id', true);
+                        if ($attachment_id): 
+                            $attachment_url = wp_get_attachment_url($attachment_id);
+                            $file_ext = pathinfo($attachment_url, PATHINFO_EXTENSION);
+                            $icon_class = in_array(strtolower($file_ext), array('pdf'), true) ? 'bi-file-earmark-pdf' : 'bi-file-earmark-word';
+                        ?>
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; margin-bottom: 20px; display: inline-block;">
+                                <a href="<?php echo esc_url($attachment_url); ?>" target="_blank" class="sciflow-btn sciflow-btn--primary">
+                                    <i class="bi <?php echo esc_attr($icon_class); ?>"></i> <?php esc_html_e('Baixar Trabalho', 'sciflow-wp'); ?>
+                                </a>
+                                <small style="display:block; margin-top:5px; color:#666;"><?php printf(__('ID Anexo: %s', 'sciflow-wp'), esc_html($attachment_id)); ?></small>
+                            </div>
+                        <?php endif; ?>
                         <div class="sciflow-content-preview">
                             <?php echo wp_kses_post($post->post_content); ?>
                         </div>
