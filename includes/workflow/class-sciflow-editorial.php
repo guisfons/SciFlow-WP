@@ -202,7 +202,7 @@ class SciFlow_Editorial
                 $visual_ids[$post->ID] = (int) SciFlow_Status_Manager::get_visual_id($post->ID);
             }
             usort($posts, function ($a, $b) use ($visual_ids) {
-                return $visual_ids[$a->ID] <=> $visual_ids[$b->ID];
+                return $visual_ids[$b->ID] <=> $visual_ids[$a->ID];
             });
         }
 

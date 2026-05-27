@@ -659,11 +659,54 @@ class SciFlow_Admin
 
         echo '<p><strong>' . esc_html__('Autor Apresentador:', 'sciflow-wp') . '</strong> ' . esc_html($presenting_author_name) . '</p>';
 
-        if ($cultura) {
-            echo '<p><strong>' . esc_html__('Cultura:', 'sciflow-wp') . '</strong> ' . esc_html($cultura) . '</p>';
-        }
-        if ($knowledge_area) {
-            echo '<p><strong>' . esc_html__('Área de Conhecimento:', 'sciflow-wp') . '</strong> ' . esc_html($knowledge_area) . '</p>';
+        if (current_user_can('administrator')) {
+            echo '<p><label><strong>' . esc_html__('Cultura:', 'sciflow-wp') . '</strong><br>';
+            echo '<select name="sciflow_admin_cultura" style="width:100%;">';
+            echo '<option value="">' . esc_html__('Selecione uma cultura...', 'sciflow-wp') . '</option>';
+            
+            echo '<optgroup label="' . esc_attr__('Frutas de clima temperado', 'sciflow-wp') . '">';
+            $frutas = array('Figo', 'Frutas de caroço', 'Goiaba/Caqui', 'Maçã/Pera', 'Pequenas frutas', 'Frutas nativas', 'Uva', 'Outras (Frutas)');
+            foreach ($frutas as $f) {
+                echo '<option value="' . esc_attr($f) . '" ' . selected($cultura, $f, false) . '>' . esc_html($f) . '</option>';
+            }
+            echo '</optgroup>';
+            
+            echo '<optgroup label="' . esc_attr__('Olerícolas', 'sciflow-wp') . '">';
+            $olericolas = array('Alho', 'Cebola', 'Tomate', 'Morango', 'Aipim/mandioca', 'Cenoura', 'Pimentão', 'Folhosas', 'Outras (Olerícolas)');
+            foreach ($olericolas as $o) {
+                echo '<option value="' . esc_attr($o) . '" ' . selected($cultura, $o, false) . '>' . esc_html($o) . '</option>';
+            }
+            echo '</optgroup>';
+            echo '</select></label></p>';
+
+            echo '<p><label><strong>' . esc_html__('Área de Conhecimento:', 'sciflow-wp') . '</strong><br>';
+            echo '<select name="sciflow_admin_knowledge_area" style="width:100%;">';
+            echo '<option value="">' . esc_html__('Selecione uma área...', 'sciflow-wp') . '</option>';
+            $areas = array(
+                'Biotecnologia/Genética e Melhoramento',
+                'Botânica e Fisiologia',
+                'Colheita e Pós-Colheita',
+                'Fitossanidade',
+                'Economia/Estatística',
+                'Fitotecnia',
+                'Irrigação',
+                'Processamento (Química e Bioquímica)',
+                'Propagação',
+                'Sementes',
+                'Solos e Nutrição de Plantas',
+                'Outros'
+            );
+            foreach ($areas as $a) {
+                echo '<option value="' . esc_attr($a) . '" ' . selected($knowledge_area, $a, false) . '>' . esc_html($a) . '</option>';
+            }
+            echo '</select></label></p>';
+        } else {
+            if ($cultura) {
+                echo '<p><strong>' . esc_html__('Cultura:', 'sciflow-wp') . '</strong> ' . esc_html($cultura) . '</p>';
+            }
+            if ($knowledge_area) {
+                echo '<p><strong>' . esc_html__('Área de Conhecimento:', 'sciflow-wp') . '</strong> ' . esc_html($knowledge_area) . '</p>';
+            }
         }
 
         if ($reviewer) {
@@ -1208,43 +1251,51 @@ class SciFlow_Admin
             return;
         }
 
-        if (!isset($_POST['sciflow_admin_scores']) || !is_array($_POST['sciflow_admin_scores'])) {
-            return;
+        // Save Cultura if provided
+        if (isset($_POST['sciflow_admin_cultura'])) {
+            update_post_meta($post_id, '_sciflow_cultura', sanitize_text_field($_POST['sciflow_admin_cultura']));
         }
 
-        $raw_scores = $_POST['sciflow_admin_scores'];
-        $criteria = array('originalidade', 'objetividade', 'organizacao', 'metodologia', 'aderencia');
-        $scores = array();
-
-        foreach ($criteria as $key) {
-            if (isset($raw_scores[$key]) && $raw_scores[$key] !== '') {
-                $val = str_replace(',', '.', $raw_scores[$key]);
-                $scores[$key] = floatval($val);
-            }
+        // Save Área de Conhecimento if provided
+        if (isset($_POST['sciflow_admin_knowledge_area'])) {
+            update_post_meta($post_id, '_sciflow_knowledge_area', sanitize_text_field($_POST['sciflow_admin_knowledge_area']));
         }
 
-        if (!empty($scores)) {
-            update_post_meta($post_id, '_sciflow_scores', $scores);
-
-            // Recalculate average
-            $settings = get_option('sciflow_settings', array());
-            $weights = $settings['ranking_weights'] ?? array();
-            $total_weight = 0;
-            $weighted_sum = 0;
+        if (isset($_POST['sciflow_admin_scores']) && is_array($_POST['sciflow_admin_scores'])) {
+            $raw_scores = $_POST['sciflow_admin_scores'];
+            $criteria = array('originalidade', 'objetividade', 'organizacao', 'metodologia', 'aderencia');
+            $scores = array();
 
             foreach ($criteria as $key) {
-                $w_val = $weights[$key] ?? 1;
-                if (is_string($w_val)) $w_val = str_replace(',', '.', $w_val);
-                $weight = floatval($w_val);
-                if ($weight <= 0) $weight = 1;
-
-                $s_val = $scores[$key] ?? 0;
-                $weighted_sum += $s_val * $weight;
-                $total_weight += $weight;
+                if (isset($raw_scores[$key]) && $raw_scores[$key] !== '') {
+                    $val = str_replace(',', '.', $raw_scores[$key]);
+                    $scores[$key] = floatval($val);
+                }
             }
 
-            $ranking_score = $total_weight > 0 ? round($weighted_sum / $total_weight, 2) : 0;
-            update_post_meta($post_id, '_sciflow_ranking_score', $ranking_score);
+            if (!empty($scores)) {
+                update_post_meta($post_id, '_sciflow_scores', $scores);
+
+                // Recalculate average
+                $settings = get_option('sciflow_settings', array());
+                $weights = $settings['ranking_weights'] ?? array();
+                $total_weight = 0;
+                $weighted_sum = 0;
+
+                foreach ($criteria as $key) {
+                    $w_val = $weights[$key] ?? 1;
+                    if (is_string($w_val)) $w_val = str_replace(',', '.', $w_val);
+                    $weight = floatval($w_val);
+                    if ($weight <= 0) $weight = 1;
+
+                    $s_val = $scores[$key] ?? 0;
+                    $weighted_sum += $s_val * $weight;
+                    $total_weight += $weight;
+                }
+
+                $ranking_score = $total_weight > 0 ? round($weighted_sum / $total_weight, 2) : 0;
+                update_post_meta($post_id, '_sciflow_ranking_score', $ranking_score);
+            }
         }
     }
 }
