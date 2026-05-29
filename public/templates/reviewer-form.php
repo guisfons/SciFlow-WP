@@ -110,6 +110,7 @@ $criteria = array(
             $event = get_post_meta($post->ID, '_sciflow_event', true);
             $scores = get_post_meta($post->ID, '_sciflow_scores', true);
             $prev_decision = get_post_meta($post->ID, '_sciflow_reviewer_decision', true);
+            $prev_notes = get_post_meta($post->ID, '_sciflow_reviewer_notes', true);
             $can_review = ($status === 'em_avaliacao');
             $cultura = get_post_meta($post->ID, '_sciflow_cultura', true);
             $area = get_post_meta($post->ID, '_sciflow_knowledge_area', true);
@@ -202,7 +203,12 @@ $criteria = array(
                                 </h4>
 
                                 <div class="sciflow-scores-grid" style="margin-bottom: 20px;">
-                                    <?php foreach ($criteria as $key => $label_text): ?>
+                                    <?php foreach ($criteria as $key => $label_text): 
+                                        $score_val = (is_array($scores) && isset($scores[$key])) ? $scores[$key] : '';
+                                        if (is_string($score_val)) {
+                                            $score_val = str_replace(',', '.', $score_val);
+                                        }
+                                    ?>
                                         <div class="sciflow-score-field" style="margin-bottom: 10px;">
                                             <label for="score-<?php echo esc_attr($key); ?>-<?php echo esc_attr($post->ID); ?>"
                                                 style="display:block; font-weight:600; margin-bottom:5px; font-size:14px;">
@@ -212,6 +218,7 @@ $criteria = array(
                                                 id="score-<?php echo esc_attr($key); ?>-<?php echo esc_attr($post->ID); ?>"
                                                 name="scores[<?php echo esc_attr($key); ?>]" min="0" max="10" step="0.1" required
                                                 class="sciflow-field__input sciflow-field__input--score" placeholder="0-10"
+                                                value="<?php echo esc_attr($score_val); ?>"
                                                 style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
                                         </div>
                                     <?php endforeach; ?>
@@ -226,13 +233,13 @@ $criteria = array(
                                         <option value="">
                                             <?php esc_html_e('Selecione...', 'sciflow-wp'); ?>
                                         </option>
-                                        <option value="approved">
+                                        <option value="approved" <?php selected($prev_decision, 'approved'); ?>>
                                             <?php esc_html_e('Aprovar', 'sciflow-wp'); ?>
                                         </option>
-                                        <option value="approved_with_considerations">
+                                        <option value="approved_with_considerations" <?php selected($prev_decision, 'approved_with_considerations'); ?>>
                                             <?php esc_html_e('Aprovado com Considerações', 'sciflow-wp'); ?>
                                         </option>
-                                        <option value="rejected">
+                                        <option value="rejected" <?php selected($prev_decision, 'rejected'); ?>>
                                             <?php esc_html_e('Reprovar', 'sciflow-wp'); ?>
                                         </option>
                                     </select>
@@ -244,7 +251,7 @@ $criteria = array(
                                     </label>
                                     <textarea name="notes" rows="4" class="sciflow-field__textarea"
                                         placeholder="<?php esc_attr_e('Observações e comentários sobre o trabalho...', 'sciflow-wp'); ?>"
-                                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;"></textarea>
+                                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;"><?php echo esc_textarea($prev_notes); ?></textarea>
                                 </div>
 
                                 <button type="submit" class="sciflow-btn sciflow-btn--primary" style="width:100%; padding:10px;">

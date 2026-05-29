@@ -726,6 +726,14 @@ class SciFlow_Admin
             
             echo '<hr><p><strong>' . esc_html__('Editar Notas (Apenas Admin):', 'sciflow-wp') . '</strong></p>';
             wp_nonce_field('sciflow_save_grades', 'sciflow_grades_nonce');
+
+            if ($reviewer) {
+                echo '<div style="background:#fffcf0; border:1px solid #f2e3be; padding:10px; margin-bottom:15px; border-radius:4px;">';
+                echo '<p><strong>' . esc_html__('Controle de Avaliação:', 'sciflow-wp') . '</strong></p>';
+                echo '<p><label><input type="checkbox" name="sciflow_reopen_review" value="1"> ' . esc_html__('Reabrir avaliação para o revisor', 'sciflow-wp') . '</label></p>';
+                echo '<p class="description" style="font-size:11px;color:#7a6229;margin-top:2px;line-height:1.4;">' . esc_html__('Ao salvar, o status voltará para "Em Avaliação", mantendo as notas/comentários atuais e liberando o formulário para edição.', 'sciflow-wp') . '</p>';
+                echo '</div>';
+            }
             
             foreach ($criteria as $key => $label) {
                 $val = isset($scores[$key]) ? $scores[$key] : '';
@@ -1248,6 +1256,36 @@ class SciFlow_Admin
         }
 
         if (!in_array($post->post_type, array('enfrute_trabalhos', 'semco_trabalhos'), true)) {
+            return;
+        }
+
+        // Reopen review if requested (Only Admin)
+        if (isset($_POST['sciflow_reopen_review']) && $_POST['sciflow_reopen_review'] === '1') {
+            $reviewer_id = get_post_meta($post_id, '_sciflow_reviewer_id', true);
+            if ($reviewer_id) {
+                $old_status = get_post_meta($post_id, '_sciflow_status', true) ?: 'rascunho';
+                
+                // Revert status to em_avaliacao
+                update_post_meta($post_id, '_sciflow_status', 'em_avaliacao');
+                
+                // Clear only editorial decision
+                delete_post_meta($post_id, '_sciflow_decision');
+
+                // Trigger action hook
+                do_action('sciflow_status_changed', $post_id, 'em_avaliacao', $old_status);
+
+                // Send email to reviewer informing them the review is open again
+                $email = new SciFlow_Email();
+                $email->send_returned_to_reviewer($post_id);
+            }
+            
+            // Save Cultura and Area if provided, then return early
+            if (isset($_POST['sciflow_admin_cultura'])) {
+                update_post_meta($post_id, '_sciflow_cultura', sanitize_text_field($_POST['sciflow_admin_cultura']));
+            }
+            if (isset($_POST['sciflow_admin_knowledge_area'])) {
+                update_post_meta($post_id, '_sciflow_knowledge_area', sanitize_text_field($_POST['sciflow_admin_knowledge_area']));
+            }
             return;
         }
 
