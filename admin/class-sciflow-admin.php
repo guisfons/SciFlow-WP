@@ -169,6 +169,8 @@ class SciFlow_Admin
         $clean['woo_speaker_product_ids'] = sanitize_text_field($input['woo_speaker_product_ids'] ?? '');
         $clean['woo_tecnico_epagri_product_ids'] = sanitize_text_field($input['woo_tecnico_epagri_product_ids'] ?? '');
 
+        $clean['article_submission_deadline'] = sanitize_text_field($input['article_submission_deadline'] ?? '');
+
         return $clean;
     }
 
@@ -279,6 +281,24 @@ class SciFlow_Admin
                                 placeholder="https://...">
                             <p class="description">
                                 <?php esc_html_e('Link para o modelo de pôster disponibilizado para download (.ppt, .pptx, etc).', 'sciflow-wp'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <h2>
+                    <?php esc_html_e('Prazos de Submissão', 'sciflow-wp'); ?>
+                </h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e('Data/Hora Limite para Novas Submissões', 'sciflow-wp'); ?>
+                        </th>
+                        <td>
+                            <input type="datetime-local" name="sciflow_settings[article_submission_deadline]"
+                                value="<?php echo esc_attr($settings['article_submission_deadline'] ?? ''); ?>" class="regular-text">
+                            <p class="description">
+                                <?php esc_html_e('A partir desta data e hora, novas submissões de artigos (Enfrute e Semco) serão bloqueadas. Edições e ajustes de artigos já criados/submetidos continuarão funcionando normalmente.', 'sciflow-wp'); ?>
                             </p>
                         </td>
                     </tr>

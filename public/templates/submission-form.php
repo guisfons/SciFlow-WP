@@ -29,6 +29,30 @@ if ($edit_post) {
     }
 }
 
+// Deadline check for new submissions
+if (!$edit_post) {
+    $settings = get_option('sciflow_settings', array());
+    $deadline = isset($settings['article_submission_deadline']) ? $settings['article_submission_deadline'] : '';
+    if (!empty($deadline)) {
+        try {
+            $deadline_dt = new DateTime($deadline, wp_timezone());
+            $now_dt = current_datetime();
+            if ($now_dt > $deadline_dt) {
+                $formatted_deadline = $deadline_dt->format('d/m/Y \à\s H:i');
+                echo '<div class="sciflow-notice sciflow-notice--warning">';
+                echo sprintf(
+                    esc_html__('O prazo para novas submissões de artigos encerrou em %s. Novas submissões estão suspensas.', 'sciflow-wp'),
+                    '<strong>' . esc_html($formatted_deadline) . '</strong>'
+                );
+                echo '</div>';
+                return;
+            }
+        } catch (Exception $e) {
+            // Ignore malformed settings date.
+        }
+    }
+}
+
 $event = $edit_post ? get_post_meta($post_id, '_sciflow_event', true) : '';
 $language = $edit_post ? get_post_meta($post_id, '_sciflow_language', true) : 'pt';
 $title = $edit_post ? $edit_post->post_title : '';

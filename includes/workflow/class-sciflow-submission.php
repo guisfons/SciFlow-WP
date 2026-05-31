@@ -35,6 +35,23 @@ class SciFlow_Submission
             return new WP_Error('not_logged_in', __('Você precisa estar logado.', 'sciflow-wp'));
         }
 
+        // Check submission deadline for new submissions.
+        if (empty($data['post_id'])) {
+            $settings = get_option('sciflow_settings', array());
+            $deadline = isset($settings['article_submission_deadline']) ? $settings['article_submission_deadline'] : '';
+            if (!empty($deadline)) {
+                try {
+                    $deadline_dt = new DateTime($deadline, wp_timezone());
+                    $now_dt = current_datetime();
+                    if ($now_dt > $deadline_dt) {
+                        return new WP_Error('deadline_exceeded', __('O período para novas submissões de artigos já se encerrou.', 'sciflow-wp'));
+                    }
+                } catch (Exception $e) {
+                    // Ignore malformed settings date.
+                }
+            }
+        }
+
         // Check for paid registration if WooCommerce is active and not a draft.
         $is_draft = !empty($data['is_draft']);
         if (!$is_draft && $this->woocommerce && !$this->woocommerce->has_paid_registration($user_id)) {
