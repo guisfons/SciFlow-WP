@@ -216,8 +216,8 @@ $criteria = array(
                                             </label>
                                             <input type="number"
                                                 id="score-<?php echo esc_attr($key); ?>-<?php echo esc_attr($post->ID); ?>"
-                                                name="scores[<?php echo esc_attr($key); ?>]" min="0.1" max="10" step="0.1" required
-                                                class="sciflow-field__input sciflow-field__input--score" placeholder="0.1-10"
+                                                name="scores[<?php echo esc_attr($key); ?>]" min="0" max="10" step="0.1" required
+                                                class="sciflow-field__input sciflow-field__input--score" placeholder="0-10"
                                                 value="<?php echo esc_attr($score_val); ?>"
                                                 style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
                                         </div>
