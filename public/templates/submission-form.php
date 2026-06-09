@@ -29,27 +29,42 @@ if ($edit_post) {
     }
 }
 
-// Deadline check for new submissions
-if (!$edit_post) {
-    $settings = get_option('sciflow_settings', array());
-    $deadline = isset($settings['article_submission_deadline']) ? $settings['article_submission_deadline'] : '';
-    if (!empty($deadline)) {
-        try {
-            $deadline_dt = new DateTime($deadline, wp_timezone());
-            $now_dt = current_datetime();
-            if ($now_dt > $deadline_dt) {
-                $formatted_deadline = $deadline_dt->format('d/m/Y \à\s H:i');
-                echo '<div class="sciflow-notice sciflow-notice--warning">';
-                echo sprintf(
-                    esc_html__('O prazo para novas submissões de artigos encerrou em %s. Novas submissões estão suspensas.', 'sciflow-wp'),
-                    '<strong>' . esc_html($formatted_deadline) . '</strong>'
-                );
-                echo '</div>';
-                return;
-            }
-        } catch (Exception $e) {
-            // Ignore malformed settings date.
+// Deadline check for new submissions and drafts
+$settings = get_option('sciflow_settings', array());
+$deadline = isset($settings['article_submission_deadline']) ? $settings['article_submission_deadline'] : '';
+$is_past_deadline = false;
+$formatted_deadline = '';
+
+if (!empty($deadline)) {
+    try {
+        $deadline_dt = new DateTime($deadline, wp_timezone());
+        $now_dt = current_datetime();
+        if ($now_dt > $deadline_dt) {
+            $is_past_deadline = true;
+            $formatted_deadline = $deadline_dt->format('d/m/Y \à\s H:i');
         }
+    } catch (Exception $e) {
+        // Ignore malformed settings date.
+    }
+}
+
+if ($is_past_deadline) {
+    if (!$edit_post) {
+        echo '<div class="sciflow-notice sciflow-notice--warning">';
+        echo sprintf(
+            esc_html__('O prazo para novas submissões de artigos encerrou em %s. Novas submissões estão suspensas.', 'sciflow-wp'),
+            '<strong>' . esc_html($formatted_deadline) . '</strong>'
+        );
+        echo '</div>';
+        return;
+    } elseif ($status === 'rascunho') {
+        echo '<div class="sciflow-notice sciflow-notice--warning">';
+        echo sprintf(
+            esc_html__('O prazo para submissão de artigos encerrou em %s. Não é mais possível editar ou enviar rascunhos.', 'sciflow-wp'),
+            '<strong>' . esc_html($formatted_deadline) . '</strong>'
+        );
+        echo '</div>';
+        return;
     }
 }
 

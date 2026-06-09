@@ -130,8 +130,8 @@ class SciFlow_Review
             }
 
             $val = $this->parse_float($raw[$key]);
-            if ($val < 0 || $val > 10) {
-                return new WP_Error('invalid_score', sprintf(__('Nota fora do intervalo (0-10): %s', 'sciflow-wp'), $key));
+            if ($val <= 0 || $val > 10) {
+                return new WP_Error('invalid_score', sprintf(__('Nota fora do intervalo permitido (0.1 a 10): %s', 'sciflow-wp'), $key));
             }
 
             $scores[$key] = round($val, 2);
