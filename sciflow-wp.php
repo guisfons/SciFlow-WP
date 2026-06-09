@@ -3,7 +3,7 @@
  * Plugin Name:       SciFlow WP
  * Plugin URI:        https://github.com/guisfons/SciFlow-WP
  * Description:       Plugin de submissão e avaliação de artigos científicos para Enfrute e Semco.
- * Version:           1.0.5
+ * Version:           1.0.6
  * Author:            Doppio
  * Text Domain:       sciflow-wp
  * Domain Path:       /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SCIFLOW_VERSION', '1.0.5');
+define('SCIFLOW_VERSION', '1.0.6');
 define('SCIFLOW_PATH', plugin_dir_path(__FILE__));
 define('SCIFLOW_URL', plugin_dir_url(__FILE__));
 define('SCIFLOW_BASENAME', plugin_basename(__FILE__));
