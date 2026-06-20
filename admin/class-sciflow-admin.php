@@ -28,6 +28,9 @@ class SciFlow_Admin
         // Handle ranking selection.
         add_action('admin_post_sciflow_select_top', array($this, 'handle_select_top'));
 
+        // Handle forgotten article notifications.
+        add_action('admin_post_sciflow_notify_forgotten', array($this, 'handle_notify_forgotten'));
+
         // AJAX for mass email.
         add_action('wp_ajax_sciflow_get_recipient_count', array($this, 'ajax_get_recipient_count'));
         add_action('wp_ajax_sciflow_send_mass_email_batch', array($this, 'ajax_send_mass_email_batch'));
@@ -171,6 +174,8 @@ class SciFlow_Admin
 
         $clean['article_submission_deadline'] = sanitize_text_field($input['article_submission_deadline'] ?? '');
 
+        $clean['forgotten_article_email_text'] = wp_kses_post($input['forgotten_article_email_text'] ?? '');
+
         return $clean;
     }
 
@@ -213,6 +218,11 @@ class SciFlow_Admin
             wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
         }
         $settings = get_option('sciflow_settings', array());
+        
+        if (isset($_GET['sciflow_notified'])) {
+            $count = absint($_GET['sciflow_notified']);
+            echo '<div class="notice notice-success is-dismissible"><p>' . sprintf(esc_html__('Foram notificados %d trabalhos com sucesso.', 'sciflow-wp'), $count) . '</p></div>';
+        }
         ?>
         <div class="wrap">
             <h1>
@@ -421,7 +431,34 @@ class SciFlow_Admin
                     </tr>
                 </table>
 
+                <h2>
+                    <?php esc_html_e('E-mail Artigos "Esquecidos"', 'sciflow-wp'); ?>
+                </h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?>
+                        </th>
+                        <td>
+                            <textarea name="sciflow_settings[forgotten_article_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['forgotten_article_email_text'] ?? ''); ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Texto que será enviado para os autores que não fizeram as alterações solicitadas. Você pode usar as tags [NOME], [NOME DO RESUMO] e [EVENTO].', 'sciflow-wp'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
                 <?php submit_button(); ?>
+            </form>
+            
+            <hr>
+            
+            <h2><?php esc_html_e('Notificar Artigos "Esquecidos"', 'sciflow-wp'); ?></h2>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('Tem certeza que deseja notificar todos os autores com trabalhos com status Necessita Alterações?');">
+                <input type="hidden" name="action" value="sciflow_notify_forgotten">
+                <?php wp_nonce_field('sciflow_notify_forgotten_nonce'); ?>
+                <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores que possuem trabalhos aguardando correções (status: Necessita Alterações).', 'sciflow-wp'); ?></p>
+                <button type="submit" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora', 'sciflow-wp'); ?></button>
             </form>
         </div>
         <?php
@@ -867,6 +904,52 @@ class SciFlow_Admin
         $ranking->notify_selected_authors($selected);
 
         wp_safe_redirect(add_query_arg('selected', count($selected), wp_get_referer() ?: admin_url('admin.php?page=sciflow-ranking')));
+        exit;
+    }
+
+    /**
+     * Handle notify forgotten articles.
+     */
+    public function handle_notify_forgotten()
+    {
+        if (!current_user_can('manage_sciflow')) {
+            wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
+        }
+        check_admin_referer('sciflow_notify_forgotten_nonce');
+
+        $settings = get_option('sciflow_settings', array());
+        $text = $settings['forgotten_article_email_text'] ?? '';
+        
+        if (empty(trim(wp_strip_all_tags($text)))) {
+            wp_die(__('Texto do e-mail não configurado. Por favor, salve o texto nas configurações antes de enviar.', 'sciflow-wp'));
+        }
+
+        if (!class_exists('SciFlow_Email')) {
+            require_once SCIFLOW_PATH . 'includes/email/class-sciflow-email.php';
+        }
+        $email = new SciFlow_Email();
+        
+        $sent_count = 0;
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
+            $query = new WP_Query(array(
+                'post_type' => $pt,
+                'posts_per_page' => -1,
+                'post_status' => 'any',
+                'meta_query' => array(
+                    array(
+                        'key' => '_sciflow_status',
+                        'value' => 'em_correcao', // status for Necessita Alterações
+                    ),
+                ),
+            ));
+
+            foreach ($query->posts as $post) {
+                $email->send_forgotten_article_notification($post->ID, $text);
+                $sent_count++;
+            }
+        }
+
+        wp_safe_redirect(add_query_arg('sciflow_notified', $sent_count, wp_get_referer() ?: admin_url('admin.php?page=sciflow-settings')));
         exit;
     }
 
