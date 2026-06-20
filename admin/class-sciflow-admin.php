@@ -29,7 +29,7 @@ class SciFlow_Admin
         add_action('admin_post_sciflow_select_top', array($this, 'handle_select_top'));
 
         // Handle forgotten article notifications.
-        add_action('admin_post_sciflow_notify_forgotten', array($this, 'handle_notify_forgotten'));
+        add_action('wp_ajax_sciflow_notify_forgotten_ajax', array($this, 'ajax_notify_forgotten'));
 
         // AJAX for mass email.
         add_action('wp_ajax_sciflow_get_recipient_count', array($this, 'ajax_get_recipient_count'));
@@ -454,12 +454,61 @@ class SciFlow_Admin
             <hr>
             
             <h2><?php esc_html_e('Notificar Artigos "Esquecidos"', 'sciflow-wp'); ?></h2>
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('Tem certeza que deseja notificar todos os autores com trabalhos com status Necessita Alterações?');">
-                <input type="hidden" name="action" value="sciflow_notify_forgotten">
-                <?php wp_nonce_field('sciflow_notify_forgotten_nonce'); ?>
-                <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores que possuem trabalhos aguardando correções (status: Necessita Alterações).', 'sciflow-wp'); ?></p>
-                <button type="submit" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora', 'sciflow-wp'); ?></button>
-            </form>
+            <div id="sciflow-notify-forgotten-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores que possuem trabalhos aguardando correções (status: Necessita Alterações). O envio será feito em pequenos lotes para evitar sobrecarga no servidor.', 'sciflow-wp'); ?></p>
+                <button type="button" id="sciflow-notify-forgotten-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora', 'sciflow-wp'); ?></button>
+                <span id="sciflow-notify-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
+                <div id="sciflow-notify-progress" style="margin-top:15px; font-weight:bold;"></div>
+            </div>
+
+            <script>
+            jQuery(document).ready(function($) {
+                $('#sciflow-notify-forgotten-btn').on('click', function() {
+                    if (!confirm('Tem certeza que deseja notificar todos os autores com trabalhos com status Necessita Alterações?')) {
+                        return;
+                    }
+
+                    const $btn = $(this);
+                    const $spinner = $('#sciflow-notify-spinner');
+                    const $progress = $('#sciflow-notify-progress');
+
+                    $btn.prop('disabled', true);
+                    $spinner.addClass('is-active');
+                    $progress.html('<span style="color:#000;">Iniciando envio... por favor, aguarde e não feche esta página.</span>');
+
+                    function sendBatch(offset) {
+                        $.post(ajaxurl, {
+                            action: 'sciflow_notify_forgotten_ajax',
+                            offset: offset,
+                            nonce: '<?php echo wp_create_nonce("sciflow_notify_forgotten_ajax"); ?>'
+                        }, function(response) {
+                            if (response.success) {
+                                const data = response.data;
+                                $progress.html('<span style="color:#000;">Enviando: ' + data.sent_total + ' de ' + data.total + ' trabalhos...</span>');
+                                
+                                if (data.done) {
+                                    $spinner.removeClass('is-active');
+                                    $progress.html('<span style="color:green;">Envio concluído com sucesso! Total enviado: ' + data.sent_total + '</span>');
+                                    $btn.prop('disabled', false);
+                                } else {
+                                    sendBatch(data.new_offset);
+                                }
+                            } else {
+                                $spinner.removeClass('is-active');
+                                $progress.html('<span style="color:red;">Erro: ' + (response.data || 'Ocorreu um erro no envio.') + '</span>');
+                                $btn.prop('disabled', false);
+                            }
+                        }).fail(function() {
+                            $spinner.removeClass('is-active');
+                            $progress.html('<span style="color:red;">Erro fatal: Falha na conexão com o servidor. Verifique os logs de erro.</span>');
+                            $btn.prop('disabled', false);
+                        });
+                    }
+
+                    sendBatch(0);
+                });
+            });
+            </script>
         </div>
         <?php
     }
@@ -908,28 +957,29 @@ class SciFlow_Admin
     }
 
     /**
-     * Handle notify forgotten articles.
+     * Handle notify forgotten articles via AJAX.
      */
-    public function handle_notify_forgotten()
+    public function ajax_notify_forgotten()
     {
+        check_ajax_referer('sciflow_notify_forgotten_ajax', 'nonce');
+
         if (!current_user_can('manage_sciflow')) {
-            wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
+            wp_send_json_error('Unauthorized');
         }
-        check_admin_referer('sciflow_notify_forgotten_nonce');
 
         $settings = get_option('sciflow_settings', array());
         $text = $settings['forgotten_article_email_text'] ?? '';
         
         if (empty(trim(wp_strip_all_tags($text)))) {
-            wp_die(__('Texto do e-mail não configurado. Por favor, salve o texto nas configurações antes de enviar.', 'sciflow-wp'));
+            wp_send_json_error('Texto do e-mail não configurado. Por favor, salve o texto nas configurações antes de enviar.');
         }
 
         if (!class_exists('SciFlow_Email')) {
             require_once SCIFLOW_PATH . 'includes/email/class-sciflow-email.php';
         }
-        $email = new SciFlow_Email();
         
-        $sent_count = 0;
+        // Find all articles with status 'em_correcao'
+        $posts_to_process = array();
         foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
             $query = new WP_Query(array(
                 'post_type' => $pt,
@@ -943,14 +993,32 @@ class SciFlow_Admin
                 ),
             ));
 
-            foreach ($query->posts as $post) {
-                $email->send_forgotten_article_notification($post->ID, $text);
-                $sent_count++;
+            foreach ($query->posts as $p) {
+                $posts_to_process[] = $p->ID;
             }
         }
 
-        wp_safe_redirect(add_query_arg('sciflow_notified', $sent_count, wp_get_referer() ?: admin_url('admin.php?page=sciflow-settings')));
-        exit;
+        $total = count($posts_to_process);
+        $offset = absint($_POST['offset'] ?? 0);
+        $batch_size = 10;
+        
+        $slice = array_slice($posts_to_process, $offset, $batch_size);
+        
+        $email = new SciFlow_Email();
+        $sent_in_batch = 0;
+        foreach ($slice as $post_id) {
+            $email->send_forgotten_article_notification($post_id, $text);
+            $sent_in_batch++;
+        }
+
+        $new_offset = $offset + $sent_in_batch;
+
+        wp_send_json_success(array(
+            'total' => $total,
+            'sent_total' => $new_offset,
+            'new_offset' => $new_offset,
+            'done' => $new_offset >= $total
+        ));
     }
 
     /**
