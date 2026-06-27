@@ -134,7 +134,21 @@ if (!defined('ABSPATH'))
 
                     <div class="sciflow-work-card__actions">
 
-                        <?php if (in_array($status, array('rascunho', 'em_correcao', 'aprovado_com_consideracoes'), true)): ?>
+                        <?php 
+                        $current_time = current_time('timestamp');
+                        $settings = get_option('sciflow_settings', array());
+                        $deadline_str = $settings['corrections_deadline'] ?? '';
+                        $is_past_deadline = false;
+                        $deadline_formatted = '';
+                        if (!empty($deadline_str)) {
+                            $deadline_time = strtotime($deadline_str);
+                            $is_past_deadline = $current_time > $deadline_time;
+                            $deadline_formatted = wp_date('d/m \à\s H:i', $deadline_time);
+                        }
+                        
+                        $is_blocked_edit = $is_past_deadline && $status === 'em_correcao' && in_array(strtolower($event), array('enfrute', 'semco', 'senco'), true);
+                        
+                        if (in_array($status, array('rascunho', 'em_correcao', 'aprovado_com_consideracoes'), true) && !$is_blocked_edit): ?>
                             <button class="sciflow-btn sciflow-btn--primary sciflow-btn--sm sciflow-edit-btn"
                                 data-post-id="<?php echo esc_attr($post->ID); ?>">
                                 <?php
@@ -145,6 +159,11 @@ if (!defined('ABSPATH'))
                                 }
                                 ?>
                             </button>
+                        <?php elseif ($is_blocked_edit): ?>
+                            <div class="sciflow-notice sciflow-notice--error" style="margin-bottom:10px; border-left: 4px solid #dc3545; padding: 10px 14px; background: #f8d7da; border-radius: 6px;">
+                                <strong>⛔ <?php esc_html_e('Prazo Encerrado', 'sciflow-wp'); ?></strong><br>
+                                <?php printf( esc_html__('O prazo para envio de correções foi encerrado em %s.', 'sciflow-wp'), esc_html($deadline_formatted) ); ?>
+                            </div>
                         <?php else: ?>
                             <?php
                             $detail_page = get_pages(array('meta_key' => '_wp_page_template', 'meta_value' => 'page-templates/template-article-detail.php'));

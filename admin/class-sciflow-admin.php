@@ -173,6 +173,7 @@ class SciFlow_Admin
         $clean['woo_tecnico_epagri_product_ids'] = sanitize_text_field($input['woo_tecnico_epagri_product_ids'] ?? '');
 
         $clean['article_submission_deadline'] = sanitize_text_field($input['article_submission_deadline'] ?? '');
+        $clean['corrections_deadline'] = sanitize_text_field($input['corrections_deadline'] ?? '');
 
         $clean['forgotten_article_email_text'] = wp_kses_post($input['forgotten_article_email_text'] ?? '');
 
@@ -309,6 +310,18 @@ class SciFlow_Admin
                                 value="<?php echo esc_attr($settings['article_submission_deadline'] ?? ''); ?>" class="regular-text">
                             <p class="description">
                                 <?php esc_html_e('A partir desta data e hora, novas submissões de artigos (Enfrute e Semco) serão bloqueadas. Edições e ajustes de artigos já criados/submetidos continuarão funcionando normalmente.', 'sciflow-wp'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e('Data/Hora Limite para Correções (Necessita Alterações)', 'sciflow-wp'); ?>
+                        </th>
+                        <td>
+                            <input type="datetime-local" name="sciflow_settings[corrections_deadline]"
+                                value="<?php echo esc_attr($settings['corrections_deadline'] ?? ''); ?>" class="regular-text">
+                            <p class="description">
+                                <?php esc_html_e('A partir desta data e hora, trabalhos que estejam com status "Necessita Alterações" não poderão mais ser editados e reenviados pelos autores.', 'sciflow-wp'); ?>
                             </p>
                         </td>
                     </tr>

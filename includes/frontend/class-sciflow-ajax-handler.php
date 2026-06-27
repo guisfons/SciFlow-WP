@@ -235,6 +235,22 @@ class SciFlow_Ajax_Handler
         $this->verify_request();
 
         $post_id = absint($_POST['post_id'] ?? 0);
+        
+        $current_time = current_time('timestamp');
+        $settings = get_option('sciflow_settings', array());
+        $deadline_str = $settings['corrections_deadline'] ?? '';
+        
+        if (!empty($deadline_str)) {
+            $deadline_time = strtotime($deadline_str);
+            if ($current_time > $deadline_time) {
+                $status_manager = new SciFlow_Status_Manager();
+                $status = $status_manager->get_status($post_id);
+                $event = get_post_meta($post_id, '_sciflow_event', true);
+                if ($status === 'em_correcao' && in_array(strtolower($event), array('enfrute', 'semco', 'senco'), true)) {
+                    wp_send_json_error(array('message' => __('O prazo para envio de correções foi encerrado.', 'sciflow-wp')));
+                }
+            }
+        }
 
         $data = array(
             'title' => SciFlow_Status_Manager::sanitize_title($_POST['title'] ?? ''),
