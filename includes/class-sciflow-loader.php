@@ -122,6 +122,12 @@ class SciFlow_Loader
         if (!wp_next_scheduled('sciflow_check_confirmation_deadlines')) {
             wp_schedule_event(time(), 'hourly', 'sciflow_check_confirmation_deadlines');
         }
+
+        // Cron for corrections deadline.
+        add_action('sciflow_check_corrections_deadlines', array($this->status_manager, 'check_corrections_deadlines'));
+        if (!wp_next_scheduled('sciflow_check_corrections_deadlines')) {
+            wp_schedule_event(time(), 'hourly', 'sciflow_check_corrections_deadlines');
+        }
     }
 
     /**

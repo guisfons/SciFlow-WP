@@ -137,6 +137,8 @@ if (!defined('ABSPATH'))
                         <?php 
                         $current_time = current_time('timestamp');
                         $settings = get_option('sciflow_settings', array());
+                        
+                        // Corrections deadline
                         $deadline_str = $settings['corrections_deadline'] ?? '';
                         $is_past_deadline = false;
                         $deadline_formatted = '';
@@ -144,6 +146,14 @@ if (!defined('ABSPATH'))
                             $deadline_time = strtotime($deadline_str);
                             $is_past_deadline = $current_time > $deadline_time;
                             $deadline_formatted = wp_date('d/m \à\s H:i', $deadline_time);
+                        }
+                        
+                        // Poster deadline
+                        $poster_deadline_str = $settings['poster_submission_deadline'] ?? '';
+                        $is_past_poster_deadline = false;
+                        if (!empty($poster_deadline_str)) {
+                            $poster_deadline_time = strtotime($poster_deadline_str);
+                            $is_past_poster_deadline = $current_time > $poster_deadline_time;
                         }
                         
                         $is_blocked_edit = $is_past_deadline && $status === 'em_correcao' && in_array(strtolower($event), array('enfrute', 'semco', 'senco'), true);
@@ -189,11 +199,19 @@ if (!defined('ABSPATH'))
                                     <?php esc_html_e( 'O comitê solicitou o envio de um novo pôster. Veja as observações acima e reenvie o arquivo.', 'sciflow-wp' ); ?>
                                 </div>
                             <?php endif; ?>
-                            <a href="<?php echo esc_url($poster_upload_url); ?>" class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm">
-                                <?php echo $poster_id
-                                    ? esc_html__('Reenviar Pôster', 'sciflow-wp')
-                                    : esc_html__('Enviar Pôster (PDF)', 'sciflow-wp'); ?>
-                            </a>
+                            
+                            <?php if ($is_past_poster_deadline && in_array(strtolower($event), array('enfrute', 'semco', 'senco'), true) && in_array($status, array('aprovado', 'poster_em_correcao'), true)): ?>
+                                <div class="sciflow-notice sciflow-notice--error" style="margin-bottom:10px; border-left: 4px solid #dc3545; padding: 10px 14px; background: #f8d7da; border-radius: 6px;">
+                                    <strong>⛔ <?php esc_html_e('Prazo Encerrado', 'sciflow-wp'); ?></strong><br>
+                                    <?php esc_html_e('O prazo para envio de pôsteres foi encerrado. Não é mais possível enviar o arquivo.', 'sciflow-wp'); ?>
+                                </div>
+                            <?php else: ?>
+                                <a href="<?php echo esc_url($poster_upload_url); ?>" class="sciflow-btn sciflow-btn--secondary sciflow-btn--sm">
+                                    <?php echo $poster_id
+                                        ? esc_html__('Reenviar Pôster', 'sciflow-wp')
+                                        : esc_html__('Enviar Pôster (PDF)', 'sciflow-wp'); ?>
+                                </a>
+                            <?php endif; ?>
                         <?php endif; ?>
 
                         <?php if ($status === 'aguardando_confirmacao'): ?>

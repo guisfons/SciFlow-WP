@@ -45,6 +45,16 @@ class SciFlow_Poster_Upload
             return new WP_Error('invalid_status', __('O trabalho não está em um status que permite o envio de pôster.', 'sciflow-wp'));
         }
 
+        // Check poster deadline.
+        $settings = get_option('sciflow_settings', array());
+        $poster_deadline_str = $settings['poster_submission_deadline'] ?? '';
+        if (!empty($poster_deadline_str)) {
+            $poster_deadline_time = strtotime($poster_deadline_str);
+            if (current_time('timestamp') > $poster_deadline_time) {
+                return new WP_Error('deadline_exceeded', __('O prazo para envio de pôsteres foi encerrado.', 'sciflow-wp'));
+            }
+        }
+
         // Validate file type.
         $finfo = new finfo(FILEINFO_MIME_TYPE);
         $mime = $finfo->file($file['tmp_name']);

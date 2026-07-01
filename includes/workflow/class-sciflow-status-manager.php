@@ -245,4 +245,49 @@ class SciFlow_Status_Manager
     {
         return self::sanitize_title($title);
     }
+
+    /**
+     * Check corrections deadlines and reject overdue papers.
+     */
+    public function check_corrections_deadlines()
+    {
+        $settings = get_option('sciflow_settings', array());
+        $deadline_str = $settings['corrections_deadline'] ?? '';
+
+        if (empty($deadline_str)) {
+            return;
+        }
+
+        $deadline_time = strtotime($deadline_str);
+        if (current_time('timestamp') <= $deadline_time) {
+            return;
+        }
+
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
+            $query = new WP_Query(array(
+                'post_type'      => $pt,
+                'post_status'    => 'any',
+                'posts_per_page' => -1,
+                'meta_query'     => array(
+                    array(
+                        'key'   => '_sciflow_status',
+                        'value' => 'em_correcao',
+                    ),
+                ),
+            ));
+
+            if (!empty($query->posts)) {
+                if (!class_exists('SciFlow_Email')) {
+                    require_once SCIFLOW_PATH . 'includes/email/class-sciflow-email.php';
+                }
+                $email = new SciFlow_Email();
+                $editorial = new SciFlow_Editorial($this, $email);
+
+                foreach ($query->posts as $post) {
+                    $this->transition($post->ID, 'reprovado');
+                    $editorial->add_message($post->ID, 'admin', __('Trabalho rejeitado por não cumprir o prazo de revisão.', 'sciflow-wp'));
+                }
+            }
+        }
+    }
 }
