@@ -33,6 +33,9 @@ class SciFlow_Admin
         add_action('wp_ajax_sciflow_notify_forgotten_poster_ajax', array($this, 'ajax_notify_forgotten_poster'));
         add_action('wp_ajax_sciflow_notify_unsubmitted_poster_ajax', array($this, 'ajax_notify_unsubmitted_poster'));
 
+        // Handle manual check deadlines.
+        add_action('wp_ajax_sciflow_force_check_deadlines_ajax', array($this, 'ajax_force_check_deadlines'));
+
         // AJAX for mass email.
         add_action('wp_ajax_sciflow_get_recipient_count', array($this, 'ajax_get_recipient_count'));
         add_action('wp_ajax_sciflow_send_mass_email_batch', array($this, 'ajax_send_mass_email_batch'));
@@ -399,6 +402,15 @@ class SciFlow_Admin
                             </td>
                         </tr>
                     </table>
+                    
+                    <hr>
+                    <h2><?php esc_html_e('Forçar Verificação de Prazos', 'sciflow-wp'); ?></h2>
+                    <div id="sciflow-check-deadlines-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                        <p><?php esc_html_e('A verificação de prazos ocorre automaticamente a cada hora. Porém, se você acabou de alterar uma data para o passado, pode forçar a verificação agora mesmo. Todos os artigos e pôsteres com prazo vencido serão reprovados.', 'sciflow-wp'); ?></p>
+                        <button type="button" id="sciflow-check-deadlines-btn" class="button button-secondary"><?php esc_html_e('Verificar Prazos Agora', 'sciflow-wp'); ?></button>
+                        <span id="sciflow-check-deadlines-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
+                        <div id="sciflow-check-deadlines-progress" style="margin-top:15px; font-weight:bold;"></div>
+                    </div>
                 </div>
 
                 <div id="tab-pagamento" class="sciflow-tab-content" style="display:none;">
@@ -662,6 +674,37 @@ class SciFlow_Admin
                     '<?php echo wp_create_nonce("sciflow_notify_unsubmitted_poster_ajax"); ?>',
                     'Tem certeza que deseja notificar todos os autores que ainda NÃO enviaram seus pôsteres?'
                 );
+
+                $('#sciflow-check-deadlines-btn').on('click', function() {
+                    if (!confirm('Tem certeza que deseja forçar a verificação de prazos? Isso irá reprovar automaticamente os artigos/pôsteres que estiverem fora do prazo configurado.')) {
+                        return;
+                    }
+                    
+                    const $btn = $(this);
+                    const $spinner = $('#sciflow-check-deadlines-spinner');
+                    const $progress = $('#sciflow-check-deadlines-progress');
+                    
+                    $btn.prop('disabled', true);
+                    $spinner.addClass('is-active');
+                    $progress.html('<span style="color:#000;">Verificando prazos...</span>');
+                    
+                    $.post(ajaxurl, {
+                        action: 'sciflow_force_check_deadlines_ajax',
+                        nonce: '<?php echo wp_create_nonce("sciflow_force_check_deadlines_ajax"); ?>'
+                    }, function(response) {
+                        $spinner.removeClass('is-active');
+                        $btn.prop('disabled', false);
+                        if (response.success) {
+                            $progress.html('<span style="color:green;">' + response.data + '</span>');
+                        } else {
+                            $progress.html('<span style="color:red;">Erro: ' + (response.data || 'Falha ao verificar os prazos.') + '</span>');
+                        }
+                    }).fail(function() {
+                        $spinner.removeClass('is-active');
+                        $btn.prop('disabled', false);
+                        $progress.html('<span style="color:red;">Erro fatal: Falha na conexão com o servidor.</span>');
+                    });
+                });
             });
             </script>
         </div>
@@ -1368,6 +1411,28 @@ class SciFlow_Admin
             'new_offset' => $new_offset,
             'done' => $new_offset >= $total
         ));
+    }
+
+    /**
+     * AJAX: Force checking the deadlines manually.
+     */
+    public function ajax_force_check_deadlines()
+    {
+        check_ajax_referer('sciflow_force_check_deadlines_ajax', 'nonce');
+
+        if (!current_user_can('manage_sciflow')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        if (!class_exists('SciFlow_Status_Manager')) {
+            require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-status-manager.php';
+        }
+
+        $sm = new SciFlow_Status_Manager();
+        $sm->check_corrections_deadlines();
+        $sm->check_poster_deadlines();
+
+        wp_send_json_success('Prazos verificados com sucesso. Trabalhos vencidos (se houverem) foram reprovados.');
     }
 
     /**

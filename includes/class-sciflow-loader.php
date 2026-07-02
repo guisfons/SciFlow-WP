@@ -128,6 +128,12 @@ class SciFlow_Loader
         if (!wp_next_scheduled('sciflow_check_corrections_deadlines')) {
             wp_schedule_event(time(), 'hourly', 'sciflow_check_corrections_deadlines');
         }
+
+        // Cron for poster deadline.
+        add_action('sciflow_check_poster_deadlines', array($this->status_manager, 'check_poster_deadlines'));
+        if (!wp_next_scheduled('sciflow_check_poster_deadlines')) {
+            wp_schedule_event(time(), 'hourly', 'sciflow_check_poster_deadlines');
+        }
     }
 
     /**

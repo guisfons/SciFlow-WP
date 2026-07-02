@@ -280,12 +280,64 @@ class SciFlow_Status_Manager
                 if (!class_exists('SciFlow_Email')) {
                     require_once SCIFLOW_PATH . 'includes/email/class-sciflow-email.php';
                 }
+                if (!class_exists('SciFlow_Editorial')) {
+                    require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-editorial.php';
+                }
                 $email = new SciFlow_Email();
                 $editorial = new SciFlow_Editorial($this, $email);
 
                 foreach ($query->posts as $post) {
                     $this->transition($post->ID, 'reprovado');
                     $editorial->add_message($post->ID, 'admin', __('Trabalho rejeitado por não cumprir o prazo de revisão.', 'sciflow-wp'));
+                }
+            }
+        }
+    }
+
+    /**
+     * Check poster deadlines and reject overdue posters.
+     */
+    public function check_poster_deadlines()
+    {
+        $settings = get_option('sciflow_settings', array());
+        $deadline_str = $settings['poster_submission_deadline'] ?? '';
+
+        if (empty($deadline_str)) {
+            return;
+        }
+
+        $deadline_time = strtotime($deadline_str);
+        if (current_time('timestamp') <= $deadline_time) {
+            return;
+        }
+
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
+            $query = new WP_Query(array(
+                'post_type'      => $pt,
+                'post_status'    => 'any',
+                'posts_per_page' => -1,
+                'meta_query'     => array(
+                    array(
+                        'key'     => '_sciflow_status',
+                        'value'   => array('aprovado', 'poster_em_correcao'),
+                        'compare' => 'IN'
+                    ),
+                ),
+            ));
+
+            if (!empty($query->posts)) {
+                if (!class_exists('SciFlow_Email')) {
+                    require_once SCIFLOW_PATH . 'includes/email/class-sciflow-email.php';
+                }
+                if (!class_exists('SciFlow_Editorial')) {
+                    require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-editorial.php';
+                }
+                $email = new SciFlow_Email();
+                $editorial = new SciFlow_Editorial($this, $email);
+
+                foreach ($query->posts as $post) {
+                    $this->transition($post->ID, 'poster_reprovado');
+                    $editorial->add_message($post->ID, 'admin', __('Pôster rejeitado por não cumprir o prazo de envio/revisão.', 'sciflow-wp'));
                 }
             }
         }
