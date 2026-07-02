@@ -74,7 +74,7 @@ class SciFlow_Admin
             __('Configurações', 'sciflow-wp'),
             'manage_sciflow',
             'sciflow-settings',
-            array($this, 'render_settings_page')
+            array($this, 'render_main_page')
         );
 
         add_submenu_page(
