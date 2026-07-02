@@ -60,11 +60,11 @@ class SciFlow_Status_Manager
             'aprovado' => array('apto_publicacao', 'poster_enviado', 'poster_reprovado', 'poster_em_correcao'),
             'reprovado' => array(),
             'apto_publicacao' => array('aprovado'),
-            'em_correcao' => array('submetido', 'submetido_com_revisao', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao'),
+            'em_correcao' => array('submetido', 'submetido_com_revisao', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao', 'reprovado'),
             'submetido_com_revisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'aguardando_decisao', 'em_correcao'),
             'aguardando_confirmacao' => array('confirmado'),
             'poster_enviado' => array('poster_aprovado', 'poster_em_correcao', 'poster_reprovado', 'poster_enviado', 'apto_publicacao'),
-            'poster_em_correcao' => array('poster_enviado', 'poster_em_correcao', 'poster_reenviado'),
+            'poster_em_correcao' => array('poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'poster_reprovado'),
             'poster_reenviado' => array('poster_aprovado', 'poster_em_correcao', 'poster_reprovado', 'poster_reenviado', 'apto_publicacao'),
             'poster_reprovado' => array('poster_em_correcao', 'poster_aprovado', 'poster_reprovado'),
             'poster_aprovado' => array('poster_em_correcao', 'poster_reprovado', 'poster_aprovado', 'apto_publicacao'),
@@ -287,8 +287,10 @@ class SciFlow_Status_Manager
                 $editorial = new SciFlow_Editorial($this, $email);
 
                 foreach ($query->posts as $post) {
-                    $this->transition($post->ID, 'reprovado');
-                    $editorial->add_message($post->ID, 'admin', __('Trabalho rejeitado por não cumprir o prazo de revisão.', 'sciflow-wp'));
+                    $result = $this->transition($post->ID, 'reprovado');
+                    if (!is_wp_error($result)) {
+                        $editorial->add_message($post->ID, 'admin', __('Trabalho rejeitado por não cumprir o prazo de revisão.', 'sciflow-wp'));
+                    }
                 }
             }
         }
@@ -336,8 +338,10 @@ class SciFlow_Status_Manager
                 $editorial = new SciFlow_Editorial($this, $email);
 
                 foreach ($query->posts as $post) {
-                    $this->transition($post->ID, 'poster_reprovado');
-                    $editorial->add_message($post->ID, 'admin', __('Pôster rejeitado por não cumprir o prazo de envio/revisão.', 'sciflow-wp'));
+                    $result = $this->transition($post->ID, 'poster_reprovado');
+                    if (!is_wp_error($result)) {
+                        $editorial->add_message($post->ID, 'admin', __('Pôster rejeitado por não cumprir o prazo de envio/revisão.', 'sciflow-wp'));
+                    }
                 }
             }
         }
