@@ -613,4 +613,37 @@ class SciFlow_Email
 
         $this->send($recipients, $subject, 'fallback', $vars);
     }
+    /**
+     * Send email to authors of unsubmitted posters (status: Aprovado / Aguardando Pôster).
+     */
+    public function send_unsubmitted_poster_notification($post_id, $custom_text)
+    {
+        $vars = $this->get_template_vars($post_id);
+        $recipients = $this->get_author_recipients($post_id);
+
+        if (empty($recipients)) {
+            return;
+        }
+
+        $author_name = '';
+        $author_id = get_post_meta($post_id, '_sciflow_author_id', true);
+        if ($author_id) {
+            $author = get_userdata($author_id);
+            if ($author) {
+                $author_name = $author->display_name;
+            }
+        }
+
+        // Replace tags
+        $message = str_replace(
+            array('[NOME]', '[NOME DO RESUMO]', '[EVENTO]'),
+            array($author_name, $vars['titulo'], $vars['evento']),
+            $custom_text
+        );
+
+        $vars['message'] = nl2br(esc_html($message));
+        $subject = sprintf(__('[%s] Lembrete: Envio de Pôster Necessário', 'sciflow-wp'), $vars['evento']);
+
+        $this->send($recipients, $subject, 'fallback', $vars);
+    }
 }

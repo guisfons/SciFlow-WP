@@ -31,6 +31,7 @@ class SciFlow_Admin
         // Handle forgotten article notifications.
         add_action('wp_ajax_sciflow_notify_forgotten_ajax', array($this, 'ajax_notify_forgotten'));
         add_action('wp_ajax_sciflow_notify_forgotten_poster_ajax', array($this, 'ajax_notify_forgotten_poster'));
+        add_action('wp_ajax_sciflow_notify_unsubmitted_poster_ajax', array($this, 'ajax_notify_unsubmitted_poster'));
 
         // AJAX for mass email.
         add_action('wp_ajax_sciflow_get_recipient_count', array($this, 'ajax_get_recipient_count'));
@@ -179,6 +180,7 @@ class SciFlow_Admin
 
         $clean['forgotten_article_email_text'] = wp_kses_post($input['forgotten_article_email_text'] ?? '');
         $clean['forgotten_poster_email_text'] = wp_kses_post($input['forgotten_poster_email_text'] ?? '');
+        $clean['unsubmitted_poster_email_text'] = wp_kses_post($input['unsubmitted_poster_email_text'] ?? '');
 
         return $clean;
     }
@@ -510,6 +512,23 @@ class SciFlow_Admin
                         </tr>
                     </table>
 
+                    <h2>
+                        <?php esc_html_e('E-mail Pôsteres "Não Enviados"', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Texto do E-mail (Não Enviado)', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <textarea name="sciflow_settings[unsubmitted_poster_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['unsubmitted_poster_email_text'] ?? ''); ?></textarea>
+                                <p class="description">
+                                    <?php esc_html_e('Texto que será enviado para os autores com trabalho aprovado, mas que ainda não enviaram a versão final (em PDF) do pôster. Tags: [NOME], [NOME DO RESUMO], [EVENTO].', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+
                     <hr>
                     
                     <h2><?php esc_html_e('Notificar Artigos "Esquecidos"', 'sciflow-wp'); ?></h2>
@@ -528,6 +547,16 @@ class SciFlow_Admin
                         <button type="button" id="sciflow-notify-forgotten-poster-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora (Pôsteres)', 'sciflow-wp'); ?></button>
                         <span id="sciflow-notify-poster-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
                         <div id="sciflow-notify-poster-progress" style="margin-top:15px; font-weight:bold;"></div>
+                    </div>
+
+                    <hr>
+                    
+                    <h2><?php esc_html_e('Notificar Pôsteres "Não Enviados"', 'sciflow-wp'); ?></h2>
+                    <div id="sciflow-notify-unsubmitted-poster-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px; margin-top:20px;">
+                        <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores de trabalhos aprovados que ainda NÃO enviaram o pôster inicial (status: Aprovado / Aguardando Pôster).', 'sciflow-wp'); ?></p>
+                        <button type="button" id="sciflow-notify-unsubmitted-poster-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora (Não Enviados)', 'sciflow-wp'); ?></button>
+                        <span id="sciflow-notify-unsubmitted-poster-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
+                        <div id="sciflow-notify-unsubmitted-poster-progress" style="margin-top:15px; font-weight:bold;"></div>
                     </div>
                 </div>
 
@@ -623,6 +652,15 @@ class SciFlow_Admin
                     'sciflow_notify_forgotten_poster_ajax',
                     '<?php echo wp_create_nonce("sciflow_notify_forgotten_poster_ajax"); ?>',
                     'Tem certeza que deseja notificar todos os autores com pôsteres aguardando correções?'
+                );
+
+                setupNotifyBtn(
+                    '#sciflow-notify-unsubmitted-poster-btn',
+                    '#sciflow-notify-unsubmitted-poster-spinner',
+                    '#sciflow-notify-unsubmitted-poster-progress',
+                    'sciflow_notify_unsubmitted_poster_ajax',
+                    '<?php echo wp_create_nonce("sciflow_notify_unsubmitted_poster_ajax"); ?>',
+                    'Tem certeza que deseja notificar todos os autores que ainda NÃO enviaram seus pôsteres?'
                 );
             });
             </script>
@@ -1254,6 +1292,71 @@ class SciFlow_Admin
         $sent_in_batch = 0;
         foreach ($slice as $post_id) {
             $email->send_forgotten_poster_notification($post_id, $text);
+            $sent_in_batch++;
+        }
+
+        $new_offset = $offset + $sent_in_batch;
+
+        wp_send_json_success(array(
+            'total' => $total,
+            'sent_total' => $new_offset,
+            'new_offset' => $new_offset,
+            'done' => $new_offset >= $total
+        ));
+    }
+
+    /**
+     * AJAX: Handle notify unsubmitted poster via AJAX.
+     */
+    public function ajax_notify_unsubmitted_poster()
+    {
+        check_ajax_referer('sciflow_notify_unsubmitted_poster_ajax', 'nonce');
+
+        if (!current_user_can('manage_sciflow')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $settings = get_option('sciflow_settings', array());
+        $text = $settings['unsubmitted_poster_email_text'] ?? '';
+        
+        if (empty(trim(wp_strip_all_tags($text)))) {
+            wp_send_json_error('Texto do e-mail para pôsteres não enviados não configurado. Por favor, salve o texto nas configurações antes de enviar.');
+        }
+
+        if (!class_exists('SciFlow_Email')) {
+            require_once SCIFLOW_PATH . 'includes/email/class-sciflow-email.php';
+        }
+        
+        // Find all articles with status 'aprovado'
+        $posts_to_process = array();
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
+            $query = new WP_Query(array(
+                'post_type' => $pt,
+                'posts_per_page' => -1,
+                'post_status' => 'any',
+                'meta_query' => array(
+                    array(
+                        'key' => '_sciflow_status',
+                        'value' => 'aprovado', // status for Aprovado / Aguardando Pôster
+                    ),
+                ),
+            ));
+
+            foreach ($query->posts as $p) {
+                $posts_to_process[] = $p->ID;
+            }
+        }
+
+        $total = count($posts_to_process);
+        $offset = absint($_POST['offset'] ?? 0);
+        $batch_size = 10;
+        
+        $slice = array_slice($posts_to_process, $offset, $batch_size);
+        
+        $email = new SciFlow_Email();
+        $sent_in_batch = 0;
+        foreach ($slice as $post_id) {
+            $email->send_unsubmitted_poster_notification($post_id, $text);
             $sent_in_batch++;
         }
 
