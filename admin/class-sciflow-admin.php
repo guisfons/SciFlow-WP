@@ -233,291 +233,333 @@ class SciFlow_Admin
                 <?php esc_html_e('SciFlow — Configurações', 'sciflow-wp'); ?>
             </h1>
 
+            <h2 class="nav-tab-wrapper sciflow-nav-tabs">
+                <a href="#tab-geral" class="nav-tab nav-tab-active"><?php esc_html_e('Geral', 'sciflow-wp'); ?></a>
+                <a href="#tab-prazos" class="nav-tab"><?php esc_html_e('Prazos', 'sciflow-wp'); ?></a>
+                <a href="#tab-pagamento" class="nav-tab"><?php esc_html_e('Pagamento', 'sciflow-wp'); ?></a>
+                <a href="#tab-ranking" class="nav-tab"><?php esc_html_e('Ranking', 'sciflow-wp'); ?></a>
+                <a href="#tab-notificacoes" class="nav-tab"><?php esc_html_e('Notificações', 'sciflow-wp'); ?></a>
+            </h2>
+
             <form method="post" action="options.php">
                 <?php settings_fields('sciflow_settings_group'); ?>
 
-                <h2>
-                    <?php esc_html_e('Editores por Evento', 'sciflow-wp'); ?>
-                </h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('E-mail do Editor Enfrute', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <input type="text" name="sciflow_settings[enfrute_editor_email]"
-                                value="<?php echo esc_attr($settings['enfrute_editor_email'] ?? ''); ?>" class="regular-text">
-                            <p class="description"><?php esc_html_e('Separe múltiplos e-mails por vírgula.', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('E-mail do Editor Semco', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <input type="text" name="sciflow_settings[semco_editor_email]"
-                                value="<?php echo esc_attr($settings['semco_editor_email'] ?? ''); ?>" class="regular-text">
-                            <p class="description"><?php esc_html_e('Separe múltiplos e-mails por vírgula.', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('URL do Painel do Autor', 'sciflow-wp'); ?>
-                        </th>
-                        <td><input type="url" name="sciflow_settings[dashboard_url]"
-                                value="<?php echo esc_attr($settings['dashboard_url'] ?? ''); ?>" class="regular-text"
-                                placeholder="<?php echo esc_attr(home_url('/meu-painel/')); ?>"></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('URL do Painel do Editor', 'sciflow-wp'); ?>
-                        </th>
-                        <td><input type="url" name="sciflow_settings[editor_dashboard_url]"
-                                value="<?php echo esc_attr($settings['editor_dashboard_url'] ?? ''); ?>" class="regular-text"
-                                placeholder="<?php echo esc_attr(home_url('/painel-do-editor/')); ?>"></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('URL do Painel do Revisor', 'sciflow-wp'); ?>
-                        </th>
-                        <td><input type="url" name="sciflow_settings[reviewer_dashboard_url]"
-                                value="<?php echo esc_attr($settings['reviewer_dashboard_url'] ?? ''); ?>" class="regular-text"
-                                placeholder="<?php echo esc_attr(home_url('/painel-do-revisor/')); ?>"></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('URL do Template do Pôster', 'sciflow-wp'); ?>
-                        </th>
-                        <td><input type="url" name="sciflow_settings[poster_template_url]"
-                                value="<?php echo esc_attr($settings['poster_template_url'] ?? ''); ?>" class="regular-text"
-                                placeholder="https://...">
-                            <p class="description">
-                                <?php esc_html_e('Link para o modelo de pôster disponibilizado para download (.ppt, .pptx, etc).', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-
-                <h2>
-                    <?php esc_html_e('Prazos de Submissão', 'sciflow-wp'); ?>
-                </h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('Data/Hora Limite para Novas Submissões', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <input type="datetime-local" name="sciflow_settings[article_submission_deadline]"
-                                value="<?php echo esc_attr($settings['article_submission_deadline'] ?? ''); ?>" class="regular-text">
-                            <p class="description">
-                                <?php esc_html_e('A partir desta data e hora, novas submissões de artigos (Enfrute e Semco) serão bloqueadas. Edições e ajustes de artigos já criados/submetidos continuarão funcionando normalmente.', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('Data/Hora Limite para Correções (Necessita Alterações)', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <input type="datetime-local" name="sciflow_settings[corrections_deadline]"
-                                value="<?php echo esc_attr($settings['corrections_deadline'] ?? ''); ?>" class="regular-text">
-                            <p class="description">
-                                <?php esc_html_e('A partir desta data e hora, trabalhos que estejam com status "Necessita Alterações" não poderão mais ser editados e reenviados pelos autores.', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('Data/Hora Limite para Envio de Pôster', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <input type="datetime-local" name="sciflow_settings[poster_submission_deadline]"
-                                value="<?php echo esc_attr($settings['poster_submission_deadline'] ?? ''); ?>" class="regular-text">
-                            <p class="description">
-                                <?php esc_html_e('A partir desta data e hora, os autores não poderão mais enviar ou reenviar pôsteres.', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-
-                <h2>
-                    <?php esc_html_e('Pagamento PayGo (Pix)', 'sciflow-wp'); ?>
-                </h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">Chave de Integração (Integration Key)</th>
-                        <td><input type="text" name="sciflow_settings[paygo_integration_key]"
-                                value="<?php echo esc_attr($settings['paygo_integration_key'] ?? ''); ?>" class="regular-text">
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Token / Senha</th>
-                        <td><input type="password" name="sciflow_settings[paygo_token]"
-                                value="<?php echo esc_attr($settings['paygo_token'] ?? ''); ?>" class="regular-text">
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('Chave Pix (opcional)', 'sciflow-wp'); ?>
-                        </th>
-                        <td><input type="text" name="sciflow_settings[paygo_pix_key]"
-                                value="<?php echo esc_attr($settings['paygo_pix_key'] ?? ''); ?>" class="regular-text">
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('Ambiente', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <select name="sciflow_settings[paygo_ambiente]">
-                                <option value="sandbox" <?php selected($settings['paygo_ambiente'] ?? '', 'sandbox'); ?>>
-                                    Sandbox</option>
-                                <option value="producao" <?php selected($settings['paygo_ambiente'] ?? '', 'producao'); ?>>
-                                    Produção</option>
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('Valor da Submissão (R$)', 'sciflow-wp'); ?>
-                        </th>
-                        <td><input type="number" step="0.01" name="sciflow_settings[submission_price]"
-                                value="<?php echo esc_attr($settings['submission_price'] ?? '50.00'); ?>" class="small-text">
-                        </td>
-                    </tr>
-                </table>
-
-                <h2>
-                    <?php esc_html_e('Pesos do Ranking', 'sciflow-wp'); ?>
-                </h2>
-                <table class="form-table">
-                    <?php
-                    $criteria = array(
-                        'originalidade' => __('Originalidade', 'sciflow-wp'),
-                        'objetividade' => __('Objetividade', 'sciflow-wp'),
-                        'organizacao' => __('Organização', 'sciflow-wp'),
-                        'metodologia' => __('Metodologia', 'sciflow-wp'),
-                        'aderencia' => __('Aderência aos Objetivos', 'sciflow-wp'),
-                    );
-                    foreach ($criteria as $key => $label): ?>
+                <div id="tab-geral" class="sciflow-tab-content">
+                    <h2>
+                        <?php esc_html_e('Editores por Evento', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
                         <tr>
                             <th scope="row">
-                                <?php echo esc_html($label); ?>
+                                <?php esc_html_e('E-mail do Editor Enfrute', 'sciflow-wp'); ?>
                             </th>
-                            <td><input type="number" step="0.1" min="0" max="10"
-                                    name="sciflow_settings[ranking_weights][<?php echo esc_attr($key); ?>]"
-                                    value="<?php echo esc_attr($settings['ranking_weights'][$key] ?? 1); ?>" class="small-text">
+                            <td>
+                                <input type="text" name="sciflow_settings[enfrute_editor_email]"
+                                    value="<?php echo esc_attr($settings['enfrute_editor_email'] ?? ''); ?>" class="regular-text">
+                                <p class="description"><?php esc_html_e('Separe múltiplos e-mails por vírgula.', 'sciflow-wp'); ?>
+                                </p>
                             </td>
                         </tr>
-                    <?php endforeach; ?>
-                </table>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('E-mail do Editor Semco', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <input type="text" name="sciflow_settings[semco_editor_email]"
+                                    value="<?php echo esc_attr($settings['semco_editor_email'] ?? ''); ?>" class="regular-text">
+                                <p class="description"><?php esc_html_e('Separe múltiplos e-mails por vírgula.', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('URL do Painel do Autor', 'sciflow-wp'); ?>
+                            </th>
+                            <td><input type="url" name="sciflow_settings[dashboard_url]"
+                                    value="<?php echo esc_attr($settings['dashboard_url'] ?? ''); ?>" class="regular-text"
+                                    placeholder="<?php echo esc_attr(home_url('/meu-painel/')); ?>"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('URL do Painel do Editor', 'sciflow-wp'); ?>
+                            </th>
+                            <td><input type="url" name="sciflow_settings[editor_dashboard_url]"
+                                    value="<?php echo esc_attr($settings['editor_dashboard_url'] ?? ''); ?>" class="regular-text"
+                                    placeholder="<?php echo esc_attr(home_url('/painel-do-editor/')); ?>"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('URL do Painel do Revisor', 'sciflow-wp'); ?>
+                            </th>
+                            <td><input type="url" name="sciflow_settings[reviewer_dashboard_url]"
+                                    value="<?php echo esc_attr($settings['reviewer_dashboard_url'] ?? ''); ?>" class="regular-text"
+                                    placeholder="<?php echo esc_attr(home_url('/painel-do-revisor/')); ?>"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('URL do Template do Pôster', 'sciflow-wp'); ?>
+                            </th>
+                            <td><input type="url" name="sciflow_settings[poster_template_url]"
+                                    value="<?php echo esc_attr($settings['poster_template_url'] ?? ''); ?>" class="regular-text"
+                                    placeholder="https://...">
+                                <p class="description">
+                                    <?php esc_html_e('Link para o modelo de pôster disponibilizado para download (.ppt, .pptx, etc).', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
 
-                <h2>
-                    <?php esc_html_e('Integração WooCommerce', 'sciflow-wp'); ?>
-                </h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('ID(s) do Produto de Inscrição', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <input type="text" name="sciflow_settings[woo_product_ids]"
-                                value="<?php echo esc_attr($settings['woo_product_ids'] ?? ''); ?>" class="regular-text"
-                                placeholder="ex: 123 ou 123,456">
-                            <p class="description">
-                                <?php esc_html_e('ID(s) do produto WooCommerce que atribui o cargo de Inscrito. Separe múltiplos IDs por vírgula.', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('ID(s) do Produto/Variação de Palestrante', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <input type="text" name="sciflow_settings[woo_speaker_product_ids]"
-                                value="<?php echo esc_attr($settings['woo_speaker_product_ids'] ?? ''); ?>" class="regular-text"
-                                placeholder="ex: 789 ou 789,1011">
-                            <p class="description">
-                                <?php esc_html_e('ID(s) do produto ou variação WooCommerce que atribui o cargo de Palestrante.', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('ID(s) do Produto/Variação de Técnico Epagri', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <input type="text" name="sciflow_settings[woo_tecnico_epagri_product_ids]"
-                                value="<?php echo esc_attr($settings['woo_tecnico_epagri_product_ids'] ?? ''); ?>" class="regular-text"
-                                placeholder="ex: 321 ou 321,654">
-                            <p class="description">
-                                <?php esc_html_e('ID(s) do produto ou variação WooCommerce que atribui o cargo de Técnico Epagri. Técnicos podem ser promovidos a Revisor e/ou Palestrante na página "Técnicos Epagri".', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
+                    <h2>
+                        <?php esc_html_e('Integração WooCommerce', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('ID(s) do Produto de Inscrição', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <input type="text" name="sciflow_settings[woo_product_ids]"
+                                    value="<?php echo esc_attr($settings['woo_product_ids'] ?? ''); ?>" class="regular-text"
+                                    placeholder="ex: 123 ou 123,456">
+                                <p class="description">
+                                    <?php esc_html_e('ID(s) do produto WooCommerce que atribui o cargo de Inscrito. Separe múltiplos IDs por vírgula.', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('ID(s) do Produto/Variação de Palestrante', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <input type="text" name="sciflow_settings[woo_speaker_product_ids]"
+                                    value="<?php echo esc_attr($settings['woo_speaker_product_ids'] ?? ''); ?>" class="regular-text"
+                                    placeholder="ex: 789 ou 789,1011">
+                                <p class="description">
+                                    <?php esc_html_e('ID(s) do produto ou variação WooCommerce que atribui o cargo de Palestrante.', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('ID(s) do Produto/Variação de Técnico Epagri', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <input type="text" name="sciflow_settings[woo_tecnico_epagri_product_ids]"
+                                    value="<?php echo esc_attr($settings['woo_tecnico_epagri_product_ids'] ?? ''); ?>" class="regular-text"
+                                    placeholder="ex: 321 ou 321,654">
+                                <p class="description">
+                                    <?php esc_html_e('ID(s) do produto ou variação WooCommerce que atribui o cargo de Técnico Epagri. Técnicos podem ser promovidos a Revisor e/ou Palestrante na página "Técnicos Epagri".', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
 
-                <h2>
-                    <?php esc_html_e('E-mail Artigos "Esquecidos"', 'sciflow-wp'); ?>
-                </h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <textarea name="sciflow_settings[forgotten_article_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['forgotten_article_email_text'] ?? ''); ?></textarea>
-                            <p class="description">
-                                <?php esc_html_e('Texto que será enviado para os autores que não fizeram as alterações solicitadas. Você pode usar as tags [NOME], [NOME DO RESUMO] e [EVENTO].', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
+                <div id="tab-prazos" class="sciflow-tab-content" style="display:none;">
+                    <h2>
+                        <?php esc_html_e('Prazos de Submissão', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Data/Hora Limite para Novas Submissões', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <input type="datetime-local" name="sciflow_settings[article_submission_deadline]"
+                                    value="<?php echo esc_attr($settings['article_submission_deadline'] ?? ''); ?>" class="regular-text">
+                                <p class="description">
+                                    <?php esc_html_e('A partir desta data e hora, novas submissões de artigos (Enfrute e Semco) serão bloqueadas. Edições e ajustes de artigos já criados/submetidos continuarão funcionando normalmente.', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Data/Hora Limite para Correções (Necessita Alterações)', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <input type="datetime-local" name="sciflow_settings[corrections_deadline]"
+                                    value="<?php echo esc_attr($settings['corrections_deadline'] ?? ''); ?>" class="regular-text">
+                                <p class="description">
+                                    <?php esc_html_e('A partir desta data e hora, trabalhos que estejam com status "Necessita Alterações" não poderão mais ser editados e reenviados pelos autores.', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Data/Hora Limite para Envio de Pôster', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <input type="datetime-local" name="sciflow_settings[poster_submission_deadline]"
+                                    value="<?php echo esc_attr($settings['poster_submission_deadline'] ?? ''); ?>" class="regular-text">
+                                <p class="description">
+                                    <?php esc_html_e('A partir desta data e hora, os autores não poderão mais enviar ou reenviar pôsteres.', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
 
-                <h2>
-                    <?php esc_html_e('E-mail Pôsteres "Esquecidos"', 'sciflow-wp'); ?>
-                </h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">
-                            <?php esc_html_e('Texto do E-mail (Pôster)', 'sciflow-wp'); ?>
-                        </th>
-                        <td>
-                            <textarea name="sciflow_settings[forgotten_poster_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['forgotten_poster_email_text'] ?? ''); ?></textarea>
-                            <p class="description">
-                                <?php esc_html_e('Texto que será enviado para os autores que não reenviaram o pôster com as correções solicitadas. Tags: [NOME], [NOME DO RESUMO], [EVENTO].', 'sciflow-wp'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
+                <div id="tab-pagamento" class="sciflow-tab-content" style="display:none;">
+                    <h2>
+                        <?php esc_html_e('Pagamento PayGo (Pix)', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">Chave de Integração (Integration Key)</th>
+                            <td><input type="text" name="sciflow_settings[paygo_integration_key]"
+                                    value="<?php echo esc_attr($settings['paygo_integration_key'] ?? ''); ?>" class="regular-text">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Token / Senha</th>
+                            <td><input type="password" name="sciflow_settings[paygo_token]"
+                                    value="<?php echo esc_attr($settings['paygo_token'] ?? ''); ?>" class="regular-text">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Chave Pix (opcional)', 'sciflow-wp'); ?>
+                            </th>
+                            <td><input type="text" name="sciflow_settings[paygo_pix_key]"
+                                    value="<?php echo esc_attr($settings['paygo_pix_key'] ?? ''); ?>" class="regular-text">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Ambiente', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <select name="sciflow_settings[paygo_ambiente]">
+                                    <option value="sandbox" <?php selected($settings['paygo_ambiente'] ?? '', 'sandbox'); ?>>
+                                        Sandbox</option>
+                                    <option value="producao" <?php selected($settings['paygo_ambiente'] ?? '', 'producao'); ?>>
+                                        Produção</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Valor da Submissão (R$)', 'sciflow-wp'); ?>
+                            </th>
+                            <td><input type="number" step="0.01" name="sciflow_settings[submission_price]"
+                                    value="<?php echo esc_attr($settings['submission_price'] ?? '50.00'); ?>" class="small-text">
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div id="tab-ranking" class="sciflow-tab-content" style="display:none;">
+                    <h2>
+                        <?php esc_html_e('Pesos do Ranking', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
+                        <?php
+                        $criteria = array(
+                            'originalidade' => __('Originalidade', 'sciflow-wp'),
+                            'objetividade' => __('Objetividade', 'sciflow-wp'),
+                            'organizacao' => __('Organização', 'sciflow-wp'),
+                            'metodologia' => __('Metodologia', 'sciflow-wp'),
+                            'aderencia' => __('Aderência aos Objetivos', 'sciflow-wp'),
+                        );
+                        foreach ($criteria as $key => $label): ?>
+                            <tr>
+                                <th scope="row">
+                                    <?php echo esc_html($label); ?>
+                                </th>
+                                <td><input type="number" step="0.1" min="0" max="10"
+                                        name="sciflow_settings[ranking_weights][<?php echo esc_attr($key); ?>]"
+                                        value="<?php echo esc_attr($settings['ranking_weights'][$key] ?? 1); ?>" class="small-text">
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </table>
+                </div>
+
+                <div id="tab-notificacoes" class="sciflow-tab-content" style="display:none;">
+                    <h2>
+                        <?php esc_html_e('E-mail Artigos "Esquecidos"', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <textarea name="sciflow_settings[forgotten_article_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['forgotten_article_email_text'] ?? ''); ?></textarea>
+                                <p class="description">
+                                    <?php esc_html_e('Texto que será enviado para os autores que não fizeram as alterações solicitadas. Você pode usar as tags [NOME], [NOME DO RESUMO] e [EVENTO].', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <h2>
+                        <?php esc_html_e('E-mail Pôsteres "Esquecidos"', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Texto do E-mail (Pôster)', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <textarea name="sciflow_settings[forgotten_poster_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['forgotten_poster_email_text'] ?? ''); ?></textarea>
+                                <p class="description">
+                                    <?php esc_html_e('Texto que será enviado para os autores que não reenviaram o pôster com as correções solicitadas. Tags: [NOME], [NOME DO RESUMO], [EVENTO].', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <hr>
+                    
+                    <h2><?php esc_html_e('Notificar Artigos "Esquecidos"', 'sciflow-wp'); ?></h2>
+                    <div id="sciflow-notify-forgotten-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                        <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores que possuem trabalhos aguardando correções (status: Necessita Alterações). O envio será feito em pequenos lotes para evitar sobrecarga no servidor.', 'sciflow-wp'); ?></p>
+                        <button type="button" id="sciflow-notify-forgotten-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora', 'sciflow-wp'); ?></button>
+                        <span id="sciflow-notify-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
+                        <div id="sciflow-notify-progress" style="margin-top:15px; font-weight:bold;"></div>
+                    </div>
+
+                    <hr>
+                    
+                    <h2><?php esc_html_e('Notificar Pôsteres "Esquecidos"', 'sciflow-wp'); ?></h2>
+                    <div id="sciflow-notify-forgotten-poster-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px; margin-top:20px;">
+                        <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores que possuem pôsteres aguardando correções (status: Pôster Necessita Correção). O envio será feito em pequenos lotes.', 'sciflow-wp'); ?></p>
+                        <button type="button" id="sciflow-notify-forgotten-poster-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora (Pôsteres)', 'sciflow-wp'); ?></button>
+                        <span id="sciflow-notify-poster-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
+                        <div id="sciflow-notify-poster-progress" style="margin-top:15px; font-weight:bold;"></div>
+                    </div>
+                </div>
 
                 <?php submit_button(); ?>
             </form>
-            
-            <hr>
-            
-            <h2><?php esc_html_e('Notificar Artigos "Esquecidos"', 'sciflow-wp'); ?></h2>
-            <div id="sciflow-notify-forgotten-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
-                <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores que possuem trabalhos aguardando correções (status: Necessita Alterações). O envio será feito em pequenos lotes para evitar sobrecarga no servidor.', 'sciflow-wp'); ?></p>
-                <button type="button" id="sciflow-notify-forgotten-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora', 'sciflow-wp'); ?></button>
-                <span id="sciflow-notify-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
-                <div id="sciflow-notify-progress" style="margin-top:15px; font-weight:bold;"></div>
-            </div>
-
-            <hr>
-            
-            <h2><?php esc_html_e('Notificar Pôsteres "Esquecidos"', 'sciflow-wp'); ?></h2>
-            <div id="sciflow-notify-forgotten-poster-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px; margin-top:20px;">
-                <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores que possuem pôsteres aguardando correções (status: Pôster Necessita Correção). O envio será feito em pequenos lotes.', 'sciflow-wp'); ?></p>
-                <button type="button" id="sciflow-notify-forgotten-poster-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora (Pôsteres)', 'sciflow-wp'); ?></button>
-                <span id="sciflow-notify-poster-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
-                <div id="sciflow-notify-poster-progress" style="margin-top:15px; font-weight:bold;"></div>
-            </div>
 
             <script>
             jQuery(document).ready(function($) {
+                // Tabs logic
+                $('.sciflow-nav-tabs .nav-tab').on('click', function(e) {
+                    e.preventDefault();
+                    $('.sciflow-nav-tabs .nav-tab').removeClass('nav-tab-active');
+                    $(this).addClass('nav-tab-active');
+                    
+                    $('.sciflow-tab-content').hide();
+                    var target = $(this).attr('href');
+                    $(target).show();
+                    
+                    // Update URL hash to maintain state
+                    window.history.replaceState(null, null, target);
+                });
+
+                // Check if there's a hash in the URL on load
+                if (window.location.hash) {
+                    var hash = window.location.hash;
+                    var $tab = $('.sciflow-nav-tabs .nav-tab[href="' + hash + '"]');
+                    if ($tab.length) {
+                        $tab.trigger('click');
+                    }
+                }
+
+                // Notification logic
                 function setupNotifyBtn(btnId, spinnerId, progressId, action, nonce, confirmText) {
                     $(btnId).on('click', function() {
                         if (!confirm(confirmText)) {
