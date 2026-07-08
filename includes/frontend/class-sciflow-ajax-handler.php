@@ -60,6 +60,9 @@ class SciFlow_Ajax_Handler
 
         // Confirmation.
         add_action('wp_ajax_sciflow_confirm_presentation', array($this, 'handle_confirm_presentation'));
+
+        // Co-author update (standalone, for approved works).
+        add_action('wp_ajax_sciflow_update_coauthors', array($this, 'handle_update_coauthors'));
     }
 
     /**
@@ -503,5 +506,58 @@ class SciFlow_Ajax_Handler
         }
 
         wp_send_json_success(array('message' => __('Apresentação confirmada!', 'sciflow-wp')));
+    }
+
+    /**
+     * Handle standalone co-author update for approved works.
+     */
+    public function handle_update_coauthors()
+    {
+        $this->verify_request();
+
+        $post_id = absint($_POST['post_id'] ?? 0);
+        if (!$post_id) {
+            wp_send_json_error(array('message' => __('ID do trabalho inválido.', 'sciflow-wp')));
+        }
+
+        // Ownership check.
+        $author_id = (int) get_post_meta($post_id, '_sciflow_author_id', true);
+        if (get_current_user_id() !== $author_id) {
+            wp_send_json_error(array('message' => __('Você não tem permissão para editar este trabalho.', 'sciflow-wp')));
+        }
+
+        // Status check: only allow for approved / poster statuses.
+        $status_manager = new SciFlow_Status_Manager();
+        $status = $status_manager->get_status($post_id);
+        $allowed = array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'poster_aprovado');
+        if (!in_array($status, $allowed, true)) {
+            wp_send_json_error(array('message' => __('Coautores só podem ser editados para trabalhos aprovados.', 'sciflow-wp')));
+        }
+
+        // Sanitize coauthors JSON.
+        $raw = $_POST['coauthors'] ?? '';
+        $coauthors_input = json_decode(wp_unslash($raw), true);
+        if (!is_array($coauthors_input)) {
+            $coauthors_input = array();
+        }
+
+        $coauthors = array();
+        foreach (array_slice($coauthors_input, 0, 5) as $ca) {
+            $name = sanitize_text_field($ca['name'] ?? '');
+            $email = sanitize_email($ca['email'] ?? '');
+            if (empty($name) || empty($email)) {
+                continue;
+            }
+            $coauthors[] = array(
+                'name'        => $name,
+                'email'       => $email,
+                'institution' => sanitize_text_field($ca['institution'] ?? ''),
+                'telefone'    => sanitize_text_field($ca['telefone'] ?? ''),
+            );
+        }
+
+        update_post_meta($post_id, '_sciflow_coauthors', $coauthors);
+
+        wp_send_json_success(array('message' => __('Coautores atualizados com sucesso!', 'sciflow-wp')));
     }
 }
