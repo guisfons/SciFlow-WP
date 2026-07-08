@@ -151,6 +151,7 @@ if (!defined('ABSPATH'))
                         // Poster deadline
                         $poster_deadline_str = $settings['poster_submission_deadline'] ?? '';
                         $is_past_poster_deadline = false;
+                        $poster_deadline_time = 0;
                         if (!empty($poster_deadline_str)) {
                             $poster_deadline_time = strtotime($poster_deadline_str);
                             $is_past_poster_deadline = $current_time > $poster_deadline_time;
@@ -191,28 +192,21 @@ if (!defined('ABSPATH'))
                             if ($status === 'aprovado'):
                                 // Format the poster deadline for display
                                 $poster_deadline_formatted = '';
-                                if (!empty($poster_deadline_str)) {
+                                if ($poster_deadline_time > 0) {
                                     $poster_deadline_formatted = wp_date('d/m/Y', $poster_deadline_time);
                                 }
                             ?>
-                                <?php if (!$is_past_poster_deadline): ?>
-                                    <div class="sciflow-notice sciflow-notice--warning" style="margin-bottom:10px; border-left: 4px solid #f0ad4e; padding: 10px 14px; background: #fff8e7; border-radius: 6px;">
-                                        <strong>⚠️ <?php esc_html_e( 'Atenção: Prazo para envio do pôster!', 'sciflow-wp' ); ?></strong><br>
-                                        <?php if ($poster_deadline_formatted): ?>
-                                            <?php printf(
-                                                esc_html__( 'Seu trabalho foi aprovado. Envie o pôster em PDF até %s. Após essa data não será mais possível realizar o envio.', 'sciflow-wp' ),
-                                                '<strong>' . esc_html($poster_deadline_formatted) . '</strong>'
-                                            ); ?>
-                                        <?php else: ?>
-                                            <?php esc_html_e( 'Seu trabalho foi aceito. Agora envie o pôster em formato PDF para concluir o processo.', 'sciflow-wp' ); ?>
-                                        <?php endif; ?>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="sciflow-notice sciflow-notice--info" style="margin-bottom:10px; border-left: 4px solid #0d6efd; padding: 10px 14px; background: #e7f1ff; border-radius: 6px;">
-                                        <strong>🎉 <?php esc_html_e( 'Trabalho Aprovado!', 'sciflow-wp' ); ?></strong><br>
+                                <div class="sciflow-notice sciflow-notice--warning" style="margin-bottom:10px; border-left: 4px solid #f0ad4e; padding: 10px 14px; background: #fff8e7; border-radius: 6px;">
+                                    <strong>⚠️ <?php esc_html_e( 'Atenção: Prazo para envio do pôster!', 'sciflow-wp' ); ?></strong><br>
+                                    <?php if ($poster_deadline_formatted): ?>
+                                        <?php printf(
+                                            esc_html__( 'Seu trabalho foi aprovado. Envie o pôster em PDF até %s. Após essa data não será mais possível realizar o envio.', 'sciflow-wp' ),
+                                            '<strong>' . esc_html($poster_deadline_formatted) . '</strong>'
+                                        ); ?>
+                                    <?php else: ?>
                                         <?php esc_html_e( 'Seu trabalho foi aceito. Agora envie o pôster em formato PDF para concluir o processo.', 'sciflow-wp' ); ?>
-                                    </div>
-                                <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
                             <?php elseif ($status === 'poster_em_correcao'): ?>
                                 <div class="sciflow-notice sciflow-notice--warning" style="margin-bottom:10px; border-left: 4px solid #f0ad4e; padding: 10px 14px; background: #fff8e7; border-radius: 6px;">
                                     <strong>📋 <?php esc_html_e( 'Pôster Necessita Correção', 'sciflow-wp' ); ?></strong><br>
