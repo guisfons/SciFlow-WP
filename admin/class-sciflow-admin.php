@@ -184,6 +184,7 @@ class SciFlow_Admin
         $clean['forgotten_article_email_text'] = wp_kses_post($input['forgotten_article_email_text'] ?? '');
         $clean['forgotten_poster_email_text'] = wp_kses_post($input['forgotten_poster_email_text'] ?? '');
         $clean['unsubmitted_poster_email_text'] = wp_kses_post($input['unsubmitted_poster_email_text'] ?? '');
+        $clean['ranking_email_text'] = wp_kses_post($input['ranking_email_text'] ?? '');
 
         return $clean;
     }
@@ -491,6 +492,23 @@ class SciFlow_Admin
 
                 <div id="tab-notificacoes" class="sciflow-tab-content" style="display:none;">
                     <h2>
+                        <?php esc_html_e('E-mail Rankeamento (Top 6)', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <textarea name="sciflow_settings[ranking_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['ranking_email_text'] ?? ''); ?></textarea>
+                                <p class="description">
+                                    <?php esc_html_e('Texto enviado para os autores dos trabalhos selecionados (Top 6). Tags permitidas: [NOME], [NOME DO RESUMO], [EVENTO], [PRAZO].', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <h2>
                         <?php esc_html_e('E-mail Artigos "Esquecidos"', 'sciflow-wp'); ?>
                     </h2>
                     <table class="form-table">
@@ -742,16 +760,37 @@ class SciFlow_Admin
 
             <hr>
 
-            <h2>Enfrute</h2>
-            <?php $this->render_admin_ranking_table($ranking->get_event_ranking('enfrute')); ?>
-
-            <h2>Semco</h2>
-            <?php $this->render_admin_ranking_table($ranking->get_event_ranking('semco')); ?>
-
-            <h2>
-                <?php esc_html_e('Geral', 'sciflow-wp'); ?>
+            <h2 class="nav-tab-wrapper sciflow-ranking-tabs">
+                <a href="#ranking-enfrute" class="nav-tab nav-tab-active">Enfrute</a>
+                <a href="#ranking-semco" class="nav-tab">Semco</a>
+                <a href="#ranking-geral" class="nav-tab">Geral</a>
             </h2>
-            <?php $this->render_admin_ranking_table($ranking->get_general_ranking()); ?>
+
+            <div id="ranking-enfrute" class="sciflow-ranking-tab-content">
+                <?php $this->render_admin_ranking_table($ranking->get_event_ranking('enfrute')); ?>
+            </div>
+
+            <div id="ranking-semco" class="sciflow-ranking-tab-content" style="display:none;">
+                <?php $this->render_admin_ranking_table($ranking->get_event_ranking('semco')); ?>
+            </div>
+
+            <div id="ranking-geral" class="sciflow-ranking-tab-content" style="display:none;">
+                <?php $this->render_admin_ranking_table($ranking->get_general_ranking()); ?>
+            </div>
+
+            <script>
+            jQuery(document).ready(function($) {
+                $('.sciflow-ranking-tabs .nav-tab').on('click', function(e) {
+                    e.preventDefault();
+                    $('.sciflow-ranking-tabs .nav-tab').removeClass('nav-tab-active');
+                    $(this).addClass('nav-tab-active');
+                    
+                    $('.sciflow-ranking-tab-content').hide();
+                    var target = $(this).attr('href');
+                    $(target).show();
+                });
+            });
+            </script>
         </div>
         <?php
     }
@@ -777,8 +816,13 @@ class SciFlow_Admin
         echo '</tr></thead><tbody>';
 
         $pos = 1;
-        foreach ($posts as $post) {
+        $count = count($posts);
+        foreach ($posts as $index => $post) {
             $score = get_post_meta($post->ID, '_sciflow_ranking_score', true);
+            $prev_score = $index > 0 ? get_post_meta($posts[$index - 1]->ID, '_sciflow_ranking_score', true) : null;
+            $next_score = $index < ($count - 1) ? get_post_meta($posts[$index + 1]->ID, '_sciflow_ranking_score', true) : null;
+            $is_tied = ($score == $prev_score || $score == $next_score);
+
             $status = get_post_meta($post->ID, '_sciflow_status', true);
             $selected = get_post_meta($post->ID, '_sciflow_selected_for_presentation', true);
             $confirmed = get_post_meta($post->ID, '_sciflow_presentation_confirmed', true);
@@ -787,7 +831,7 @@ class SciFlow_Admin
             echo '<tr>';
             echo '<td>' . $pos . '</td>';
             echo '<td><strong>' . SciFlow_Status_Manager::render_title($post->post_title) . '</strong></td>';
-            echo '<td>' . number_format($score, 2, ',', '') . '</td>';
+            echo '<td>' . number_format((float)$score, 2, ',', '') . ($is_tied ? ' <span title="Empate na nota total. O sistema desempatou automaticamente pelos critérios de maior peso." style="color:#d63638; cursor:help;">⚠️ Empate</span>' : '') . '</td>';
             echo '<td>' . $sm->get_status_badge($status) . '</td>';
             echo '<td>' . ($selected ? '✅' : '—') . '</td>';
             echo '<td>' . ($confirmed ? '✅' : '—') . '</td>';
@@ -1211,7 +1255,7 @@ class SciFlow_Admin
         check_admin_referer('sciflow_select_top');
 
         $ranking = new SciFlow_Ranking();
-        $selected = $ranking->select_top_works();
+        $selected = $ranking->select_top_works(6, 0);
         $ranking->notify_selected_authors($selected);
 
         wp_safe_redirect(add_query_arg('selected', count($selected), wp_get_referer() ?: admin_url('admin.php?page=sciflow-ranking')));

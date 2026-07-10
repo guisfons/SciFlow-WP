@@ -243,11 +243,84 @@ class SciFlow_Ranking
                     'compare' => 'IN',
                 ),
             ),
-            'orderby' => 'meta_value_num',
-            'meta_key' => '_sciflow_ranking_score',
-            'order' => 'DESC',
+            // Ordering is handled in PHP for tie-breaking
         ));
 
-        return $query->posts;
+        $settings = get_option('sciflow_settings', array());
+        
+        // Find committee users (administrators, editors)
+        $committee_users = get_users(array(
+            'role__in' => array('administrator', 'sciflow_editor', 'sciflow_enfrute_editor', 'sciflow_semco_editor'),
+            'fields' => 'all'
+        ));
+        
+        $committee_emails = array();
+        foreach ($committee_users as $u) {
+            if (!empty($u->user_email)) {
+                $committee_emails[] = strtolower(trim($u->user_email));
+            }
+        }
+
+        $filtered_posts = array();
+
+        foreach ($query->posts as $post) {
+            $author_id = get_post_meta($post->ID, '_sciflow_author_id', true);
+            $author = get_userdata($author_id);
+            $author_email = $author ? strtolower(trim($author->user_email)) : '';
+            
+            $main_email = strtolower(trim(get_post_meta($post->ID, '_sciflow_main_author_email', true)));
+            $coauthors = get_post_meta($post->ID, '_sciflow_coauthors', true);
+            
+            $is_committee = false;
+            
+            if (in_array($author_email, $committee_emails, true) || in_array($main_email, $committee_emails, true)) {
+                $is_committee = true;
+            }
+            
+            if (!$is_committee && is_array($coauthors)) {
+                foreach ($coauthors as $co) {
+                    if (isset($co['email']) && in_array(strtolower(trim($co['email'])), $committee_emails, true)) {
+                        $is_committee = true;
+                        break;
+                    }
+                }
+            }
+            
+            if ($is_committee) {
+                continue;
+            }
+            
+            $filtered_posts[] = $post;
+        }
+
+        // Sort posts by total score, then by weighted criteria if tied
+        $weights = $settings['ranking_weights'] ?? array();
+        arsort($weights); // Sort weights descending to know which criteria to prioritize in ties
+        
+        usort($filtered_posts, function($a, $b) use ($weights) {
+            $sa = (float) get_post_meta($a->ID, '_sciflow_ranking_score', true);
+            $sb = (float) get_post_meta($b->ID, '_sciflow_ranking_score', true);
+            
+            if ($sa !== $sb) {
+                return $sb <=> $sa; // descending
+            }
+            
+            // Tie-breaking
+            $scores_a = get_post_meta($a->ID, '_sciflow_scores', true) ?: array();
+            $scores_b = get_post_meta($b->ID, '_sciflow_scores', true) ?: array();
+            
+            foreach ($weights as $key => $weight) {
+                $wa = (float) ($scores_a[$key] ?? 0) * (float) $weight;
+                $wb = (float) ($scores_b[$key] ?? 0) * (float) $weight;
+                
+                if ($wa !== $wb) {
+                    return $wb <=> $wa; // descending
+                }
+            }
+            
+            return 0; // Still tied
+        });
+
+        return $filtered_posts;
     }
 }

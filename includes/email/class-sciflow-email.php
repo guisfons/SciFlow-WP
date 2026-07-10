@@ -480,10 +480,32 @@ class SciFlow_Email
 
         $deadline = get_post_meta($post_id, '_sciflow_confirmation_deadline', true);
         $vars['deadline'] = $deadline ? wp_date('d/m/Y H:i', strtotime($deadline)) : '---';
-        $vars['message'] = sprintf(
-            __('Seu trabalho foi selecionado para apresentação! Confirme até <strong>%s</strong> (3 dias).', 'sciflow-wp'),
-            $vars['deadline']
-        );
+        
+        $settings = get_option('sciflow_settings', array());
+        $custom_text = $settings['ranking_email_text'] ?? '';
+        
+        if (!empty($custom_text)) {
+            $author_name = '';
+            $author_id = get_post_meta($post_id, '_sciflow_author_id', true);
+            if ($author_id) {
+                $author = get_userdata($author_id);
+                if ($author) {
+                    $author_name = $author->display_name;
+                }
+            }
+            
+            $message = str_replace(
+                array('[NOME]', '[NOME DO RESUMO]', '[EVENTO]', '[PRAZO]'),
+                array($author_name, $vars['titulo'], $vars['evento'], $vars['deadline']),
+                $custom_text
+            );
+            $vars['message'] = nl2br(wp_kses_post($message));
+        } else {
+            $vars['message'] = sprintf(
+                __('Seu trabalho foi selecionado para apresentação! Confirme até <strong>%s</strong> (3 dias).', 'sciflow-wp'),
+                $vars['deadline']
+            );
+        }
 
         $subject = sprintf(__('[%s] Confirmação de Apresentação: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
 
