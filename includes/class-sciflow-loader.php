@@ -26,6 +26,7 @@ class SciFlow_Loader
     private $shortcodes;
     private $ajax;
     private $admin;
+    private $import_export;
     private $poster_upload;
     private $payment;
     private $woocommerce;
@@ -94,6 +95,7 @@ class SciFlow_Loader
 
         // Admin.
         if (is_admin()) {
+            $this->import_export = new SciFlow_Import_Export();
             $this->admin = new SciFlow_Admin($this->payment);
             $this->access = new SciFlow_Access();
         }

@@ -125,6 +125,15 @@ class SciFlow_Admin
             'sciflow-gestor-permissions',
             array($this, 'render_gestor_permissions_page')
         );
+
+        add_submenu_page(
+            'sciflow-settings',
+            __('Importar / Exportar', 'sciflow-wp'),
+            __('Importar / Exportar', 'sciflow-wp'),
+            'manage_options',
+            'sciflow-import-export',
+            array($this, 'render_import_export_page')
+        );
     }
 
     /**
@@ -1999,6 +2008,15 @@ class SciFlow_Admin
             }
             update_post_meta($post_id, '_sciflow_coauthors', $coauthors);
         }
+    }
+
+    /**
+     * Render the Import/Export page.
+     */
+    public function render_import_export_page()
+    {
+        $import_export = new SciFlow_Import_Export();
+        $import_export->render_page();
     }
 }
 

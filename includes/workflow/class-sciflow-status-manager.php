@@ -58,6 +58,7 @@ class SciFlow_Status_Manager
             'em_revisao' => array('aprovado', 'reprovado', 'aprovado_com_consideracoes'),
             'aprovado_com_consideracoes' => array('em_correcao'),
             'aprovado' => array('apto_publicacao', 'poster_enviado', 'poster_reprovado', 'poster_em_correcao'),
+            'aguardando_poster' => array('apto_publicacao', 'poster_enviado', 'poster_reprovado', 'poster_em_correcao'),
             'reprovado' => array(),
             'apto_publicacao' => array('aprovado'),
             'em_correcao' => array('submetido', 'submetido_com_revisao', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao', 'reprovado'),

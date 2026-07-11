@@ -48,6 +48,7 @@ spl_autoload_register(function ($class) {
         'includes/upload/',
         'includes/frontend/',
         'includes/woocommerce/',
+        'includes/admin/',
         'admin/',
     );
 

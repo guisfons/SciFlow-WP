@@ -143,8 +143,8 @@ if (!defined('ABSPATH'))
                         $is_past_deadline = false;
                         $deadline_formatted = '';
                         if (!empty($deadline_str)) {
-                            $deadline_time = strtotime($deadline_str);
-                            $is_past_deadline = $current_time > $deadline_time;
+                            $deadline_time = strtotime(str_replace('/', '-', $deadline_str));
+                            $is_past_deadline = $deadline_time && $current_time > $deadline_time;
                             $deadline_formatted = wp_date('d/m \à\s H:i', $deadline_time);
                         }
                         
@@ -153,8 +153,8 @@ if (!defined('ABSPATH'))
                         $is_past_poster_deadline = false;
                         $poster_deadline_time = 0;
                         if (!empty($poster_deadline_str)) {
-                            $poster_deadline_time = strtotime($poster_deadline_str);
-                            $is_past_poster_deadline = $current_time > $poster_deadline_time;
+                            $poster_deadline_time = strtotime(str_replace('/', '-', $poster_deadline_str));
+                            $is_past_poster_deadline = $poster_deadline_time && $current_time > $poster_deadline_time;
                         }
                         
                         $is_blocked_edit = $is_past_deadline && $status === 'em_correcao' && in_array(strtolower($event), array('enfrute', 'semco', 'senco'), true);
@@ -186,10 +186,10 @@ if (!defined('ABSPATH'))
                             </a>
                         <?php endif; ?>
 
-                        <?php if (in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao'), true)): ?>
+                        <?php if (in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao', 'aguardando_poster'), true)): ?>
                             <?php
                             // Banner visible when poster is still needed
-                            if ($status === 'aprovado'):
+                            if (in_array($status, array('aprovado', 'aguardando_poster'), true)):
                                 // Format the poster deadline for display
                                 $poster_deadline_formatted = '';
                                 if ($poster_deadline_time > 0) {
@@ -214,7 +214,7 @@ if (!defined('ABSPATH'))
                                 </div>
                             <?php endif; ?>
                             
-                            <?php if ($is_past_poster_deadline && in_array(strtolower($event), array('enfrute', 'semco', 'senco'), true) && in_array($status, array('aprovado', 'poster_em_correcao'), true)): ?>
+                            <?php if ($is_past_poster_deadline && in_array(strtolower($event), array('enfrute', 'semco', 'senco'), true) && in_array($status, array('aprovado', 'poster_em_correcao', 'aguardando_poster'), true)): ?>
                                 <div class="sciflow-notice sciflow-notice--error" style="margin-bottom:10px; border-left: 4px solid #dc3545; padding: 10px 14px; background: #f8d7da; border-radius: 6px;">
                                     <strong>⛔ <?php esc_html_e('Prazo Encerrado', 'sciflow-wp'); ?></strong><br>
                                     <?php esc_html_e('O prazo para envio de pôsteres foi encerrado. Não é mais possível enviar o arquivo.', 'sciflow-wp'); ?>

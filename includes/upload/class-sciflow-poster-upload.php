@@ -35,23 +35,26 @@ class SciFlow_Poster_Upload
     {
         $user_id = get_current_user_id();
         $author = (int) get_post_meta($post_id, '_sciflow_author_id', true);
+        $is_admin = current_user_can('manage_options') || current_user_can('sciflow_manager');
 
-        if ($user_id !== $author) {
+        if ($user_id !== $author && !$is_admin) {
             return new WP_Error('unauthorized', __('Apenas o autor pode enviar o pôster.', 'sciflow-wp'));
         }
 
         $status = $this->status_manager->get_status($post_id);
-        if (!in_array($status, array('aprovado', 'poster_em_correcao'), true)) {
+        if (!in_array($status, array('aprovado', 'poster_em_correcao', 'aguardando_poster'), true)) {
             return new WP_Error('invalid_status', __('O trabalho não está em um status que permite o envio de pôster.', 'sciflow-wp'));
         }
 
         // Check poster deadline.
-        $settings = get_option('sciflow_settings', array());
-        $poster_deadline_str = $settings['poster_submission_deadline'] ?? '';
-        if (!empty($poster_deadline_str)) {
-            $poster_deadline_time = strtotime($poster_deadline_str);
-            if (current_time('timestamp') > $poster_deadline_time) {
-                return new WP_Error('deadline_exceeded', __('O prazo para envio de pôsteres foi encerrado.', 'sciflow-wp'));
+        if (!$is_admin) {
+            $settings = get_option('sciflow_settings', array());
+            $poster_deadline_str = $settings['poster_submission_deadline'] ?? '';
+            if (!empty($poster_deadline_str)) {
+                $poster_deadline_time = strtotime(str_replace('/', '-', $poster_deadline_str));
+                if ($poster_deadline_time && current_time('timestamp') > $poster_deadline_time) {
+                    return new WP_Error('deadline_exceeded', __('O prazo para envio de pôsteres foi encerrado.', 'sciflow-wp'));
+                }
             }
         }
 
@@ -105,7 +108,7 @@ class SciFlow_Poster_Upload
         // Transition status.
         if ($status === 'poster_em_correcao') {
             $this->status_manager->transition($post_id, 'poster_reenviado');
-        } elseif ($status === 'aprovado') {
+        } elseif ($status === 'aprovado' || $status === 'aguardando_poster') {
             $this->status_manager->transition($post_id, 'poster_enviado');
         }
 
