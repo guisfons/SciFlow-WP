@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) {
 $paged = (get_query_var('paged')) ? get_query_var('paged') : 1;
 
 $search_query = isset($_GET['sciflow_search']) ? sanitize_text_field($_GET['sciflow_search']) : '';
+$filter_evento = isset($_GET['sciflow_evento']) ? sanitize_text_field($_GET['sciflow_evento']) : '';
 $filter_cultura = isset($_GET['sciflow_cultura']) ? sanitize_text_field($_GET['sciflow_cultura']) : '';
 $filter_area = isset($_GET['sciflow_area']) ? sanitize_text_field($_GET['sciflow_area']) : '';
 
@@ -37,11 +38,20 @@ if (!empty($filter_area)) {
 }
 
 // Prepare search args if search query exists
+$post_types = array('enfrute_trabalhos', 'semco_trabalhos');
+if ($filter_evento === 'enfrute') {
+    $post_types = array('enfrute_trabalhos');
+} elseif ($filter_evento === 'semco') {
+    $post_types = array('semco_trabalhos');
+}
+
 $args = array(
-    'post_type'      => array('enfrute_trabalhos', 'semco_trabalhos'),
+    'post_type'      => $post_types,
     'post_status'    => 'publish',
     'posts_per_page' => 20,
     'paged'          => $paged,
+    'orderby'        => 'title',
+    'order'          => 'ASC',
     'meta_query'     => $meta_query
 );
 
@@ -73,13 +83,20 @@ $status_manager = new SciFlow_Status_Manager();
             <!-- Retain page ID or slug if shortcode is placed on a page -->
             <?php if (is_page()) { echo '<input type="hidden" name="page_id" value="' . get_the_ID() . '">'; } ?>
             
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-3">
                 <div class="input-group input-group-sm">
                     <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
                     <input type="text" name="sciflow_search" value="<?php echo esc_attr($search_query); ?>"
                            class="form-control border-start-0 ps-0 fw-medium shadow-none"
                            placeholder="Buscar por Título...">
                 </div>
+            </div>
+            <div class="col-12 col-md-2">
+                <select name="sciflow_evento" class="form-select form-select-sm fw-medium text-secondary shadow-none">
+                    <option value="">Todos Eventos</option>
+                    <option value="enfrute" <?php selected($filter_evento, 'enfrute'); ?>>Enfrute</option>
+                    <option value="semco" <?php selected($filter_evento, 'semco'); ?>>Semco</option>
+                </select>
             </div>
             <div class="col-12 col-md-3">
                 <select name="sciflow_cultura" class="form-select form-select-sm fw-medium text-secondary shadow-none">
@@ -102,9 +119,9 @@ $status_manager = new SciFlow_Status_Manager();
                     </optgroup>
                 </select>
             </div>
-            <div class="col-12 col-md-3">
+            <div class="col-12 col-md-2">
                 <select name="sciflow_area" class="form-select form-select-sm fw-medium text-secondary shadow-none">
-                    <option value="">Todas as Áreas de Conhecimento</option>
+                    <option value="">Todas as Áreas</option>
                     <?php 
                     $areas = array(
                         'Biotecnologia/Genética e Melhoramento', 'Botânica e Fisiologia', 'Colheita e Pós-Colheita',
@@ -156,7 +173,10 @@ $status_manager = new SciFlow_Status_Manager();
                                     <span class="badge bg-light text-secondary border rounded-pill px-3 py-2 fw-medium" style="font-size: 11px;">
                                         ID: #<?php echo str_pad($status_manager::get_visual_id($post_id), 3, '0', STR_PAD_LEFT); ?>
                                     </span>
-                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle rounded-pill px-3 py-2" style="font-size: 11px;">
+                                    <?php 
+                                        $event_color_class = (strtolower($event) === 'enfrute') ? 'bg-primary text-primary border-primary-subtle' : 'bg-success text-success border-success-subtle';
+                                    ?>
+                                    <span class="badge <?php echo $event_color_class; ?> bg-opacity-10 border rounded-pill px-3 py-2" style="font-size: 11px;">
                                         <?php echo esc_html(ucfirst($event)); ?>
                                     </span>
                                 </div>
@@ -196,19 +216,31 @@ $status_manager = new SciFlow_Status_Manager();
 
             <!-- Pagination -->
             <?php if ($query->max_num_pages > 1): ?>
-                <div class="d-flex justify-content-center mt-5">
-                    <?php
-                    echo paginate_links(array(
-                        'base' => str_replace(999999999, '%#%', esc_url(get_pagenum_link(999999999))),
-                        'format' => '?paged=%#%',
-                        'current' => max(1, get_query_var('paged')),
-                        'total' => $query->max_num_pages,
-                        'type' => 'list',
-                        'prev_text' => '&laquo; Anterior',
-                        'next_text' => 'Próxima &raquo;',
-                    ));
-                    ?>
-                </div>
+                <nav aria-label="Navegação de página" class="mt-5">
+                    <ul class="pagination justify-content-center">
+                        <?php
+                        $pages = paginate_links(array(
+                            'base' => str_replace(999999999, '%#%', esc_url(get_pagenum_link(999999999))),
+                            'format' => '?paged=%#%',
+                            'current' => max(1, get_query_var('paged')),
+                            'total' => $query->max_num_pages,
+                            'type' => 'array',
+                            'prev_text' => '&laquo; Anterior',
+                            'next_text' => 'Próxima &raquo;',
+                        ));
+                        if (is_array($pages)) {
+                            foreach ($pages as $page) {
+                                $page = str_replace('page-numbers', 'page-link', $page);
+                                $li_class = 'page-item';
+                                if (strpos($page, 'current') !== false) {
+                                    $li_class .= ' active';
+                                }
+                                echo '<li class="' . $li_class . '">' . $page . '</li>';
+                            }
+                        }
+                        ?>
+                    </ul>
+                </nav>
             <?php endif; ?>
             <?php wp_reset_postdata(); ?>
 

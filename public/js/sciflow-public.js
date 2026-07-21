@@ -702,6 +702,84 @@
             });
     });
 
+    // ─── Filter Counts ───
+
+    function initFilterCounts() {
+        // Editor Panel Filters
+        $('.sciflow-tab-content').each(function() {
+            const eventKey = $(this).attr('id').replace('sciflow-tab-', '');
+            const rows = $(this).find('tbody > tr.sciflow-table__row');
+            const totalCount = rows.length;
+            
+            // Update tab
+            const tab = $('.sciflow-tab[data-event="' + eventKey + '"]');
+            if (tab.length) {
+                let originalText = tab.data('orig-text');
+                if (!originalText) {
+                    originalText = tab.text().trim();
+                    tab.data('orig-text', originalText);
+                }
+                tab.text(originalText + ' (' + totalCount + ')');
+            }
+
+            ['status', 'cultura', 'area'].forEach(function(filterType) {
+                const select = $('.sciflow-filter-' + filterType + '[data-event="' + eventKey + '"]');
+                if (select.length) {
+                    select.find('option').each(function() {
+                        const option = $(this);
+                        const val = option.val();
+                        if (!val) return;
+                        
+                        let originalText = option.data('orig-text');
+                        if (!originalText) {
+                            originalText = option.text().trim();
+                            option.data('orig-text', originalText);
+                        }
+                        
+                        const count = rows.filter('[data-' + filterType + '="' + val + '"]').length;
+                        if (count > 0) {
+                            option.text(originalText + ' (' + count + ')');
+                        } else {
+                            option.text(originalText + ' (0)');
+                        }
+                    });
+                }
+            });
+        });
+
+        // Reviewer Panel Filters
+        if ($('.sciflow-review-card').length) {
+            const cards = $('.sciflow-review-card');
+            ['event', 'cultura', 'area'].forEach(function(filterType) {
+                const select = $('.sciflow-filter-' + filterType + '-reviewer');
+                if (select.length) {
+                    select.find('option').each(function() {
+                        const option = $(this);
+                        const val = option.val();
+                        if (!val) return;
+                        
+                        let originalText = option.data('orig-text');
+                        if (!originalText) {
+                            originalText = option.text().trim();
+                            option.data('orig-text', originalText);
+                        }
+                        
+                        const count = cards.filter('[data-' + filterType + '="' + val + '"]').length;
+                        if (count > 0) {
+                            option.text(originalText + ' (' + count + ')');
+                        } else {
+                            option.text(originalText + ' (0)');
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    $(document).ready(function() {
+        initFilterCounts();
+    });
+
     // ─── Editorial Filters ───
 
     $('.sciflow-filter-input').on('keyup change', function () {
