@@ -24,10 +24,9 @@ get_header();
             $submissions = $submission->get_user_submissions();
             $status_manager = new SciFlow_Status_Manager();
 
-            // Filter to only approved works.
             $approved = array_filter($submissions, function ($post) {
                 $status = get_post_meta($post->ID, '_sciflow_status', true);
-                return in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'apto_publicacao', 'poster_aprovado', 'poster_reprovado'), true);
+                return in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'apto_publicacao', 'poster_aprovado', 'poster_reprovado', 'aguardando_confirmacao', 'confirmado'), true);
             });
 
             if (!is_user_logged_in()) {

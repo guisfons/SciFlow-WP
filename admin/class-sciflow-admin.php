@@ -21,12 +21,16 @@ class SciFlow_Admin
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
         add_action('save_post', array($this, 'save_admin_grades'), 10, 2);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
+        add_action('post_edit_form_tag', array($this, 'add_post_edit_form_tag'));
 
         // Handle manual payment confirmation.
         add_action('admin_post_sciflow_manual_confirm', array($this, 'handle_manual_confirm'));
 
         // Handle ranking selection.
         add_action('admin_post_sciflow_select_top', array($this, 'handle_select_top'));
+        add_action('admin_post_sciflow_send_ranking_notifications', array($this, 'handle_send_ranking_notifications'));
+        add_action('wp_ajax_sciflow_save_presentation_dates_ajax', array($this, 'ajax_save_presentation_dates'));
+        add_action('wp_ajax_sciflow_send_date_emails_ajax', array($this, 'ajax_send_date_emails'));
 
         // Handle forgotten article notifications.
         add_action('wp_ajax_sciflow_notify_forgotten_ajax', array($this, 'ajax_notify_forgotten'));
@@ -162,6 +166,7 @@ class SciFlow_Admin
         $clean['editor_dashboard_url'] = esc_url_raw($input['editor_dashboard_url'] ?? '');
         $clean['reviewer_dashboard_url'] = esc_url_raw($input['reviewer_dashboard_url'] ?? '');
         $clean['poster_template_url'] = esc_url_raw($input['poster_template_url'] ?? '');
+        $clean['lgpd_consent_text'] = wp_kses_post($input['lgpd_consent_text'] ?? '');
 
         // PayGo settings.
         $clean['paygo_integration_key'] = sanitize_text_field($input['paygo_integration_key'] ?? '');
@@ -194,6 +199,12 @@ class SciFlow_Admin
         $clean['forgotten_poster_email_text'] = wp_kses_post($input['forgotten_poster_email_text'] ?? '');
         $clean['unsubmitted_poster_email_text'] = wp_kses_post($input['unsubmitted_poster_email_text'] ?? '');
         $clean['ranking_email_text'] = wp_kses_post($input['ranking_email_text'] ?? '');
+
+        $clean['excluded_ranking_emails'] = sanitize_textarea_field($input['excluded_ranking_emails'] ?? '');
+
+        $clean['selected_date_email_text'] = wp_kses_post($input['selected_date_email_text'] ?? '');
+        $clean['selected_date_btn_text'] = sanitize_text_field($input['selected_date_btn_text'] ?? '');
+        $clean['confirm_presentation_page_url'] = esc_url_raw($input['confirm_presentation_page_url'] ?? '');
 
         return $clean;
     }
@@ -256,7 +267,7 @@ class SciFlow_Admin
                 <a href="#tab-notificacoes" class="nav-tab"><?php esc_html_e('Notificações', 'sciflow-wp'); ?></a>
             </h2>
 
-            <form method="post" action="options.php">
+            <form method="post" action="options.php" novalidate="novalidate">
                 <?php settings_fields('sciflow_settings_group'); ?>
 
                 <div id="tab-geral" class="sciflow-tab-content">
@@ -319,6 +330,17 @@ class SciFlow_Admin
                                     placeholder="https://...">
                                 <p class="description">
                                     <?php esc_html_e('Link para o modelo de pôster disponibilizado para download (.ppt, .pptx, etc).', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Texto de Consentimento LGPD', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <textarea name="sciflow_settings[lgpd_consent_text]" rows="5" class="large-text"><?php echo esc_textarea($settings['lgpd_consent_text'] ?? ''); ?></textarea>
+                                <p class="description">
+                                    <?php esc_html_e('Texto exibido no checkbox obrigatório de consentimento da LGPD durante a submissão de trabalhos e pôsteres.', 'sciflow-wp'); ?>
                                 </p>
                             </td>
                         </tr>
@@ -497,107 +519,184 @@ class SciFlow_Admin
                             </tr>
                         <?php endforeach; ?>
                     </table>
+
+                    <h2>
+                        <?php esc_html_e('Exclusão do Ranking', 'sciflow-wp'); ?>
+                    </h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('E-mails a Desconsiderar', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <textarea name="sciflow_settings[excluded_ranking_emails]" rows="5" class="large-text" placeholder="exemplo1@email.com&#10;exemplo2@email.com"><?php echo esc_textarea($settings['excluded_ranking_emails'] ?? ''); ?></textarea>
+                                <p class="description">
+                                    <?php esc_html_e('Insira um e-mail por linha. Trabalhos onde o autor ou qualquer coautor possua um destes e-mails serão excluídos do rankeamento.', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
 
                 <div id="tab-notificacoes" class="sciflow-tab-content" style="display:none;">
-                    <h2>
-                        <?php esc_html_e('E-mail Rankeamento (Top 6)', 'sciflow-wp'); ?>
-                    </h2>
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?>
-                            </th>
-                            <td>
-                                <textarea name="sciflow_settings[ranking_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['ranking_email_text'] ?? ''); ?></textarea>
-                                <p class="description">
-                                    <?php esc_html_e('Texto enviado para os autores dos trabalhos selecionados (Top 6). Tags permitidas: [NOME], [NOME DO RESUMO], [EVENTO], [PRAZO].', 'sciflow-wp'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
+                    <!-- Inner sub-tabs for Notifications -->
+                    <style>
+                    .sciflow-inner-tabs { display:flex; gap:4px; margin-bottom:20px; border-bottom:2px solid #ddd; }
+                    .sciflow-inner-tab { padding:8px 16px; cursor:pointer; background:#f0f0f0; border:1px solid #ddd; border-bottom:none; border-radius:4px 4px 0 0; font-size:13px; color:#444; font-weight:500; }
+                    .sciflow-inner-tab.active { background:#fff; border-bottom:2px solid #fff; margin-bottom:-2px; color:#2c5530; font-weight:700; }
+                    .sciflow-inner-panel { display:none; }
+                    .sciflow-inner-panel.active { display:block; }
+                    </style>
+                    <nav class="sciflow-inner-tabs">
+                        <span class="sciflow-inner-tab active" data-inner="notif-rankeamento"><?php esc_html_e('Rankeamento', 'sciflow-wp'); ?></span>
+                        <span class="sciflow-inner-tab" data-inner="notif-data"><?php esc_html_e('Data de Apresentação', 'sciflow-wp'); ?></span>
+                        <span class="sciflow-inner-tab" data-inner="notif-artigos"><?php esc_html_e('Artigos Esquecidos', 'sciflow-wp'); ?></span>
+                        <span class="sciflow-inner-tab" data-inner="notif-posteres"><?php esc_html_e('Pôsteres', 'sciflow-wp'); ?></span>
+                    </nav>
 
-                    <h2>
-                        <?php esc_html_e('E-mail Artigos "Esquecidos"', 'sciflow-wp'); ?>
-                    </h2>
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?>
-                            </th>
-                            <td>
-                                <textarea name="sciflow_settings[forgotten_article_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['forgotten_article_email_text'] ?? ''); ?></textarea>
-                                <p class="description">
-                                    <?php esc_html_e('Texto que será enviado para os autores que não fizeram as alterações solicitadas. Você pode usar as tags [NOME], [NOME DO RESUMO] e [EVENTO].', 'sciflow-wp'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <h2>
-                        <?php esc_html_e('E-mail Pôsteres "Esquecidos"', 'sciflow-wp'); ?>
-                    </h2>
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <?php esc_html_e('Texto do E-mail (Pôster)', 'sciflow-wp'); ?>
-                            </th>
-                            <td>
-                                <textarea name="sciflow_settings[forgotten_poster_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['forgotten_poster_email_text'] ?? ''); ?></textarea>
-                                <p class="description">
-                                    <?php esc_html_e('Texto que será enviado para os autores que não reenviaram o pôster com as correções solicitadas. Tags: [NOME], [NOME DO RESUMO], [EVENTO].', 'sciflow-wp'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <h2>
-                        <?php esc_html_e('E-mail Pôsteres "Não Enviados"', 'sciflow-wp'); ?>
-                    </h2>
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <?php esc_html_e('Texto do E-mail (Não Enviado)', 'sciflow-wp'); ?>
-                            </th>
-                            <td>
-                                <textarea name="sciflow_settings[unsubmitted_poster_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['unsubmitted_poster_email_text'] ?? ''); ?></textarea>
-                                <p class="description">
-                                    <?php esc_html_e('Texto que será enviado para os autores com trabalho aprovado, mas que ainda não enviaram a versão final (em PDF) do pôster. Tags: [NOME], [NOME DO RESUMO], [EVENTO].', 'sciflow-wp'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <hr>
-                    
-                    <h2><?php esc_html_e('Notificar Artigos "Esquecidos"', 'sciflow-wp'); ?></h2>
-                    <div id="sciflow-notify-forgotten-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
-                        <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores que possuem trabalhos aguardando correções (status: Necessita Alterações). O envio será feito em pequenos lotes para evitar sobrecarga no servidor.', 'sciflow-wp'); ?></p>
-                        <button type="button" id="sciflow-notify-forgotten-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora', 'sciflow-wp'); ?></button>
-                        <span id="sciflow-notify-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
-                        <div id="sciflow-notify-progress" style="margin-top:15px; font-weight:bold;"></div>
+                    <!-- Sub-tab: Rankeamento -->
+                    <div id="notif-rankeamento" class="sciflow-inner-panel active">
+                        <h2><?php esc_html_e('E-mail Rankeamento (Top 6)', 'sciflow-wp'); ?></h2>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?></th>
+                                <td>
+                                    <textarea name="sciflow_settings[ranking_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['ranking_email_text'] ?? ''); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Texto enviado para os autores dos trabalhos selecionados (Top 6). Tags: [NOME], [NOME DO RESUMO], [EVENTO], [PRAZO].', 'sciflow-wp'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
 
-                    <hr>
-                    
-                    <h2><?php esc_html_e('Notificar Pôsteres "Esquecidos"', 'sciflow-wp'); ?></h2>
-                    <div id="sciflow-notify-forgotten-poster-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px; margin-top:20px;">
-                        <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores que possuem pôsteres aguardando correções (status: Pôster Necessita Correção). O envio será feito em pequenos lotes.', 'sciflow-wp'); ?></p>
-                        <button type="button" id="sciflow-notify-forgotten-poster-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora (Pôsteres)', 'sciflow-wp'); ?></button>
-                        <span id="sciflow-notify-poster-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
-                        <div id="sciflow-notify-poster-progress" style="margin-top:15px; font-weight:bold;"></div>
+                    <!-- Sub-tab: Data de Apresentação -->
+                    <div id="notif-data" class="sciflow-inner-panel">
+                        <h2><?php esc_html_e('E-mail Personalizado — Data de Apresentação', 'sciflow-wp'); ?></h2>
+                        <p class="description" style="margin-bottom:12px;"><?php esc_html_e('Envie um e-mail com a data/horário de apresentação. O autor recebe um link com token (válido por 3 dias) para confirmar.', 'sciflow-wp'); ?></p>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php esc_html_e('URL da Página de Confirmação', 'sciflow-wp'); ?></th>
+                                <td>
+                                    <input type="url" name="sciflow_settings[confirm_presentation_page_url]" value="<?php echo esc_attr($settings['confirm_presentation_page_url'] ?? ''); ?>" class="large-text" placeholder="https://seusite.com/confirmar-apresentacao/">
+                                    <p class="description"><?php esc_html_e('URL da página WordPress com o template de confirmação do plugin.', 'sciflow-wp'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?></th>
+                                <td>
+                                    <textarea name="sciflow_settings[selected_date_email_text]" rows="10" class="large-text" placeholder="Prezado(a) [NOME]..."><?php echo esc_textarea($settings['selected_date_email_text'] ?? ''); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Tags: [NOME], [NOME DO RESUMO], [EVENTO], [DATA_APRESENTACAO]. O botão de confirmação é adicionado automaticamente.', 'sciflow-wp'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Texto do Botão', 'sciflow-wp'); ?></th>
+                                <td>
+                                    <input type="text" name="sciflow_settings[selected_date_btn_text]" value="<?php echo esc_attr($settings['selected_date_btn_text'] ?? __('Confirmar minha Apresentação', 'sciflow-wp')); ?>" class="regular-text">
+                                </td>
+                            </tr>
+                        </table>
+
+                        <?php
+                        $selected_for_date = array();
+                        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
+                            $q = new WP_Query(array('post_type' => $pt, 'posts_per_page' => -1, 'post_status' => 'any', 'meta_query' => array(array('key' => '_sciflow_selected_for_presentation', 'value' => '1', 'compare' => '='))));
+                            if (!empty($q->posts)) $selected_for_date = array_merge($selected_for_date, $q->posts);
+                        }
+                        ?>
+
+                        <?php if (!empty($selected_for_date)): ?>
+                        <div id="sciflow-dates-container" style="margin:20px 0;">
+                            <?php wp_nonce_field('sciflow_save_presentation_dates_ajax', 'sciflow_save_presentation_dates_nonce'); ?>
+                            <h3><?php esc_html_e('Datas por Artigo', 'sciflow-wp'); ?></h3>
+                            <table class="wp-list-table widefat striped" style="margin-bottom:12px;">
+                                <thead><tr><th><?php esc_html_e('Artigo', 'sciflow-wp'); ?></th><th><?php esc_html_e('Data de Apresentação', 'sciflow-wp'); ?></th><th><?php esc_html_e('Status', 'sciflow-wp'); ?></th></tr></thead>
+                                <tbody>
+                                <?php foreach ($selected_for_date as $sp):
+                                    $pdate = get_post_meta($sp->ID, '_sciflow_presentation_date', true);
+                                    $pconfirmed = get_post_meta($sp->ID, '_sciflow_presentation_confirmed', true);
+                                ?>
+                                <tr class="sciflow-date-row">
+                                    <td><strong><?php echo esc_html(SciFlow_Status_Manager::render_title($sp->post_title)); ?></strong><input type="hidden" name="presentation_post_ids[]" value="<?php echo esc_attr($sp->ID); ?>"></td>
+                                    <td><input type="text" name="presentation_dates[<?php echo esc_attr($sp->ID); ?>]" value="<?php echo esc_attr($pdate); ?>" placeholder="ex: 15/08/2025 — 14h00, Sala A" class="regular-text sciflow-date-input" data-post-id="<?php echo esc_attr($sp->ID); ?>"></td>
+                                    <td><?php echo $pconfirmed ? '✅ ' . esc_html__('Confirmado', 'sciflow-wp') : '⏳ ' . esc_html__('Aguardando', 'sciflow-wp'); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                            <button type="button" id="sciflow-save-dates-btn" class="button"><?php esc_html_e('Salvar Datas', 'sciflow-wp'); ?></button>
+                            <span id="sciflow-save-dates-spinner" class="spinner" style="float:none;margin-top:5px;"></span>
+                            <span id="sciflow-save-dates-msg" style="margin-left:10px; font-weight:bold;"></span>
+                        </div>
+                        <div style="padding:15px; background:#fff; border:1px solid #ddd; border-radius:4px; max-width:800px;">
+                            <p><?php esc_html_e('Envia o e-mail de data para os artigos selecionados que ainda não confirmaram.', 'sciflow-wp'); ?></p>
+                            <button type="button" id="sciflow-send-date-emails-btn" class="button button-primary"><?php esc_html_e('Enviar E-mails de Data', 'sciflow-wp'); ?></button>
+                            <span id="sciflow-date-email-spinner" class="spinner" style="float:none;margin-top:5px;"></span>
+                            <div id="sciflow-date-email-progress" style="margin-top:12px;font-weight:bold;"></div>
+                        </div>
+                        <?php else: ?>
+                        <p><em><?php esc_html_e('Nenhum artigo selecionado para apresentação no momento.', 'sciflow-wp'); ?></em></p>
+                        <?php endif; ?>
                     </div>
 
-                    <hr>
-                    
-                    <h2><?php esc_html_e('Notificar Pôsteres "Não Enviados"', 'sciflow-wp'); ?></h2>
-                    <div id="sciflow-notify-unsubmitted-poster-form" style="max-width: 800px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px; margin-top:20px;">
-                        <p><?php esc_html_e('Isso enviará o texto configurado acima para todos os autores de trabalhos aprovados que ainda NÃO enviaram o pôster inicial (status: Aprovado / Aguardando Pôster).', 'sciflow-wp'); ?></p>
-                        <button type="button" id="sciflow-notify-unsubmitted-poster-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora (Não Enviados)', 'sciflow-wp'); ?></button>
-                        <span id="sciflow-notify-unsubmitted-poster-spinner" class="spinner" style="float:none; margin-top:5px;"></span>
-                        <div id="sciflow-notify-unsubmitted-poster-progress" style="margin-top:15px; font-weight:bold;"></div>
+                    <!-- Sub-tab: Artigos Esquecidos -->
+                    <div id="notif-artigos" class="sciflow-inner-panel">
+                        <h2><?php esc_html_e('E-mail Artigos "Esquecidos"', 'sciflow-wp'); ?></h2>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?></th>
+                                <td>
+                                    <textarea name="sciflow_settings[forgotten_article_email_text]" rows="10" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['forgotten_article_email_text'] ?? ''); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Enviado para autores com trabalhos aguardando correções. Tags: [NOME], [NOME DO RESUMO], [EVENTO].', 'sciflow-wp'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                        <div id="sciflow-notify-forgotten-form" style="max-width:800px;padding:15px;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:16px;">
+                            <p><?php esc_html_e('Envia o texto acima para todos os autores com trabalhos aguardando correções (Necessita Alterações). Envio em lotes.', 'sciflow-wp'); ?></p>
+                            <button type="button" id="sciflow-notify-forgotten-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora', 'sciflow-wp'); ?></button>
+                            <span id="sciflow-notify-spinner" class="spinner" style="float:none;margin-top:5px;"></span>
+                            <div id="sciflow-notify-progress" style="margin-top:15px;font-weight:bold;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-tab: Pôsteres -->
+                    <div id="notif-posteres" class="sciflow-inner-panel">
+                        <h2><?php esc_html_e('E-mail Pôsteres "Esquecidos"', 'sciflow-wp'); ?></h2>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?></th>
+                                <td>
+                                    <textarea name="sciflow_settings[forgotten_poster_email_text]" rows="8" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['forgotten_poster_email_text'] ?? ''); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Enviado para autores com pôsteres aguardando correções. Tags: [NOME], [NOME DO RESUMO], [EVENTO].', 'sciflow-wp'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                        <div id="sciflow-notify-forgotten-poster-form" style="max-width:800px;padding:15px;background:#fff;border:1px solid #ddd;border-radius:4px;margin:16px 0;">
+                            <p><?php esc_html_e('Envia o texto acima para todos os autores com pôsteres aguardando correções.', 'sciflow-wp'); ?></p>
+                            <button type="button" id="sciflow-notify-forgotten-poster-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora (Pôsteres)', 'sciflow-wp'); ?></button>
+                            <span id="sciflow-notify-poster-spinner" class="spinner" style="float:none;margin-top:5px;"></span>
+                            <div id="sciflow-notify-poster-progress" style="margin-top:15px;font-weight:bold;"></div>
+                        </div>
+
+                        <hr>
+
+                        <h2><?php esc_html_e('E-mail Pôsteres "Não Enviados"', 'sciflow-wp'); ?></h2>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Texto do E-mail', 'sciflow-wp'); ?></th>
+                                <td>
+                                    <textarea name="sciflow_settings[unsubmitted_poster_email_text]" rows="8" class="large-text" placeholder="Prezado(a) autor(a)..."><?php echo esc_textarea($settings['unsubmitted_poster_email_text'] ?? ''); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Enviado para autores aprovados que ainda não enviaram o pôster. Tags: [NOME], [NOME DO RESUMO], [EVENTO].', 'sciflow-wp'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                        <div id="sciflow-notify-unsubmitted-poster-form" style="max-width:800px;padding:15px;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:16px;">
+                            <p><?php esc_html_e('Envia o texto acima para autores aprovados que ainda NÃO enviaram o pôster inicial.', 'sciflow-wp'); ?></p>
+                            <button type="button" id="sciflow-notify-unsubmitted-poster-btn" class="button button-secondary"><?php esc_html_e('Enviar E-mails Agora (Não Enviados)', 'sciflow-wp'); ?></button>
+                            <span id="sciflow-notify-unsubmitted-poster-spinner" class="spinner" style="float:none;margin-top:5px;"></span>
+                            <div id="sciflow-notify-unsubmitted-poster-progress" style="margin-top:15px;font-weight:bold;"></div>
+                        </div>
                     </div>
                 </div>
+
 
                 <?php submit_button(); ?>
             </form>
@@ -626,6 +725,15 @@ class SciFlow_Admin
                         $tab.trigger('click');
                     }
                 }
+
+                // Inner sub-tabs (Notifications tab)
+                $('.sciflow-inner-tab').on('click', function() {
+                    var target = $(this).data('inner');
+                    $(this).closest('#tab-notificacoes').find('.sciflow-inner-tab').removeClass('active');
+                    $(this).addClass('active');
+                    $(this).closest('#tab-notificacoes').find('.sciflow-inner-panel').removeClass('active').hide();
+                    $('#' + target).addClass('active').show();
+                });
 
                 // Notification logic
                 function setupNotifyBtn(btnId, spinnerId, progressId, action, nonce, confirmText) {
@@ -732,6 +840,75 @@ class SciFlow_Admin
                         $progress.html('<span style="color:red;">Erro fatal: Falha na conexão com o servidor.</span>');
                     });
                 });
+                $('#sciflow-send-date-emails-btn').on('click', function() {
+                    if (!confirm('Tem certeza que deseja enviar os e-mails de data de apresentação para os autores que ainda não confirmaram?')) {
+                        return;
+                    }
+
+                    const $btn = $(this);
+                    const $spinner = $('#sciflow-date-email-spinner');
+                    const $progress = $('#sciflow-date-email-progress');
+
+                    $btn.prop('disabled', true);
+                    $spinner.addClass('is-active');
+                    $progress.html('<span style="color:#000;">Enviando e-mails...</span>');
+
+                    $.post(ajaxurl, {
+                        action: 'sciflow_send_date_emails_ajax',
+                        nonce: '<?php echo wp_create_nonce("sciflow_send_date_emails_ajax"); ?>'
+                    }, function(response) {
+                        $spinner.removeClass('is-active');
+                        $btn.prop('disabled', false);
+                        if (response.success) {
+                            $progress.html('<span style="color:green;">' + response.data + '</span>');
+                        } else {
+                            $progress.html('<span style="color:red;">Erro: ' + (response.data || 'Ocorreu um erro.') + '</span>');
+                        }
+                    }).fail(function() {
+                        $spinner.removeClass('is-active');
+                        $btn.prop('disabled', false);
+                        $progress.html('<span style="color:red;">Erro fatal: falha na conexão com o servidor.</span>');
+                    });
+                });
+                $('#sciflow-save-dates-btn').on('click', function() {
+                    const $btn = $(this);
+                    const $spinner = $('#sciflow-save-dates-spinner');
+                    const $msg = $('#sciflow-save-dates-msg');
+                    const nonce = $('#sciflow_save_presentation_dates_nonce').val();
+
+                    let postIds = [];
+                    let dates = {};
+                    
+                    $('.sciflow-date-input').each(function() {
+                        let id = $(this).data('post-id');
+                        postIds.push(id);
+                        dates[id] = $(this).val();
+                    });
+
+                    $btn.prop('disabled', true);
+                    $spinner.addClass('is-active');
+                    $msg.html('<span style="color:#000;">Salvando...</span>');
+
+                    $.post(ajaxurl, {
+                        action: 'sciflow_save_presentation_dates_ajax',
+                        nonce: nonce,
+                        presentation_post_ids: postIds,
+                        presentation_dates: dates
+                    }, function(response) {
+                        $spinner.removeClass('is-active');
+                        $btn.prop('disabled', false);
+                        if (response.success) {
+                            $msg.html('<span style="color:green;">' + response.data + '</span>');
+                            setTimeout(function(){ $msg.fadeOut(function(){ $(this).html('').show(); }); }, 3000);
+                        } else {
+                            $msg.html('<span style="color:red;">Erro: ' + (response.data || 'Falha ao salvar.') + '</span>');
+                        }
+                    }).fail(function() {
+                        $spinner.removeClass('is-active');
+                        $btn.prop('disabled', false);
+                        $msg.html('<span style="color:red;">Erro fatal: Falha na conexão.</span>');
+                    });
+                });
             });
             </script>
         </div>
@@ -753,19 +930,67 @@ class SciFlow_Admin
                 <?php esc_html_e('Ranking & Seleção', 'sciflow-wp'); ?>
             </h1>
 
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                <input type="hidden" name="action" value="sciflow_select_top">
-                <?php wp_nonce_field('sciflow_select_top'); ?>
+            <?php if (isset($_GET['selected'])): ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php printf(esc_html__('%d trabalhos marcados como selecionados.', 'sciflow-wp'), absint($_GET['selected'])); ?></p>
+                </div>
+            <?php endif; ?>
+            <?php if (isset($_GET['notified'])): ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php printf(esc_html__('E-mails de notificação enviados para os autores de %d trabalhos.', 'sciflow-wp'), absint($_GET['notified'])); ?></p>
+                </div>
+            <?php endif; ?>
 
-                <p>
+            <?php
+            $pending_count = 0;
+            foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
+                $query = new WP_Query(array(
+                    'post_type' => $pt,
+                    'posts_per_page' => -1,
+                    'post_status' => 'any',
+                    'meta_query' => array(
+                        array(
+                            'key' => '_sciflow_selected_for_presentation',
+                            'value' => '1',
+                            'compare' => '=',
+                        ),
+                        array(
+                            'key' => '_sciflow_status',
+                            'value' => array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'poster_aprovado', 'poster_reprovado', 'apto_publicacao'),
+                            'compare' => 'IN',
+                        ),
+                    ),
+                    'fields' => 'ids',
+                ));
+                $pending_count += count($query->posts);
+            }
+            ?>
+
+            <div style="display:flex; gap:20px; align-items: flex-start; margin-bottom:20px; margin-top:20px;">
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:0;">
+                    <input type="hidden" name="action" value="sciflow_select_top">
+                    <?php wp_nonce_field('sciflow_select_top'); ?>
+
                     <button type="submit" class="button button-primary">
-                        <?php esc_html_e('Selecionar Melhores Trabalhos e Notificar', 'sciflow-wp'); ?>
+                        <?php esc_html_e('1. Selecionar Melhores Trabalhos (Sem Notificar)', 'sciflow-wp'); ?>
                     </button>
-                </p>
-                <p class="description">
-                    <?php esc_html_e('Seleciona os 6 melhores por evento e 3 melhores gerais, e notifica por e-mail.', 'sciflow-wp'); ?>
-                </p>
-            </form>
+                    <p class="description" style="margin-top:5px; max-width:400px;">
+                        <?php esc_html_e('Executa o ranking para marcar os melhores trabalhos como selecionados. Não envia e-mails, permitindo revisão antes do envio.', 'sciflow-wp'); ?>
+                    </p>
+                </form>
+
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:0;">
+                    <input type="hidden" name="action" value="sciflow_send_ranking_notifications">
+                    <?php wp_nonce_field('sciflow_send_ranking_notifications'); ?>
+
+                    <button type="submit" class="button button-primary" style="background:#46b450; border-color:#3da047; text-shadow:none; box-shadow:none; color:#fff;" <?php echo ($pending_count === 0) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''; ?>>
+                        <?php printf(esc_html__('2. Enviar Notificações por E-mail (%d pendentes)', 'sciflow-wp'), $pending_count); ?>
+                    </button>
+                    <p class="description" style="margin-top:5px; max-width:400px;">
+                        <?php esc_html_e('Envia o e-mail de notificação de apresentação e define o prazo para confirmação dos autores dos trabalhos selecionados.', 'sciflow-wp'); ?>
+                    </p>
+                </form>
+            </div>
 
             <hr>
 
@@ -827,6 +1052,8 @@ class SciFlow_Admin
         $pos = 1;
         $count = count($posts);
         foreach ($posts as $index => $post) {
+            $is_excluded = !empty($post->is_excluded_by_email);
+
             $score = get_post_meta($post->ID, '_sciflow_ranking_score', true);
             $prev_score = $index > 0 ? get_post_meta($posts[$index - 1]->ID, '_sciflow_ranking_score', true) : null;
             $next_score = $index < ($count - 1) ? get_post_meta($posts[$index + 1]->ID, '_sciflow_ranking_score', true) : null;
@@ -838,11 +1065,11 @@ class SciFlow_Admin
             $payment = get_post_meta($post->ID, '_sciflow_payment_status', true);
 
             echo '<tr>';
-            echo '<td>' . $pos . '</td>';
+            echo '<td>' . ($is_excluded ? '—' : $pos) . '</td>';
             echo '<td><strong>' . SciFlow_Status_Manager::render_title($post->post_title) . '</strong></td>';
             echo '<td>' . number_format((float)$score, 2, ',', '') . ($is_tied ? ' <span title="Empate na nota total. O sistema desempatou automaticamente pelos critérios de maior peso." style="color:#d63638; cursor:help;">⚠️ Empate</span>' : '') . '</td>';
             echo '<td>' . $sm->get_status_badge($status) . '</td>';
-            echo '<td>' . ($selected ? '✅' : '—') . '</td>';
+            echo '<td>' . ($is_excluded ? '<span style="color:#d63638; font-weight:bold;">Excluído (Filtro)</span>' : ($selected ? '✅' : '—')) . '</td>';
             echo '<td>' . ($confirmed ? '✅' : '—') . '</td>';
             echo '<td>' . ($payment === 'confirmed' ? '✅' : '⏳');
 
@@ -857,7 +1084,10 @@ class SciFlow_Admin
 
             echo '</td>';
             echo '</tr>';
-            $pos++;
+
+            if (!$is_excluded) {
+                $pos++;
+            }
         }
 
         echo '</tbody></table>';
@@ -911,7 +1141,7 @@ class SciFlow_Admin
                             'meta_query' => array(
                                 array(
                                     'key' => '_sciflow_status',
-                                    'value' => array('aprovado', 'poster_enviado', 'confirmado'),
+                                    'value' => array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'poster_aprovado', 'poster_reprovado', 'apto_publicacao', 'aguardando_confirmacao', 'confirmado'),
                                     'compare' => 'IN',
                                 ),
                             ),
@@ -947,6 +1177,15 @@ class SciFlow_Admin
             </table>
         </div>
         <?php
+    }
+
+    public function add_post_edit_form_tag()
+    {
+        global $post;
+        if (!$post) return;
+        if (in_array($post->post_type, array('enfrute_trabalhos', 'semco_trabalhos'))) {
+            echo ' enctype="multipart/form-data"';
+        }
     }
 
     /**
@@ -1126,6 +1365,7 @@ class SciFlow_Admin
             if (!is_array($coauthors)) $coauthors = array();
             
             echo '<hr><p><strong>' . esc_html__('Coautores (Apenas Admin):', 'sciflow-wp') . '</strong></p>';
+            echo '<input type="hidden" name="sciflow_admin_coauthors_submitted" value="1">';
             echo '<div id="sciflow-admin-coauthors-container">';
             foreach ($coauthors as $index => $ca) {
                 echo '<div class="sciflow-admin-coauthor-row" style="background:#f9f9f9; border:1px solid #ddd; padding:10px; margin-bottom:10px; display:flex; gap:10px; align-items:flex-start;">';
@@ -1138,22 +1378,49 @@ class SciFlow_Admin
                 echo '<div style="display:flex; flex-direction:column; gap:5px;">';
                 echo '<button type="button" class="button sciflow-coauthor-up" title="Subir">⬆️</button>';
                 echo '<button type="button" class="button sciflow-coauthor-down" title="Descer">⬇️</button>';
+                echo '<button type="button" class="button sciflow-coauthor-remove" title="Remover" style="color: #a00;">❌</button>';
                 echo '</div>';
                 echo '</div>';
             }
             echo '</div>';
+            echo '<button type="button" class="button button-secondary" id="sciflow-admin-add-coauthor" style="margin-bottom: 15px;">+ ' . esc_html__('Adicionar Coautor', 'sciflow-wp') . '</button>';
             echo '<script>
                 jQuery(document).ready(function($) {
-                    $(".sciflow-coauthor-up").on("click", function(e) {
+                    $("#sciflow-admin-coauthors-container").on("click", ".sciflow-coauthor-up", function(e) {
                         e.preventDefault();
                         var row = $(this).closest(".sciflow-admin-coauthor-row");
                         row.prev(".sciflow-admin-coauthor-row").before(row);
                         updateCoauthorIndexes();
                     });
-                    $(".sciflow-coauthor-down").on("click", function(e) {
+                    $("#sciflow-admin-coauthors-container").on("click", ".sciflow-coauthor-down", function(e) {
                         e.preventDefault();
                         var row = $(this).closest(".sciflow-admin-coauthor-row");
                         row.next(".sciflow-admin-coauthor-row").after(row);
+                        updateCoauthorIndexes();
+                    });
+                    $("#sciflow-admin-coauthors-container").on("click", ".sciflow-coauthor-remove", function(e) {
+                        e.preventDefault();
+                        if (confirm("' . esc_js(__('Tem certeza que deseja remover este coautor?', 'sciflow-wp')) . '")) {
+                            $(this).closest(".sciflow-admin-coauthor-row").remove();
+                            updateCoauthorIndexes();
+                        }
+                    });
+                    $("#sciflow-admin-add-coauthor").on("click", function(e) {
+                        e.preventDefault();
+                        var index = $(".sciflow-admin-coauthor-row").length;
+                        var rowHtml = \'<div class="sciflow-admin-coauthor-row" style="background:#f9f9f9; border:1px solid #ddd; padding:10px; margin-bottom:10px; display:flex; gap:10px; align-items:flex-start;">\' +
+                            \'<div style="display:flex; flex-direction:column; gap:5px; flex:1;">\' +
+                            \'<input type="text" name="sciflow_admin_coauthors[\' + index + \'][name]" value="" placeholder="Nome">\' +
+                            \'<input type="email" name="sciflow_admin_coauthors[\' + index + \'][email]" value="" placeholder="E-mail">\' +
+                            \'<input type="text" name="sciflow_admin_coauthors[\' + index + \'][institution]" value="" placeholder="Instituição">\' +
+                            \'<input type="text" name="sciflow_admin_coauthors[\' + index + \'][telefone]" value="" placeholder="Telefone">\' +
+                            \'</div>\' +
+                            \'<div style="display:flex; flex-direction:column; gap:5px;">\' +
+                            \'<button type="button" class="button sciflow-coauthor-up" title="Subir">⬆️</button>\' +
+                            \'<button type="button" class="button sciflow-coauthor-down" title="Descer">⬇️</button>\' +
+                            \'<button type="button" class="button sciflow-coauthor-remove" title="Remover" style="color: #a00;">❌</button>\' +
+                            \'</div></div>\';
+                        $("#sciflow-admin-coauthors-container").append(rowHtml);
                         updateCoauthorIndexes();
                     });
                     function updateCoauthorIndexes() {
@@ -1185,6 +1452,20 @@ class SciFlow_Admin
             echo '<p><strong>' . esc_html__('E-mail:', 'sciflow-wp') . '</strong> ' . esc_html($author_email) . '</p>';
         if ($author_phone)
             echo '<p><strong>' . esc_html__('Telefone:', 'sciflow-wp') . '</strong> ' . esc_html($author_phone) . '</p>';
+
+        if (current_user_can('administrator')) {
+            echo '<hr><p><strong>' . esc_html__('Arquivo do Pôster (Apenas Admin):', 'sciflow-wp') . '</strong></p>';
+            $poster_id = get_post_meta($post->ID, '_sciflow_poster_id', true);
+            if ($poster_id) {
+                $poster_url = wp_get_attachment_url($poster_id);
+                echo '<div style="margin-bottom: 10px;">';
+                echo '<a href="' . esc_url($poster_url) . '" target="_blank" class="button">Ver Pôster Atual</a>';
+                echo ' <label><input type="checkbox" name="sciflow_admin_remove_poster" value="1"> Remover pôster atual</label>';
+                echo '</div>';
+            }
+            echo '<p><input type="file" name="sciflow_admin_poster_file" accept="application/pdf"></p>';
+            echo '<p class="description">Fazer upload de um novo pôster em PDF (substituirá o existente, se houver).</p>';
+        }
 
         if ($payment !== 'confirmed') {
             echo '<hr><form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
@@ -1265,10 +1546,165 @@ class SciFlow_Admin
 
         $ranking = new SciFlow_Ranking();
         $selected = $ranking->select_top_works(6, 0);
-        $ranking->notify_selected_authors($selected);
 
         wp_safe_redirect(add_query_arg('selected', count($selected), wp_get_referer() ?: admin_url('admin.php?page=sciflow-ranking')));
         exit;
+    }
+
+    /**
+     * Handle sending ranking notifications.
+     */
+    public function handle_send_ranking_notifications()
+    {
+        check_admin_referer('sciflow_send_ranking_notifications');
+
+        $notified_count = 0;
+        $ranking = new SciFlow_Ranking();
+        
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
+            $query = new WP_Query(array(
+                'post_type' => $pt,
+                'posts_per_page' => -1,
+                'post_status' => 'any',
+                'meta_query' => array(
+                    array(
+                        'key' => '_sciflow_selected_for_presentation',
+                        'value' => '1',
+                        'compare' => '=',
+                    ),
+                    array(
+                        'key' => '_sciflow_status',
+                        'value' => array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'poster_aprovado', 'poster_reprovado', 'apto_publicacao'),
+                        'compare' => 'IN',
+                    ),
+                ),
+            ));
+
+            if (!empty($query->posts)) {
+                $post_ids = wp_list_pluck($query->posts, 'ID');
+                $ranking->notify_selected_authors($post_ids);
+                $notified_count += count($post_ids);
+            }
+        }
+
+        wp_safe_redirect(add_query_arg('notified', $notified_count, wp_get_referer() ?: admin_url('admin.php?page=sciflow-ranking')));
+        exit;
+    }
+
+    /**
+     * AJAX: Handle saving presentation dates per article.
+     */
+    public function ajax_save_presentation_dates()
+    {
+        check_ajax_referer('sciflow_save_presentation_dates_ajax', 'nonce');
+
+        if (!current_user_can('manage_sciflow')) {
+            wp_send_json_error(__('Permissão insuficiente.', 'sciflow-wp'));
+        }
+
+        $post_ids = array_map('absint', (array) ($_POST['presentation_post_ids'] ?? array()));
+        $dates    = (array) ($_POST['presentation_dates'] ?? array());
+
+        foreach ($post_ids as $post_id) {
+            if (!$post_id) continue;
+
+            $date = sanitize_text_field($dates[$post_id] ?? '');
+            update_post_meta($post_id, '_sciflow_presentation_date', $date);
+
+            // Generate / refresh token + 3-day expiry when a date is set.
+            if (!empty($date)) {
+                $existing_token   = get_post_meta($post_id, '_sciflow_confirm_token', true);
+                $existing_expires = (int) get_post_meta($post_id, '_sciflow_confirm_token_expires', true);
+
+                // Only regenerate if no valid token exists yet.
+                if (empty($existing_token) || $existing_expires < time()) {
+                    $token   = wp_generate_password(32, false, false);
+                    $expires = time() + (3 * DAY_IN_SECONDS);
+                    update_post_meta($post_id, '_sciflow_confirm_token', $token);
+                    update_post_meta($post_id, '_sciflow_confirm_token_expires', $expires);
+                }
+            }
+        }
+
+        wp_send_json_success(__('Datas salvas com sucesso!', 'sciflow-wp'));
+    }
+
+    /**
+     * AJAX: send personalised date-of-presentation emails to selected authors.
+     */
+    public function ajax_send_date_emails()
+    {
+        check_ajax_referer('sciflow_send_date_emails_ajax', 'nonce');
+
+        if (!current_user_can('manage_sciflow')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $settings  = get_option('sciflow_settings', array());
+        $email_text = $settings['selected_date_email_text'] ?? '';
+        $btn_text   = $settings['selected_date_btn_text']   ?? __('Confirmar minha Apresentação', 'sciflow-wp');
+        $page_url   = $settings['confirm_presentation_page_url'] ?? '';
+
+        if (empty(trim(wp_strip_all_tags($email_text)))) {
+            wp_send_json_error(__('Texto do e-mail não configurado. Salve o texto na aba de e-mail antes de enviar.', 'sciflow-wp'));
+        }
+
+        if (empty($page_url)) {
+            wp_send_json_error(__('URL da página de confirmação não configurada.', 'sciflow-wp'));
+        }
+
+        if (!class_exists('SciFlow_Email')) {
+            require_once SCIFLOW_PATH . 'includes/email/class-sciflow-email.php';
+        }
+        $email_obj = new SciFlow_Email();
+
+        $sent  = 0;
+        $skipped = 0;
+        foreach (array('enfrute_trabalhos', 'semco_trabalhos') as $pt) {
+            $q = new WP_Query(array(
+                'post_type'      => $pt,
+                'posts_per_page' => -1,
+                'post_status'    => 'any',
+                'meta_query'     => array(array(
+                    'key'     => '_sciflow_selected_for_presentation',
+                    'value'   => '1',
+                    'compare' => '=',
+                )),
+            ));
+
+            foreach ($q->posts as $sp) {
+                // Skip already confirmed.
+                if (get_post_meta($sp->ID, '_sciflow_presentation_confirmed', true)) {
+                    $skipped++;
+                    continue;
+                }
+
+                $token   = get_post_meta($sp->ID, '_sciflow_confirm_token', true);
+                $expires = (int) get_post_meta($sp->ID, '_sciflow_confirm_token_expires', true);
+
+                // If no valid token, generate one now.
+                if (empty($token) || $expires < time()) {
+                    $token   = wp_generate_password(32, false, false);
+                    $expires = time() + (3 * DAY_IN_SECONDS);
+                    update_post_meta($sp->ID, '_sciflow_confirm_token', $token);
+                    update_post_meta($sp->ID, '_sciflow_confirm_token_expires', $expires);
+                }
+
+                $confirm_url = add_query_arg(
+                    array('article_id' => $sp->ID, 'token' => $token),
+                    trailingslashit($page_url)
+                );
+
+                $email_obj->send_presentation_date_email($sp->ID, $email_text, $btn_text, $confirm_url);
+                $sent++;
+            }
+        }
+
+        wp_send_json_success(sprintf(
+            __('E-mails enviados: %d. Já confirmados (pulados): %d.', 'sciflow-wp'),
+            $sent,
+            $skipped
+        ));
     }
 
     /**
@@ -1993,20 +2429,63 @@ class SciFlow_Admin
         }
 
         // Save Coauthors
-        if (isset($_POST['sciflow_admin_coauthors']) && is_array($_POST['sciflow_admin_coauthors'])) {
+        if (isset($_POST['sciflow_admin_coauthors_submitted'])) {
             $coauthors = array();
-            foreach ($_POST['sciflow_admin_coauthors'] as $ca) {
-                $has_any_data = !empty($ca['name']) || !empty($ca['email']) || !empty($ca['institution']) || !empty($ca['telefone']);
-                if ($has_any_data) {
-                    $coauthors[] = array(
-                        'name' => sanitize_text_field($ca['name'] ?? ''),
-                        'email' => sanitize_email($ca['email'] ?? ''),
-                        'institution' => sanitize_text_field($ca['institution'] ?? ''),
-                        'telefone' => preg_replace('/[^0-9() -]/', '', $ca['telefone'] ?? ''),
-                    );
+            if (isset($_POST['sciflow_admin_coauthors']) && is_array($_POST['sciflow_admin_coauthors'])) {
+                foreach ($_POST['sciflow_admin_coauthors'] as $ca) {
+                    $has_any_data = !empty($ca['name']) || !empty($ca['email']) || !empty($ca['institution']) || !empty($ca['telefone']);
+                    if ($has_any_data) {
+                        $coauthors[] = array(
+                            'name' => sanitize_text_field($ca['name'] ?? ''),
+                            'email' => sanitize_email($ca['email'] ?? ''),
+                            'institution' => sanitize_text_field($ca['institution'] ?? ''),
+                            'telefone' => preg_replace('/[^0-9() -]/', '', $ca['telefone'] ?? ''),
+                        );
+                    }
                 }
             }
             update_post_meta($post_id, '_sciflow_coauthors', $coauthors);
+        }
+
+        // Save Admin Poster Upload
+        if (isset($_POST['sciflow_admin_remove_poster']) && $_POST['sciflow_admin_remove_poster'] == '1') {
+            $old_poster_id = get_post_meta($post_id, '_sciflow_poster_id', true);
+            if ($old_poster_id) {
+                wp_delete_attachment($old_poster_id, true);
+                delete_post_meta($post_id, '_sciflow_poster_id');
+            }
+        } elseif (!empty($_FILES['sciflow_admin_poster_file']['name'])) {
+            $file = $_FILES['sciflow_admin_poster_file'];
+            if ($file['error'] === UPLOAD_ERR_OK) {
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->file($file['tmp_name']);
+                if ($mime === 'application/pdf') {
+                    if (!function_exists('wp_handle_upload')) {
+                        require_once ABSPATH . 'wp-admin/includes/file.php';
+                    }
+                    if (!function_exists('wp_insert_attachment')) {
+                        require_once ABSPATH . 'wp-admin/includes/image.php';
+                        require_once ABSPATH . 'wp-admin/includes/media.php';
+                    }
+
+                    $upload = wp_handle_upload($file, array('test_form' => false));
+                    if (!isset($upload['error'])) {
+                        $attachment_id = wp_insert_attachment(array(
+                            'post_title' => sanitize_file_name($file['name']),
+                            'post_mime_type' => $upload['type'],
+                            'post_status' => 'inherit',
+                        ), $upload['file'], $post_id);
+
+                        if (!is_wp_error($attachment_id)) {
+                            $old_poster_id = get_post_meta($post_id, '_sciflow_poster_id', true);
+                            if ($old_poster_id) {
+                                wp_delete_attachment($old_poster_id, true);
+                            }
+                            update_post_meta($post_id, '_sciflow_poster_id', $attachment_id);
+                        }
+                    }
+                }
+            }
         }
     }
 

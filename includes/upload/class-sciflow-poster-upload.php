@@ -42,7 +42,7 @@ class SciFlow_Poster_Upload
         }
 
         $status = $this->status_manager->get_status($post_id);
-        if (!in_array($status, array('aprovado', 'poster_em_correcao', 'aguardando_poster'), true)) {
+        if (!in_array($status, array('aprovado', 'poster_em_correcao', 'aguardando_poster', 'aguardando_confirmacao', 'confirmado'), true)) {
             return new WP_Error('invalid_status', __('O trabalho não está em um status que permite o envio de pôster.', 'sciflow-wp'));
         }
 

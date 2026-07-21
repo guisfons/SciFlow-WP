@@ -88,6 +88,16 @@ $poster_template_url = $settings['poster_template_url'] ?? '';
                                 <?php esc_html_e('Apenas PDF. Tamanho máximo: 5 MB.', 'sciflow-wp'); ?>
                             </p>
                         </div>
+                        <!-- LGPD Consent -->
+                        <?php 
+                        $lgpd_text = !empty($settings['lgpd_consent_text']) ? wp_kses_post($settings['lgpd_consent_text']) : 'Declaro que li e concordo com os termos de consentimento da LGPD.';
+                        ?>
+                        <div class="sciflow-field" style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid var(--sciflow-primary); margin-bottom: 15px;">
+                            <label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 14px; font-weight: normal;">
+                                <input type="checkbox" name="lgpd_consent" value="1" required style="margin-top: 3px;">
+                                <span><?php echo $lgpd_text; ?></span>
+                            </label>
+                        </div>
                         <button type="submit" class="sciflow-btn sciflow-btn--primary">
                             <?php esc_html_e('Enviar Pôster', 'sciflow-wp'); ?>
                         </button>

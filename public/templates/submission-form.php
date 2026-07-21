@@ -362,6 +362,18 @@ $acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgemen
         </div>
         <?php endif; ?>
 
+        <!-- LGPD Consent -->
+        <?php 
+        $settings = get_option('sciflow_settings', array());
+        $lgpd_text = !empty($settings['lgpd_consent_text']) ? wp_kses_post($settings['lgpd_consent_text']) : 'Declaro que li e concordo com os termos de consentimento da LGPD.';
+        ?>
+        <div class="sciflow-field" style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid var(--sciflow-primary);">
+            <label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 14px; font-weight: normal;">
+                <input type="checkbox" name="lgpd_consent" value="1" required style="margin-top: 3px;">
+                <span><?php echo $lgpd_text; ?></span>
+            </label>
+        </div>
+
         <!-- Submit -->
         <?php 
         $hide_draft = ($status === 'rascunho') ? 'style="display:none;"' : '';

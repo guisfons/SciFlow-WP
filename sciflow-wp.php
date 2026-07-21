@@ -101,6 +101,28 @@ function sciflow_init()
 add_action('plugins_loaded', 'sciflow_init');
 
 /**
+ * Register plugin-side page templates so they appear in the WordPress
+ * "Page Attributes → Template" dropdown and are correctly loaded.
+ */
+add_filter('theme_page_templates', function ($templates) {
+    $templates['sciflow-confirm-presentation'] = __('SciFlow — Confirmar Apresentação', 'sciflow-wp');
+    return $templates;
+});
+
+add_filter('template_include', function ($template) {
+    if (is_page()) {
+        $page_template = get_post_meta(get_the_ID(), '_wp_page_template', true);
+        if ($page_template === 'sciflow-confirm-presentation') {
+            $plugin_tpl = SCIFLOW_PATH . 'public/templates/template-confirm-presentation.php';
+            if (file_exists($plugin_tpl)) {
+                return $plugin_tpl;
+            }
+        }
+    }
+    return $template;
+});
+
+/**
  * TinyMCE: prevent Enter/line-breaks in the sciflow_content abstract field.
  * The `setup` callback fires at TinyMCE init time and overrides the core
  * InsertParagraph / InsertLineBreak commands so they do nothing.

@@ -224,7 +224,14 @@ class SciFlow_Email
         if (!empty($vars['message'])) {
             $html .= '<p>' . wp_kses_post($vars['message']) . '</p>';
         }
-        $html .= '<p><a href="' . esc_url($vars['link']) . '" style="display:inline-block;padding:10px 20px;background-color:#2c5530;color:#fff;text-decoration:none;border-radius:5px;">Acessar Área Logada</a></p>';
+
+        // Custom button (e.g. for presentation-date confirmation emails).
+        if (!empty($vars['btn_url']) && !empty($vars['btn_text'])) {
+            $html .= '<p><a href="' . esc_url($vars['btn_url']) . '" style="display:inline-block;padding:12px 24px;background-color:#2c5530;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;">' . esc_html($vars['btn_text']) . '</a></p>';
+        } else {
+            $html .= '<p><a href="' . esc_url($vars['link']) . '" style="display:inline-block;padding:10px 20px;background-color:#2c5530;color:#fff;text-decoration:none;border-radius:5px;">Acessar Área Logada</a></p>';
+        }
+
         $html .= '</div>';
         return $html;
     }
@@ -666,6 +673,50 @@ class SciFlow_Email
         $vars['message'] = nl2br(esc_html($message));
         $subject = sprintf(__('[%s] Lembrete: Envio de Pôster Necessário', 'sciflow-wp'), $vars['evento']);
 
+        $this->send($recipients, $subject, 'fallback', $vars);
+    }
+
+    /**
+     * Send personalised presentation-date email with tokenised confirmation link.
+     *
+     * @param int    $post_id      Article ID.
+     * @param string $custom_text  Body text with [NOME], [NOME DO RESUMO], [EVENTO], [DATA_APRESENTACAO] tags.
+     * @param string $btn_text     Button label.
+     * @param string $confirm_url  Tokenised confirmation URL.
+     */
+    public function send_presentation_date_email($post_id, $custom_text, $btn_text, $confirm_url)
+    {
+        $vars       = $this->get_template_vars($post_id);
+        $recipients = $this->get_author_recipients($post_id);
+
+        if (empty($recipients)) {
+            return;
+        }
+
+        $author_name = '';
+        $author_id   = get_post_meta($post_id, '_sciflow_author_id', true);
+        if ($author_id) {
+            $author = get_userdata($author_id);
+            if ($author) {
+                $author_name = $author->display_name;
+            }
+        }
+
+        $pdate = get_post_meta($post_id, '_sciflow_presentation_date', true);
+
+        $message = str_replace(
+            array('[NOME]', '[NOME DO RESUMO]', '[EVENTO]', '[DATA_APRESENTACAO]'),
+            array($author_name, $vars['titulo'], $vars['evento'], $pdate),
+            $custom_text
+        );
+
+        $vars['message']  = nl2br(wp_kses_post($message));
+        $vars['btn_text'] = $btn_text;
+        $vars['btn_url']  = $confirm_url;
+
+        $subject = sprintf(__('[%s] Data de Apresentação: %s', 'sciflow-wp'), $vars['evento'], $vars['titulo']);
+
+        // Use extended fallback that includes a custom button when btn_url is set.
         $this->send($recipients, $subject, 'fallback', $vars);
     }
 }

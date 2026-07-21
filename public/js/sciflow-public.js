@@ -219,8 +219,8 @@
     });
 
     $(document).on('click', '#sciflow-add-coauthor', function () {
-        if (coauthorIndex >= 5) {
-            alert('Máximo de 5 coautores.');
+        if (coauthorIndex >= 10) {
+            alert('Limite de 10 coautores atingido.');
             return;
         }
         const i = coauthorIndex++;

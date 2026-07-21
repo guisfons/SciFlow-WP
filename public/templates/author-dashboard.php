@@ -186,10 +186,10 @@ if (!defined('ABSPATH'))
                             </a>
                         <?php endif; ?>
 
-                        <?php if (in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao', 'aguardando_poster'), true)): ?>
+                        <?php if (in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao', 'aguardando_poster', 'aguardando_confirmacao', 'confirmado'), true)): ?>
                             <?php
                             // Banner visible when poster is still needed
-                            if (in_array($status, array('aprovado', 'aguardando_poster'), true)):
+                            if (in_array($status, array('aprovado', 'aguardando_poster', 'aguardando_confirmacao', 'confirmado'), true) && !$poster_id):
                                 // Format the poster deadline for display
                                 $poster_deadline_formatted = '';
                                 if ($poster_deadline_time > 0) {
@@ -214,7 +214,7 @@ if (!defined('ABSPATH'))
                                 </div>
                             <?php endif; ?>
                             
-                            <?php if ($is_past_poster_deadline && in_array(strtolower($event), array('enfrute', 'semco', 'senco'), true) && in_array($status, array('aprovado', 'poster_em_correcao', 'aguardando_poster'), true)): ?>
+                            <?php if ($is_past_poster_deadline && in_array(strtolower($event), array('enfrute', 'semco', 'senco'), true) && in_array($status, array('aprovado', 'poster_em_correcao', 'aguardando_poster', 'aguardando_confirmacao', 'confirmado'), true) && !$poster_id): ?>
                                 <div class="sciflow-notice sciflow-notice--error" style="margin-bottom:10px; border-left: 4px solid #dc3545; padding: 10px 14px; background: #f8d7da; border-radius: 6px;">
                                     <strong>⛔ <?php esc_html_e('Prazo Encerrado', 'sciflow-wp'); ?></strong><br>
                                     <?php esc_html_e('O prazo para envio de pôsteres foi encerrado. Não é mais possível enviar o arquivo.', 'sciflow-wp'); ?>

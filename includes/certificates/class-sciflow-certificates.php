@@ -25,7 +25,7 @@ class SciFlow_Certificates
         }
 
         // Must be confirmed (presented) or approved.
-        return in_array($status, array('confirmado', 'aprovado', 'poster_enviado'), true);
+        return in_array($status, array('confirmado', 'aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'poster_aprovado', 'poster_reprovado', 'apto_publicacao', 'aguardando_confirmacao'), true);
     }
 
     /**

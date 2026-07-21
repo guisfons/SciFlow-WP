@@ -64,6 +64,10 @@ class SciFlow_Ranking
                 if ($count >= $per_event)
                     break;
 
+                if (!empty($post->is_excluded_by_email)) {
+                    continue;
+                }
+
                 $already_selected = get_post_meta($post->ID, '_sciflow_selected_for_presentation', true);
                 if ($already_selected) {
                     $selected[] = $post->ID;
@@ -91,6 +95,9 @@ class SciFlow_Ranking
         foreach ($general_ranking as $post) {
             if ($general_count >= $general)
                 break;
+            if (!empty($post->is_excluded_by_email)) {
+                continue;
+            }
             if (in_array($post->ID, $selected, true))
                 continue;
 
@@ -112,7 +119,7 @@ class SciFlow_Ranking
 
         foreach ($post_ids as $post_id) {
             $status = get_post_meta($post_id, '_sciflow_status', true);
-            if ($status !== 'aprovado' && $status !== 'poster_enviado') {
+            if (!in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'poster_aprovado', 'poster_reprovado', 'apto_publicacao'), true)) {
                 continue;
             }
 
@@ -206,7 +213,7 @@ class SciFlow_Ranking
                 continue;
 
             // Must be approved.
-            if ($status !== 'aprovado' && $status !== 'poster_enviado')
+            if (!in_array($status, array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'poster_aprovado', 'poster_reprovado', 'apto_publicacao'), true))
                 continue;
 
             // Select this one.
@@ -239,7 +246,7 @@ class SciFlow_Ranking
                 ),
                 array(
                     'key' => '_sciflow_status',
-                    'value' => array('aprovado', 'poster_enviado', 'aguardando_confirmacao', 'confirmado'),
+                    'value' => array('aprovado', 'poster_enviado', 'poster_em_correcao', 'poster_reenviado', 'poster_aprovado', 'poster_reprovado', 'apto_publicacao', 'aguardando_confirmacao', 'confirmado'),
                     'compare' => 'IN',
                 ),
             ),
@@ -258,6 +265,18 @@ class SciFlow_Ranking
         foreach ($committee_users as $u) {
             if (!empty($u->user_email)) {
                 $committee_emails[] = strtolower(trim($u->user_email));
+            }
+        }
+
+        $excluded_emails_str = $settings['excluded_ranking_emails'] ?? '';
+        $excluded_emails = array();
+        if (!empty($excluded_emails_str)) {
+            $lines = explode("\n", $excluded_emails_str);
+            foreach ($lines as $line) {
+                $trimmed = strtolower(trim($line));
+                if (!empty($trimmed)) {
+                    $excluded_emails[] = $trimmed;
+                }
             }
         }
 
@@ -288,6 +307,28 @@ class SciFlow_Ranking
             
             if ($is_committee) {
                 continue;
+            }
+            
+            $is_excluded = false;
+            
+            if (in_array($author_email, $excluded_emails, true) || in_array($main_email, $excluded_emails, true)) {
+                $is_excluded = true;
+            }
+            
+            if (!$is_excluded && is_array($coauthors)) {
+                foreach ($coauthors as $co) {
+                    if (isset($co['email'])) {
+                        $co_email = strtolower(trim($co['email']));
+                        if (in_array($co_email, $excluded_emails, true)) {
+                            $is_excluded = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if ($is_excluded) {
+                $post->is_excluded_by_email = true;
             }
             
             $filtered_posts[] = $post;

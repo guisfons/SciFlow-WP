@@ -42,6 +42,7 @@ class SciFlow_Shortcodes
         add_shortcode('sciflow_editor_panel', array($this, 'editor_panel'));
         add_shortcode('sciflow_ranking', array($this, 'ranking_page'));
         add_shortcode('sciflow_poster_upload', array($this, 'poster_upload_form'));
+        add_shortcode('sciflow_public_posters', array($this, 'public_posters'));
     }
 
     /**
@@ -191,6 +192,16 @@ class SciFlow_Shortcodes
 
         ob_start();
         include SCIFLOW_PATH . 'public/templates/poster-upload.php';
+        return ob_get_clean();
+    }
+
+    /**
+     * [sciflow_public_posters]
+     */
+    public function public_posters($atts)
+    {
+        ob_start();
+        include SCIFLOW_PATH . 'public/templates/public-posters.php';
         return ob_get_clean();
     }
 }
