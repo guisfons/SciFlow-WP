@@ -68,7 +68,7 @@ $status_manager = new SciFlow_Status_Manager();
     <div class="container py-4">
         <div class="d-flex justify-content-between align-items-center mb-5">
             <div>
-                <h2 class="h2 fw-900 text-dark mb-1">Exibição Pública de Pôsteres e Trabalhos Aprovados</h2>
+                <h2 class="h2 fw-900 text-dark mb-1">Exibição Pública de Pôsteres do XIX ENFRUTE e III SEMCO</h2>
                 <p class="text-muted mb-0">Confira a galeria de trabalhos aprovados para o evento.</p>
             </div>
             <div class="d-flex gap-2">
@@ -136,7 +136,7 @@ $status_manager = new SciFlow_Status_Manager();
                 </select>
             </div>
             <div class="col-12 col-md-2">
-                <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Filtrar</button>
+                <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Aplicar Filtro</button>
             </div>
         </form>
 
