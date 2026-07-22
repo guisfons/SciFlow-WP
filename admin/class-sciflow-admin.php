@@ -1249,7 +1249,21 @@ class SciFlow_Admin
         $cultura = get_post_meta($post->ID, '_sciflow_cultura', true);
         $knowledge_area = get_post_meta($post->ID, '_sciflow_knowledge_area', true);
 
-        echo '<p><strong>' . esc_html__('Status:', 'sciflow-wp') . '</strong> ' . $sm->get_status_badge($status) . '</p>';
+        echo '<p><strong>' . esc_html__('Status (Atual):', 'sciflow-wp') . '</strong> ' . $sm->get_status_badge($status) . '</p>';
+        
+        if (current_user_can('administrator')) {
+            echo '<p><label><strong>' . esc_html__('Alterar Status (Admin):', 'sciflow-wp') . '</strong><br>';
+            echo '<select name="sciflow_admin_status" style="width:100%;">';
+            echo '<option value="">' . esc_html__('Manter atual', 'sciflow-wp') . '</option>';
+            $statuses = $sm->get_statuses();
+            foreach ($statuses as $s_key => $s_label) {
+                if ($s_key === 'aguardando_poster') continue;
+                echo '<option value="' . esc_attr($s_key) . '">' . esc_html($s_label) . '</option>';
+            }
+            echo '</select></label></p>';
+            echo '<p class="description" style="font-size:11px;color:#7a6229;margin-top:2px;line-height:1.4;">' . esc_html__('Atenção: alterar o status manualmente pode disparar e-mails automáticos associados ao novo status.', 'sciflow-wp') . '</p>';
+        }
+
         echo '<p><strong>' . esc_html__('Evento:', 'sciflow-wp') . '</strong> ' . esc_html(ucfirst($event)) . '</p>';
         echo '<p><strong>' . esc_html__('Pagamento:', 'sciflow-wp') . '</strong> ' . ($payment === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente') . '</p>';
 
@@ -2361,6 +2375,16 @@ class SciFlow_Admin
                 update_post_meta($post_id, '_sciflow_knowledge_area', sanitize_text_field($_POST['sciflow_admin_knowledge_area']));
             }
             return;
+        }
+
+        // Save Status if provided
+        if (isset($_POST['sciflow_admin_status']) && $_POST['sciflow_admin_status'] !== '') {
+            $new_status = sanitize_text_field($_POST['sciflow_admin_status']);
+            $old_status = get_post_meta($post_id, '_sciflow_status', true) ?: 'rascunho';
+            if ($new_status !== $old_status) {
+                update_post_meta($post_id, '_sciflow_status', $new_status);
+                do_action('sciflow_status_changed', $post_id, $new_status, $old_status);
+            }
         }
 
         // Save Cultura if provided
