@@ -194,6 +194,7 @@ class SciFlow_Admin
         $clean['article_submission_deadline'] = sanitize_text_field($input['article_submission_deadline'] ?? '');
         $clean['corrections_deadline'] = sanitize_text_field($input['corrections_deadline'] ?? '');
         $clean['poster_submission_deadline'] = sanitize_text_field($input['poster_submission_deadline'] ?? '');
+        $clean['registration_deadline'] = sanitize_text_field($input['registration_deadline'] ?? '');
 
         $clean['forgotten_article_email_text'] = wp_kses_post($input['forgotten_article_email_text'] ?? '');
         $clean['forgotten_poster_email_text'] = wp_kses_post($input['forgotten_poster_email_text'] ?? '');
