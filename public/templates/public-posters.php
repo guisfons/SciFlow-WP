@@ -59,7 +59,35 @@ if (!empty($search_query)) {
     $args['s'] = $search_query;
 }
 
+// Filtro para buscar apenas pelo título
+$title_search_filter = function($search, $wp_query) {
+    if (!empty($search) && !empty($wp_query->query_vars['search_terms'])) {
+        global $wpdb;
+        $q = $wp_query->query_vars;
+        $n = !empty($q['exact']) ? '' : '%';
+        $search = '';
+        $searchand = '';
+        foreach ((array) $q['search_terms'] as $term) {
+            $term = esc_sql($wpdb->esc_like($term));
+            $search .= "{$searchand}($wpdb->posts.post_title LIKE '{$n}{$term}{$n}')";
+            $searchand = ' AND ';
+        }
+        if (!empty($search)) {
+            $search = " AND ({$search}) ";
+        }
+    }
+    return $search;
+};
+
+if (!empty($search_query)) {
+    add_filter('posts_search', $title_search_filter, 10, 2);
+}
+
 $query = new WP_Query($args);
+
+if (!empty($search_query)) {
+    remove_filter('posts_search', $title_search_filter, 10);
+}
 $status_manager = new SciFlow_Status_Manager();
 
 ?>
