@@ -433,6 +433,18 @@ class SciFlow_Admin
                                 </p>
                             </td>
                         </tr>
+                        <tr>
+                            <th scope="row">
+                                <?php esc_html_e('Data/Hora Limite para Inscrições Online', 'sciflow-wp'); ?>
+                            </th>
+                            <td>
+                                <input type="datetime-local" name="sciflow_settings[registration_deadline]"
+                                    value="<?php echo esc_attr($settings['registration_deadline'] ?? ''); ?>" class="regular-text">
+                                <p class="description">
+                                    <?php esc_html_e('A partir desta data e hora, não será mais possível realizar inscrições online. Apenas inscrições presenciais serão permitidas.', 'sciflow-wp'); ?>
+                                </p>
+                            </td>
+                        </tr>
                     </table>
                     
                     <hr>
