@@ -17,6 +17,9 @@ class SciFlow_Admin
         $this->payment = $payment;
 
         add_action('admin_menu', array($this, 'add_menu_pages'));
+
+        // Intercept anais_preview early (before any WP headers are sent).
+        add_action('admin_init', array($this, 'maybe_render_anais_preview'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
         add_action('save_post', array($this, 'save_admin_grades'), 10, 2);
@@ -137,6 +140,15 @@ class SciFlow_Admin
             'manage_options',
             'sciflow-import-export',
             array($this, 'render_import_export_page')
+        );
+
+        add_submenu_page(
+            'sciflow-settings',
+            __('Anais (PDF)', 'sciflow-wp'),
+            __('📄 Anais (PDF)', 'sciflow-wp'),
+            'manage_sciflow',
+            'sciflow-anais',
+            array($this, 'render_anais_page')
         );
     }
 
@@ -2533,6 +2545,33 @@ class SciFlow_Admin
     {
         $import_export = new SciFlow_Import_Export();
         $import_export->render_page();
+    }
+
+    /**
+     * Render the Anais admin control panel.
+     */
+    public function render_anais_page()
+    {
+        $anais = new SciFlow_Anais();
+        $anais->render_page();
+    }
+
+    /**
+     * If ?anais_preview=1 is present on the sciflow-anais page,
+     * output the full printable HTML and exit before WP adds any chrome.
+     */
+    public function maybe_render_anais_preview()
+    {
+        if (
+            !empty($_GET['page']) &&
+            $_GET['page'] === 'sciflow-anais' &&
+            !empty($_GET['anais_preview']) &&
+            current_user_can('manage_sciflow')
+        ) {
+            $anais = new SciFlow_Anais();
+            $anais->render_print_page();
+            // render_print_page() calls exit; — this line is never reached.
+        }
     }
 }
 
