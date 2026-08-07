@@ -3,8 +3,7 @@
  * Geração dos Anais – XIX Enfrute / III Semco 2026.
  *
  * Gera uma página HTML formatada para impressão como PDF.
- * Critério de inclusão: todos os resumos com status de aprovação,
- * independentemente do status do pôster.
+ * Layout idêntico ao modelo `.doc` aprovado.
  */
 
 if (!defined('ABSPATH')) {
@@ -13,9 +12,6 @@ if (!defined('ABSPATH')) {
 
 class SciFlow_Anais
 {
-    /**
-     * Statuses que indicam que o resumo foi aprovado.
-     */
     private static $approved_statuses = array(
         'aprovado',
         'aprovado_com_consideracoes',
@@ -27,9 +23,6 @@ class SciFlow_Anais
         'poster_reprovado',
     );
 
-    /**
-     * Render the admin control panel page.
-     */
     public function render_page()
     {
         if (!current_user_can('manage_sciflow')) {
@@ -54,9 +47,10 @@ class SciFlow_Anais
                             <th scope="row"><label for="anais_volume"><?php esc_html_e('Conteúdo', 'sciflow-wp'); ?></label></th>
                             <td>
                                 <select id="anais_volume" name="anais_volume" class="regular-text">
-                                    <option value="resumos" <?php selected($volume_filter, 'resumos'); ?>><?php esc_html_e('Enfrute + Semco (completo)', 'sciflow-wp'); ?></option>
-                                    <option value="resumos_enfrute" <?php selected($volume_filter, 'resumos_enfrute'); ?>><?php esc_html_e('Somente XIX Enfrute', 'sciflow-wp'); ?></option>
-                                    <option value="resumos_semco" <?php selected($volume_filter, 'resumos_semco'); ?>><?php esc_html_e('Somente III Semco', 'sciflow-wp'); ?></option>
+                                    <option value="resumos" <?php selected($volume_filter, 'resumos'); ?>><?php esc_html_e('Resumos Vol. II (Completo)', 'sciflow-wp'); ?></option>
+                                    <option value="resumos_enfrute" <?php selected($volume_filter, 'resumos_enfrute'); ?>><?php esc_html_e('Resumos: Somente XIX Enfrute', 'sciflow-wp'); ?></option>
+                                    <option value="resumos_semco" <?php selected($volume_filter, 'resumos_semco'); ?>><?php esc_html_e('Resumos: Somente III Semco', 'sciflow-wp'); ?></option>
+                                    <option value="palestras" <?php selected($volume_filter, 'palestras'); ?>><?php esc_html_e('Palestras Vol. I (Páginas Iniciais)', 'sciflow-wp'); ?></option>
                                 </select>
                             </td>
                         </tr>
@@ -75,9 +69,6 @@ class SciFlow_Anais
         <?php
     }
 
-    /**
-     * Render statistics card.
-     */
     private function render_stats()
     {
         $enfrute_posts = $this->get_approved_works('enfrute');
@@ -113,15 +104,12 @@ class SciFlow_Anais
         echo '</div>';
     }
 
-    /**
-     * Render the full printable HTML page (called when ?anais_preview=1).
-     */
     public function render_print_page()
     {
         $volume = sanitize_text_field($_GET['anais_volume'] ?? 'resumos');
-
         $enfrute_posts = array();
         $semco_posts   = array();
+        $palestra_posts = array();
 
         if (in_array($volume, array('resumos', 'resumos_enfrute'), true)) {
             $enfrute_posts = $this->get_approved_works('enfrute');
@@ -129,20 +117,23 @@ class SciFlow_Anais
         if (in_array($volume, array('resumos', 'resumos_semco'), true)) {
             $semco_posts = $this->get_approved_works('semco');
         }
+        if ($volume === 'palestras') {
+            $query = new WP_Query(array(
+                'post_type'      => 'sciflow_palestra',
+                'posts_per_page' => -1,
+                'post_status'    => 'any',
+            ));
+            $palestra_posts = $query->posts ?: array();
+        }
 
-        $this->output_html($enfrute_posts, $semco_posts);
+        $this->output_html($enfrute_posts, $semco_posts, $palestra_posts, $volume);
         exit;
     }
 
-    /**
-     * Fetch all approved works for a given event, sorted by knowledge area then title.
-     */
     private function get_approved_works($event)
     {
         $post_type = SciFlow_Status_Manager::get_post_type_for_event($event);
-        if (!$post_type) {
-            return array();
-        }
+        if (!$post_type) return array();
 
         $query = new WP_Query(array(
             'post_type'      => $post_type,
@@ -161,35 +152,81 @@ class SciFlow_Anais
                 'title'      => 'ASC',
             ),
         ));
-
         return $query->posts ?: array();
     }
 
     /**
-     * Build author + affiliation superscript notation.
-     *
-     * Returns:
-     *   'authors_line'      => "Autor Principal¹; Coautor A¹²"
-     *   'affiliations_line' => "¹Instituição A; ²Instituição B"
-     *
-     * @param  string $main_name
-     * @param  string $main_institution
-     * @param  array  $coauthors  array of ['name'=>…, 'institution'=>…]
-     * @return array
+     * Agrupa resumos por área de conhecimento.
      */
+    private function group_by_area($posts)
+    {
+        $grouped = array();
+        foreach ($posts as $p) {
+            $area = get_post_meta($p->ID, '_sciflow_knowledge_area', true);
+            $area = $area ? trim($area) : 'Outros';
+            if (!isset($grouped[$area])) {
+                $grouped[$area] = array();
+            }
+            $grouped[$area][] = $p;
+        }
+        ksort($grouped);
+        return $grouped;
+    }
+
+        private function format_scientific_title($title)
+    {
+        $parts = preg_split('/(<\/?(?:i|em)[^>]*>)/i', $title, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $in_italic = false;
+        foreach ($parts as &$part) {
+            if (preg_match('/^<(i|em)[^>]*>$/i', $part)) {
+                $in_italic = true;
+            } elseif (preg_match('/^<\/(i|em)>/i', $part)) {
+                $in_italic = false;
+            } else {
+                if (!$in_italic) {
+                    $part = mb_strtoupper($part, 'UTF-8');
+                }
+            }
+        }
+        return implode('', $parts);
+    }
+
+        private function get_reviewers()
+    {
+        $users = get_users();
+        $reviewers = array();
+        foreach ($users as $u) {
+            $is_reviewer = false;
+            foreach ($u->roles as $r) {
+                if (stripos($r, 'revisor') !== false) {
+                    $is_reviewer = true; break;
+                }
+            }
+            if ($is_reviewer) {
+                $instit = get_user_meta($u->ID, '_sciflow_instituicao', true);
+                $name = mb_convert_case(mb_strtolower($u->display_name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
+                $reviewers[] = trim($name . ($instit ? ' - ' . $instit : ''));
+            }
+        }
+        $reviewers = array_unique($reviewers);
+        sort($reviewers);
+        if (empty($reviewers)) {
+            $reviewers = array('Nenhum revisor cadastrado.');
+        }
+        return $reviewers;
+    }
+
     public static function build_author_affiliations($main_name, $main_institution, $coauthors)
     {
-        $affil_map   = array(); // normalized => display
-        $affil_index = array(); // normalized => number
+        $affil_map   = array();
+        $affil_index = array();
 
         $normalize = function ($s) {
             return mb_strtolower(trim(preg_replace('/\s+/', ' ', $s)));
         };
 
         $get_or_add = function ($institution) use (&$affil_map, &$affil_index, $normalize) {
-            if (empty(trim($institution))) {
-                return array();
-            }
+            if (empty(trim($institution))) return array();
             $parts = array_map('trim', explode(';', $institution));
             $nums  = array();
             foreach ($parts as $part) {
@@ -206,13 +243,10 @@ class SciFlow_Anais
         };
 
         $authors_parts = array();
-
-        // Main author
         $main_nums   = $get_or_add($main_institution);
         $main_sup    = self::nums_to_superscript($main_nums);
         $authors_parts[] = trim($main_name) . $main_sup;
 
-        // Co-authors
         foreach ($coauthors as $ca) {
             if (empty($ca['name'])) continue;
             $ca_nums = $get_or_add($ca['institution'] ?? '');
@@ -220,7 +254,6 @@ class SciFlow_Anais
             $authors_parts[] = trim($ca['name']) . $ca_sup;
         }
 
-        // Build affiliations line
         $affil_parts = array();
         foreach ($affil_map as $key => $display) {
             $affil_parts[] = array('num' => $affil_index[$key], 'name' => $display);
@@ -229,7 +262,7 @@ class SciFlow_Anais
 
         $affil_line_parts = array();
         foreach ($affil_parts as $a) {
-            $affil_line_parts[] = self::num_to_superscript_char($a['num']) . $a['name'];
+            $affil_line_parts[] = self::num_to_superscript_char($a['num']) . trim($a['name']);
         }
 
         return array(
@@ -253,19 +286,27 @@ class SciFlow_Anais
         return ($idx >= 0 && $idx < count($map)) ? $map[$idx] : (string) $n;
     }
 
-    /**
-     * Output the complete printable HTML document.
-     */
-    private function output_html($enfrute_posts, $semco_posts)
+    private function get_image_url($filename)
     {
-        $total = count($enfrute_posts) + count($semco_posts);
+        return plugins_url('admin/images/' . $filename, dirname(dirname(__DIR__)) . '/dummy.php');
+    }
+
+    private function output_html($enfrute_posts, $semco_posts, $palestra_posts, $volume)
+    {
+        $is_palestras = ($volume === 'palestras');
+        $total = $is_palestras ? count($palestra_posts) : (count($enfrute_posts) + count($semco_posts));
+
+        $img_capa = $is_palestras ? 'static_palestras_pg0.png' : 'static_pg0.png';
+        $img_rosto = $is_palestras ? 'static_palestras_pg1.png' : 'static_pg1.png';
+        $img_parceiros = $is_palestras ? 'static_palestras_pg3.png' : 'static_pg3.png';
+        $img_apres = $is_palestras ? 'static_palestras_apres.png' : null;
         ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Anais – XIX Enfrute / III Semco 2026 – Vol. II Resumos</title>
+<title>Anais – XIX Enfrute / III Semco 2026 – <?php echo $is_palestras ? 'Vol. I Palestras' : 'Vol. II Resumos'; ?></title>
 <?php $this->output_css(); ?>
 </head>
 <body class="anais-body">
@@ -277,136 +318,268 @@ class SciFlow_Anais
 </div>
 
 <!-- ═══════════════ CAPA ═══════════════ -->
-<div class="page cover-page">
-  <div class="cover-top">
-    <p class="issn">ISSN 2175-1889</p>
-    <p class="event-main">XIX Encontro Nacional de Fruticultura de Clima Temperado – XIX Enfrute</p>
-    <p class="event-main">III Seminário Catarinense de Olericultura – III Semco</p>
-    <p class="event-date">28, 29 e 30 de julho de 2026 — Fraiburgo, SC</p>
-  </div>
-  <div class="volume-box">
-    <div class="volume-label">ANAIS</div>
-    <div class="volume-sub">Vol. II – Resumos</div>
-  </div>
-  <div class="cover-bottom">
-    <p><strong>Marcelo Couto</strong><br><em>(Organizador)</em></p>
-    <p>Comitê Técnico Científico:<br>Marcelo Couto (Epagri/EECD); Guilherme Mallmann (Epagri/EECD)</p>
-    <p class="publisher">Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina<br>Florianópolis — 2026</p>
-  </div>
+<div class="page static-page">
+    <img src="<?php echo esc_url($this->get_image_url($img_capa)); ?>" alt="Capa" class="full-page-img">
 </div>
 
-<!-- ═══════════════ VERSO DA CAPA ═══════════════ -->
-<div class="page verso-page">
-  <p>Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina<br>
-  Epagri/Estação Experimental de Caçador "José Oscar Kurtz"<br>
-  Rua Abílio Franco, 1500, Bairro Bom Sucesso<br>
-  89501-032, Caçador, SC<br>
-  Fone: (49) 3561-6800 | E-mail: eecd@epagri.sc.gov.br</p>
-
-  <p>Editado pela DOPPIO DESIGN</p>
-  <p>Edição: Julho 2026 | Divulgação: on-line</p>
-  <p>Editoração: DOPPIO DESIGN<br>
-  Revisão textual: Marcus Vinícius Kvitschal, Fernando Pereira Monteiro, André Amarildo Sezerino,
-  Guilherme Mallmann e Marcelo Couto<br>
-  Diagramação: DOPPIO DESIGN</p>
-  <p>A responsabilidade do editor limita-se à adequação dos trabalhos às normas editoriais estabelecidas.</p>
-  <p>O conteúdo dos resumos aqui publicados é de responsabilidade exclusiva dos respectivos autores.</p>
-  <p>É permitida a reprodução parcial dos resumos desta edição desde que citada a fonte.</p>
-  <div class="ficha">
-    <p><strong>Ficha Catalográfica</strong></p>
-    <p>ENCONTRO NACIONAL DE FRUTICULTURA DE CLIMA TEMPERADO, 19., SEMINÁRIO CATARINENSE DE
-    OLERICULTURA, 3., 2026, Fraiburgo, SC. <em>Anais de Resumos...</em> Caçador, SC: Epagri,
-    vol. II (Resumos), 2026. <?php echo intval($total); ?> resumos.</p>
-    <p>Fruticultura de Clima Temperado; Maçã; Uva; Pêssego; Pera; Ameixa; Nectarina;
-    Goiaba; Caqui; Pequenas frutas; Frutas nativas; Olericultura; Tomate; Cebola; Alho;
-    Morango; Mandioca; Cenoura; Pimentão; Folhosas; Lúpulo.</p>
-    <p>ISSN 2175-1889</p>
-  </div>
+<!-- ═══════════════ PÁGINA 2 (Folha de Rosto) ═══════════════ -->
+<div class="page static-page">
+    <img src="<?php echo esc_url($this->get_image_url($img_rosto)); ?>" alt="Folha de Rosto" class="full-page-img">
 </div>
 
-<!-- ═══════════════ APRESENTAÇÃO ═══════════════ -->
-<div class="page apresentacao-page">
-  <h2 class="cap-title">APRESENTAÇÃO</h2>
-  <p class="ind-text">A Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina (Epagri), Associação dos Engenheiros Agrônomos de Caçador (AEAC), Universidade Alto Vale do Rio do Peixe (Uniarp) e Prefeitura de Fraiburgo realizaram em Fraiburgo-SC nos dias 28, 29 e 30 de julho de 2026 o XIX Encontro Nacional de Fruticultura de Clima Temperado – XIX Enfrute e III Seminário Catarinense de Olericultura – III Semco. O tema central do evento foi a valorização da ciência brasileira para a produção de frutas e de hortaliças, em busca de uma produção cada vez mais competitiva, aderente as boas práticas de produção. No XIX Enfrute e III Semco foram submetidos mais de 400 resumos científicos contendo informações científicas relacionadas à fruticultura e olericultura, tudo em primeira mão. Os trabalhos aprovados pelo comitê científico foram apresentados em formato de pôster digital no website dos eventos, e estão disponíveis publicamente para consulta a qualquer momento. Nessa edição, foi criado o 1º Prêmio HortiFruti Ciência, que tem como objetivo prestigiar, valorizar e premiar os melhores trabalhos científicos submetidos e apresentados. De todos os resumos submetidos ao XIX Enfrute e III Semco, 12 foram selecionados pelo comitê técnico-científico para apresentação oral pelos autores, sendo os três melhores premiados. Nesta obra estão apresentados os resumos de todos os trabalhos científicos aprovados nos dois eventos.</p>
-  <p class="ind-text">Desejamos a todos uma ótima leitura.</p>
-  <p class="assinatura"><strong>Marcus Vinícius Kvitschal</strong><br>
-  Presidente da Comissão Organizadora do XIX Enfrute e III Semco<br>
-  Julho de 2026</p>
+<!-- ═══════════════ PÁGINA 3 (Ficha Catalográfica) ═══════════════ -->
+<div class="page text-page pg-ficha">
+    <p>Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina<br>
+    Epagri/Estação Experimental de Caçador “José Oscar Kurtz”<br>
+    Rua Abílio Franco, 1500, Bairro Bom Sucesso<br>
+    89501-032, Caçador, SC<br>
+    Fone: (49) 3561-6800<br>
+    E-mail: <a href="mailto:eecd@epagri.sc.gov.br">eecd@epagri.sc.gov.br</a></p>
+
+    <p style="margin-top:24px;">Editado pela DOPPIO DESIGN</p>
+
+    <p style="margin-top:24px;">Edição: Julho 2026<br>
+    Divulgação: <em>on-line</em></p>
+
+    <p style="margin-top:24px;">Editoração: DOPPIO DESIGN<br>
+    Revisão textual: Marcus Vinícius Kvitschal, Fernando Pereira Monteiro, André Amarildo Sezerino, Guilherme Mallmann e Marcelo Couto<br>
+    Diagramação: DOPPIO DESIGN</p>
+
+    <p style="margin-top:24px;">A responsabilidade do editor limita-se à adequação dos trabalhos às normas editoriais estabelecidas.</p>
+    
+    <p style="margin-top:16px;">O conteúdo dos resumos aqui publicados é de responsabilidade exclusiva dos respectivos autores.</p>
+    
+    <p style="margin-top:16px;">É permitida a reprodução parcial dos resumos desta edição desde que citada a fonte.</p>
+    
+    <div class="ficha-caixa">
+        <p style="text-align:center; font-weight:bold; margin-bottom:12px;">Ficha Catalográfica</p>
+        <p style="text-align:justify; margin-bottom:12px;">
+        <strong>ENCONTRO NACIONAL DE FRUTICULTURA DE CLIMA TEMPERADO, 19., SEMINÁRIO CATARINENSE DE OLERICULTURA, 3.</strong>, 2026, Fraiburgo, SC. 
+        <?php if ($is_palestras): ?>
+            <strong>Anais de Palestras...</strong> Caçador, SC: Epagri, vol. I (Palestras), 2026. <?php echo intval($total); ?> palestras.
+        <?php else: ?>
+            <strong>Anais de Resumos...</strong> Caçador, SC: Epagri, vol. II (Resumos), 2026. <?php echo intval($total); ?> resumos.
+        <?php endif; ?>
+        </p>
+        <p style="text-align:justify; margin-bottom:12px;">
+        Fruticultura de Clima Temperado; Maçã; Uva; Pêssego; Pera; Ameixa, Nectarina; Goiaba; Caqui; Pequenas frutas; Frutas nativas; Olericultura; Tomate; Cebola; Alho; Morango; Mandioca; Cenoura; Pimentão, Folhosas; Lúpulo.
+        </p>
+        <p>ISSN 2175-1889</p>
+    </div>
 </div>
 
-<!-- ═══════════════ SUMÁRIO ═══════════════ -->
-<div class="page sumario-page">
-  <h2 class="cap-title">SUMÁRIO</h2>
-  <div class="toc">
+<!-- ═══════════════ PÁGINA 4 (Realização e Patrocínio) ═══════════════ -->
+<div class="page static-page">
+    <img src="<?php echo esc_url($this->get_image_url($img_parceiros)); ?>" alt="Realização e Patrocínio" class="full-page-img">
+</div>
+
+<!-- ═══════════════ PÁGINA 5 (Apresentação) ═══════════════ -->
+<?php if ($is_palestras && $img_apres): ?>
+<div class="page static-page">
+    <img src="<?php echo esc_url($this->get_image_url($img_apres)); ?>" alt="Apresentação" class="full-page-img">
+</div>
+<?php else: ?>
+<div class="page text-page pg-apresentacao">
+    <p class="apres-titulo"><strong>APRESENTAÇÃO</strong></p>
+    
+    <p class="apres-texto">A Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina (Epagri), Associação dos Engenheiros Agrônomos de Caçador (AEAC), Universidade Alto Vale do Rio do Peixe (Uniarp) e Prefeitura de Fraiburgo realizaram em Fraiburgo-SC nos dias 28, 29 e 30 de julho de 2026 o XIX Encontro Nacional de Fruticultura de Clima Temperado – XIX Enfrute e III Seminário Catarinense de Olericultura – III Semco. O tema central do evento foi a valorização da ciência brasileira para a produção de frutas e de hortaliças, em busca de uma produção cada vez mais competitiva, aderente as boas práticas de produção. No XIX Enfrute e III Semco foram submetidos mais de 400 resumos científicos contendo informações científicas relacionadas à fruticultura e olericultura, tudo em primeira mão. Os trabalhos aprovados pelo comitê científico foram apresentados em formato de pôster digital no website dos eventos, e estão disponíveis publicamente para consulta a qualquer momento. Nessa edição, foi criado o <strong>1º Prêmio HortiFruti Ciência</strong>, que tem como objetivo prestigiar, valorizar e premiar os melhores trabalhos científicos submetidos e apresentados. De todos os resumos submetidos ao XIX Enfrute e III Semco, 12 foram selecionados pelo comitê técnico-científico para apresentação oral pelos autores, sendo os três melhores premiados. Nesta obra estão apresentados os resumos de todos os trabalhos científicos aprovados nos dois eventos.</p>
+    
+    <p class="apres-texto">Desejamos a todos uma ótima leitura.</p>
+    
+    <div class="apres-assinatura">
+        <p>Marcus Vinícius Kvitschal<br>
+        Presidente da Comissão Organizadora do XIX Enfrute e III Semco<br>
+        Julho de 2026</p>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($is_palestras): ?>
+<!-- ═══════════════ FIM DA SEÇÃO AUTOMÁTICA DE PALESTRAS ═══════════════ -->
+<div class="page text-page centered-page">
+    <h2 style="margin-top: 100px; color: #d32f2f;">Fim do Arquivo Introdutório (Volume I)</h2>
+    <p style="margin-top: 30px; font-size: 16pt; color: #555;">
+        Este arquivo contém as páginas pré-textuais do Vol. I.<br>
+        As páginas das palestras em si devem ser unidas a este PDF manualmente a partir dos arquivos Word enviados pelos palestrantes.
+    </p>
+</div>
+</body>
+</html>
+<?php 
+        return; // Interrompe para Palestras (já que elas são Word soltos)
+endif; 
+?>
+
+<!-- ═══════════════ PÁGINA 6 (Revisores) ═══════════════ -->
 <?php
+        $base_pages = 5;
+
+        $reviewers = $this->get_reviewers();
+        if (empty($reviewers)) {
+            $reviewers = array('Nenhum revisor cadastrado.');
+        }
+        $reviewer_chunks = array_chunk($reviewers, 70);
+        $num_reviewer_pages = count($reviewer_chunks);
+
+        $base_pages += $num_reviewer_pages;
+
+        foreach ($reviewer_chunks as $idx => $chunk) {
+            echo '<div class="page text-page pg-revisores">';
+            if ($idx === 0) {
+                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom:30px;">Lista de revisores <em>ad hoc</em> dos resumos científicos</p>';
+            } else {
+                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom:30px;">Lista de revisores <em>ad hoc</em> dos resumos científicos (Cont.)</p>';
+            }
+            echo '<div style="column-count: 2; column-gap: 40px; font-size: 11pt;">';
+            foreach ($chunk as $r) {
+                echo '<p style="margin-bottom: 5px;">' . esc_html($r) . '</p>';
+            }
+            echo '</div></div>';
+        }
+
+        // ── CHUNK SUMÁRIO ───────────────────────────────────────────────────
+        $sumario_lines = array();
+        $grouped_enfrute = array();
+        $grouped_semco = array();
+
         if (!empty($enfrute_posts)) {
-            echo '<p class="toc-section">Resumos – XIX Enfrute</p>';
-            $i = 1;
-            foreach ($enfrute_posts as $post) {
-                $area = get_post_meta($post->ID, '_sciflow_knowledge_area', true);
-                echo '<div class="toc-entry">';
-                echo '<span class="toc-n">' . $i . '.</span> ';
-                echo '<span class="toc-t">' . wp_kses($post->post_title, array('i' => array(), 'em' => array())) . '</span>';
-                if ($area) echo '<span class="toc-a"> (' . esc_html($area) . ')</span>';
-                echo '</div>';
-                $i++;
+            $sumario_lines[] = array('type' => 'event', 'text' => 'Resumos – XIX Enfrute');
+            $grouped_enfrute = $this->group_by_area($enfrute_posts);
+            foreach ($grouped_enfrute as $area => $posts) {
+                $sumario_lines[] = array('type' => 'area', 'text' => $area);
+                foreach ($posts as $p) {
+                    $sumario_lines[] = array('type' => 'post', 'post' => $p);
+                }
             }
         }
         if (!empty($semco_posts)) {
-            echo '<p class="toc-section">Resumos – III Semco</p>';
-            $i = 1;
-            foreach ($semco_posts as $post) {
-                $area = get_post_meta($post->ID, '_sciflow_knowledge_area', true);
-                echo '<div class="toc-entry">';
-                echo '<span class="toc-n">' . $i . '.</span> ';
-                echo '<span class="toc-t">' . wp_kses($post->post_title, array('i' => array(), 'em' => array())) . '</span>';
-                if ($area) echo '<span class="toc-a"> (' . esc_html($area) . ')</span>';
-                echo '</div>';
-                $i++;
+            $sumario_lines[] = array('type' => 'event', 'text' => 'Resumos – III Semco');
+            $grouped_semco = $this->group_by_area($semco_posts);
+            foreach ($grouped_semco as $area => $posts) {
+                $sumario_lines[] = array('type' => 'area', 'text' => $area);
+                foreach ($posts as $p) {
+                    $sumario_lines[] = array('type' => 'post', 'post' => $p);
+                }
             }
         }
-?>
-  </div>
-</div>
 
-<?php
-        // ── Resumos XIX Enfrute ─────────────────────────────────────────────
+        $sumario_pages = array();
+        $current_page = array();
+        $rows = 0;
+        $max_rows = 38; 
+
+        foreach ($sumario_lines as $line) {
+            $row_cost = ($line['type'] === 'post') ? 1 : 2;
+            if ($rows + $row_cost > $max_rows && !empty($current_page)) {
+                $sumario_pages[] = $current_page;
+                $current_page = array();
+                $rows = 0;
+            }
+            $current_page[] = $line;
+            $rows += $row_cost;
+        }
+        if (!empty($current_page)) {
+            $sumario_pages[] = $current_page;
+        }
+
+        $num_sumario_pages = count($sumario_pages);
+        $base_pages += $num_sumario_pages;
+
+        // Calcula números de página
+        $post_pages = array();
+        $current_page_num = $base_pages;
+
         if (!empty($enfrute_posts)) {
-            echo '<div class="page separator-page"><div class="separator-box">Resumos – XIX Enfrute</div></div>';
-            $n = 1;
-            foreach ($enfrute_posts as $post) {
-                $this->render_resumo($post, $n++);
+            foreach ($grouped_enfrute as $area => $posts) {
+                $current_page_num++; // Separador
+                foreach ($posts as $p) {
+                    $current_page_num++;
+                    $post_pages[$p->ID] = $current_page_num;
+                }
+            }
+        }
+        if (!empty($semco_posts)) {
+            foreach ($grouped_semco as $area => $posts) {
+                $current_page_num++; // Separador
+                foreach ($posts as $p) {
+                    $current_page_num++;
+                    $post_pages[$p->ID] = $current_page_num;
+                }
             }
         }
 
-        // ── Resumos III Semco ───────────────────────────────────────────────
+        // ── RENDER SUMÁRIO ──────────────────────────────────────────────────
+        foreach ($sumario_pages as $idx => $spage) {
+            echo '<div class="page text-page pg-sumario">';
+            if ($idx === 0) {
+                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO</p>';
+            } else {
+                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO (Cont.)</p>';
+            }
+            echo '<div class="sumario-lista">';
+            foreach ($spage as $line) {
+                if ($line['type'] === 'event') {
+                    echo '<p style="font-weight:bold; margin-top:16px;">' . esc_html($line['text']) . '</p>';
+                } elseif ($line['type'] === 'area') {
+                    echo '<p style="margin-top:10px; font-weight:bold; text-transform:uppercase; font-size:11pt;">' . esc_html($line['text']) . '</p>';
+                } elseif ($line['type'] === 'post') {
+                    $p = $line['post'];
+                    $pg = isset($post_pages[$p->ID]) ? $post_pages[$p->ID] : '';
+                    echo '<div style="display:flex; justify-content:space-between; margin-left:20px; font-size:10pt; line-height:1.2; margin-bottom:4px;">';
+                    echo '<span style="flex:1; padding-right:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' . wp_kses($this->format_scientific_title($p->post_title), array('i'=>array(),'em'=>array())) . '</span>';
+                    echo '<span>Pág. ' . $pg . '</span>';
+                    echo '</div>';
+                }
+            }
+            echo '</div></div>';
+        }
+
+        // ── PROCESSAMENTO: XIX ENFRUTE ──────────────────────────────────────
+        if (!empty($enfrute_posts)) {
+            foreach ($grouped_enfrute as $area => $posts_in_area) {
+                echo '<div class="page separator-page">';
+                echo '  <div class="separator-content">';
+                echo '    <p class="sep-evento">Resumos – XIX Enfrute</p>';
+                echo '    <p class="sep-area">' . esc_html($area) . '</p>';
+                echo '  </div>';
+                echo '</div>';
+
+                foreach ($posts_in_area as $post) {
+                    $pg = isset($post_pages[$post->ID]) ? $post_pages[$post->ID] : 0;
+                    $this->render_resumo($post, $pg, 'XIX Enfrute', $area);
+                }
+            }
+        }
+
+        // ── PROCESSAMENTO: III SEMCO ────────────────────────────────────────
         if (!empty($semco_posts)) {
-            echo '<div class="page separator-page"><div class="separator-box">Resumos – III Semco</div></div>';
-            $n = 1;
-            foreach ($semco_posts as $post) {
-                $this->render_resumo($post, $n++);
+            foreach ($grouped_semco as $area => $posts_in_area) {
+                echo '<div class="page separator-page">';
+                echo '  <div class="separator-content">';
+                echo '    <p class="sep-evento">Resumos – III Semco</p>';
+                echo '    <p class="sep-area">' . esc_html($area) . '</p>';
+                echo '  </div>';
+                echo '</div>';
+
+                foreach ($posts_in_area as $post) {
+                    $pg = isset($post_pages[$post->ID]) ? $post_pages[$post->ID] : 0;
+                    $this->render_resumo($post, $pg, 'III Semco', $area);
+                }
             }
         }
 ?>
-
 </body>
 </html>
 <?php
     }
-
-    /**
-     * Render a single abstract.
-     */
-    private function render_resumo($post, $num)
+    private function render_resumo($post, $num, $evento_label, $area_label)
     {
         $main_name    = get_post_meta($post->ID, '_sciflow_main_author_name', true);
         $main_instit  = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
         $coauthors    = get_post_meta($post->ID, '_sciflow_coauthors', true);
         $keywords     = get_post_meta($post->ID, '_sciflow_keywords', true);
         $ack          = get_post_meta($post->ID, '_sciflow_acknowledgement', true);
-        $area         = get_post_meta($post->ID, '_sciflow_knowledge_area', true);
-        $cultura      = get_post_meta($post->ID, '_sciflow_cultura', true);
-
+        
         if (!is_array($coauthors)) $coauthors = array();
         if (!is_array($keywords)) $keywords = $keywords ? array($keywords) : array();
         $keywords = array_filter(array_map('trim', $keywords));
@@ -414,146 +587,223 @@ class SciFlow_Anais
         $ad = self::build_author_affiliations($main_name, $main_instit, $coauthors);
 
         echo '<div class="page resumo-page">';
-        echo '<div class="resumo">';
+        echo '  <div class="resumo-container">';
+        
+        // Cabeçalho de contexto na página do resumo
+        echo '    <p class="resumo-header-ctx">' . esc_html($evento_label) . ' | <strong>' . esc_html($area_label) . '</strong></p>';
 
-        // Tags de classificação
-        echo '<div class="resumo-tags">';
-        echo '<span class="tag-num">' . intval($num) . '</span>';
-        if ($area)    echo '<span class="tag-badge">' . esc_html($area) . '</span>';
-        if ($cultura) echo '<span class="tag-badge tag-cultura">' . esc_html($cultura) . '</span>';
-        echo '</div>';
+        // Título centralizado, uppercase, Arial/Calibri ou TNR 12pt Bold
+        echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
 
-        // Título
-        echo '<h3 class="resumo-titulo">' . wp_kses($post->post_title, array('i' => array(), 'em' => array())) . '</h3>';
+        // Autores (centralizados)
+        echo '    <p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
 
-        // Autores
-        echo '<p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
-
-        // Afiliações
+        // Afiliações (centralizadas, menor)
         if (!empty($ad['affiliations_line'])) {
-            echo '<p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
+            echo '    <p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
         }
 
         // Corpo do resumo
-        echo '<div class="resumo-corpo">' . wp_kses_post($post->post_content) . '</div>';
+        echo '    <p style="font-size:12pt; font-weight:bold; margin-bottom:5px;">Resumo:</p>';
+        echo '    <div class="resumo-corpo">' . wp_kses_post($post->post_content) . '</div>';
 
         // Agradecimentos
         if (!empty($ack)) {
-            echo '<p class="resumo-ack"><strong>Agradecimentos:</strong> ' . esc_html($ack) . '</p>';
+            echo '    <p class="resumo-ack"><strong>Agradecimentos:</strong> ' . esc_html($ack) . '</p>';
         }
 
         // Palavras-chave
         if (!empty($keywords)) {
-            echo '<p class="resumo-kws"><strong>Palavras-chave:</strong> ' . esc_html(implode('; ', $keywords)) . '.</p>';
+            echo '    <p class="resumo-kws"><strong>Palavras-chave:</strong> ' . esc_html(implode('; ', $keywords)) . '.</p>';
         }
 
-        echo '</div>'; // /resumo
-        echo '</div>'; // /page
+        // Rodapé com o número do resumo
+        echo '    <div class="resumo-footer">Página ' . intval($num) . '</div>';
+
+        echo '  </div>';
+        echo '</div>';
     }
 
-    /**
-     * Output all CSS for the printable page.
-     */
     private function output_css()
     {
         ?>
 <style>
-/* ─── Reset & Base ─────────────────────────────────────────── */
-*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --pw:210mm;--ph:297mm;
-  --mt:25mm;--mb:25mm;--ms:30mm;
-  --f:  'Times New Roman','TimesNewRoman',Georgia,serif;
-  --fs: 11pt;
-  --lh: 1.55;
-  --c0: #111;--c1:#444;--c2:#777;--cr:#bbb;
+/* ─── Base / Reset ─────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --pw: 210mm; 
+  --ph: 297mm;
+  --margin-interna: 20mm;
+  --f-serif: 'Times New Roman', Times, serif;
+  --f-sans: Arial, Helvetica, sans-serif;
+  --c-text: #000;
 }
-html,body{font-family:var(--f);font-size:var(--fs);line-height:var(--lh);color:var(--c0);}
-sup{font-size:70%;line-height:0;position:relative;vertical-align:baseline;top:-.4em}
-
-/* ─── Screen: page cards ───────────────────────────────────── */
-@media screen{
-  body.anais-body{background:#d4d4d4;padding-top:48px;}
-  .page{
-    width:var(--pw);min-height:var(--ph);
-    margin:20px auto;
-    padding:var(--mt) var(--ms) var(--mb);
-    background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.2);
-  }
-  .noprint-bar{
-    position:fixed;top:0;left:0;right:0;z-index:9999;
-    background:#1d4ed8;color:#fff;
-    font-family:system-ui,sans-serif;font-size:13px;
-    display:flex;align-items:center;gap:16px;padding:8px 20px;
-  }
-  .noprint-bar span{flex:1;}
-  .print-btn{
-    background:#fff;color:#1d4ed8;border:none;
-    padding:6px 16px;border-radius:4px;font-size:13px;
-    font-weight:bold;cursor:pointer;
-  }
-  .total-badge{
-    background:rgba(255,255,255,.2);
-    padding:2px 10px;border-radius:20px;font-size:12px;
-  }
+html, body {
+  font-family: var(--f-serif);
+  font-size: 12pt;
+  color: var(--c-text);
+  line-height: 1.0;
 }
+sup { font-size: 70%; line-height: 0; position: relative; top: -0.4em; }
 
-/* ─── Print ────────────────────────────────────────────────── */
-@media print{
-  @page{size:A4 portrait;margin:var(--mt) var(--ms) var(--mb);}
-  body.anais-body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  .noprint-bar{display:none;}
-  .page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none;page-break-after:always;break-after:page;}
-  .resumo-page{page-break-inside:avoid;break-inside:avoid;}
+/* ─── Screen Preview (Admin) ───────────────────────────────── */
+@media screen {
+  body.anais-body { background: #d4d4d4; padding-top: 50px; }
+  .page {
+    width: var(--pw);
+    min-height: var(--ph);
+    margin: 20px auto;
+    background: #fff;
+    box-shadow: 0 4px 15px rgba(0,0,0,.2);
+    position: relative;
+    overflow: hidden;
+  }
+  .noprint-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    background: #1d4ed8; color: #fff;
+    font-family: var(--f-sans); font-size: 13px;
+    display: flex; align-items: center; gap: 16px; padding: 10px 20px;
+  }
+  .noprint-bar span { flex: 1; }
+  .print-btn {
+    background: #fff; color: #1d4ed8; border: none;
+    padding: 6px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;
+  }
+  .total-badge {
+    background: rgba(255,255,255,.2);
+    padding: 3px 10px; border-radius: 20px;
+  }
 }
 
-/* ─── Cover ────────────────────────────────────────────────── */
-.cover-page{display:flex;flex-direction:column;justify-content:space-between;text-align:center;}
-.cover-top .issn{font-size:9pt;color:var(--c2);margin-bottom:8px;}
-.cover-top .event-main{font-size:12.5pt;font-weight:bold;line-height:1.4;margin-bottom:3px;}
-.cover-top .event-date{font-size:10.5pt;color:var(--c1);margin-top:8px;}
-.volume-box{margin:0 auto;border-top:3px solid var(--c0);border-bottom:3px solid var(--c0);padding:24px 0;width:75%;}
-.volume-label{font-size:26pt;font-weight:bold;letter-spacing:.08em;}
-.volume-sub{font-size:14pt;font-weight:normal;margin-top:4px;}
-.cover-bottom p{font-size:10pt;margin-bottom:8px;}
-.cover-bottom .publisher{margin-top:18px;font-size:10pt;border-top:1px solid var(--cr);padding-top:12px;}
+/* ─── Print Settings ───────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  body.anais-body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .noprint-bar { display: none; }
+  .page {
+    width: auto; min-height: 0; margin: 0; box-shadow: none;
+    page-break-after: always; break-after: page;
+    position: relative;
+  }
+  .resumo-page { page-break-inside: avoid; break-inside: avoid; }
+}
 
-/* ─── Verso da capa ────────────────────────────────────────── */
-.verso-page{font-size:9.5pt;}
-.verso-page p{margin-bottom:10px;}
-.ficha{margin-top:28px;padding:14px;border:1px solid #ccc;font-size:9pt;}
+/* ─── Formatação Geral de Texto (Páginas Internas) ─────────── */
+.text-page {
+  padding: var(--margin-interna);
+}
+.centered-page {
+  text-align: center;
+}
 
-/* ─── Apresentação ─────────────────────────────────────────── */
-.cap-title{font-size:14pt;font-weight:bold;text-align:center;letter-spacing:.06em;margin-bottom:24px;}
-.ind-text{text-indent:2em;text-align:justify;margin-bottom:12px;}
-.assinatura{margin-top:28px;text-align:right;font-size:10.5pt;}
+/* ─── Static Full Pages (Images) ───────────────────────────── */
+.static-page {
+  padding: 0;
+  margin: 0;
+  height: var(--ph);
+}
+.full-page-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
-/* ─── Sumário ──────────────────────────────────────────────── */
-.toc-section{font-weight:bold;font-size:11pt;border-bottom:1px solid var(--cr);padding-bottom:4px;margin:14px 0 6px;}
-.toc-entry{font-size:9.5pt;margin-bottom:4px;line-height:1.4;padding-left:18px;text-indent:-18px;}
-.toc-n{font-weight:bold;margin-right:4px;}
-.toc-a{color:var(--c2);font-size:9pt;}
+/* ─── Ficha Catalográfica (Página 3) ───────────────────────── */
+.pg-ficha {
+  font-size: 12pt;
+  line-height: 1.4;
+}
+.ficha-caixa {
+  margin-top: 40px;
+  border: 1px solid #000;
+  padding: 20px;
+  width: 100%;
+}
 
-/* ─── Separador de seção ───────────────────────────────────── */
-.separator-page{display:flex;align-items:center;justify-content:center;}
-.separator-box{text-align:center;font-size:18pt;font-weight:bold;border-top:3px solid var(--c0);border-bottom:3px solid var(--c0);padding:24px 48px;width:75%;}
+/* ─── Apresentação (Página 5) ──────────────────────────────── */
+.pg-apresentacao { line-height: 1.6; }
+.apres-titulo { font-size: 12pt; font-weight: bold; margin-bottom: 30px; }
+.apres-texto { text-indent: 1.5cm; text-align: justify; margin-bottom: 15px; }
+.apres-assinatura { margin-top: 40px; text-align: right; }
 
-/* ─── Resumos ──────────────────────────────────────────────── */
-.resumo-page{padding-top:8mm;}
-.resumo{border-bottom:1px solid var(--cr);padding-bottom:16px;}
+/* ─── Sumário (Página 7) ───────────────────────────────────── */
+.sumario-lista { line-height: 1.8; }
 
-.resumo-tags{margin-bottom:7px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.tag-num{display:inline-block;background:var(--c0);color:#fff;font-size:8pt;font-weight:bold;padding:1px 7px;border-radius:2px;}
-.tag-badge{display:inline-block;font-size:8pt;color:var(--c1);border:1px solid var(--cr);padding:0 6px;border-radius:2px;}
-.tag-cultura{color:#5b3e00;border-color:#c9a86c;background:#fdf6e3;}
+/* ─── Separadores de Categoria (XIX Enfrute / III Semco) ───── */
+.separator-page {
+  display: flex; align-items: center; justify-content: center;
+  height: var(--ph);
+  text-align: center;
+  font-family: var(--f-sans);
+}
+.sep-evento { font-size: 32pt; font-weight: bold; margin-bottom: 20px; }
+.sep-area { font-size: 24pt; color: #555; }
 
-.resumo-titulo{font-size:11.5pt;font-weight:bold;text-transform:uppercase;text-align:justify;margin-bottom:6px;line-height:1.4;}
-.resumo-autores{font-size:10.5pt;font-weight:bold;margin-bottom:2px;}
-.resumo-afils{font-size:9pt;color:var(--c1);margin-bottom:10px;line-height:1.35;}
-.resumo-corpo{font-size:10.5pt;text-align:justify;text-indent:1.5em;line-height:var(--lh);margin-bottom:8px;}
-.resumo-corpo p{margin-bottom:6px;}
-.resumo-ack{font-size:9.5pt;color:var(--c1);margin-bottom:4px;text-align:justify;}
-.resumo-kws{font-size:9.5pt;margin-top:6px;line-height:1.4;}
+/* ─── Resumos Individuais ──────────────────────────────────── */
+.resumo-page {
+  padding: var(--margin-interna);
+}
+.resumo-container {
+  /* Resumo único por página não deve quebrar */
+}
+.resumo-header-ctx {
+  font-family: var(--f-sans);
+  font-size: 10pt;
+  color: #777;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 5px;
+  margin-bottom: 20px;
+  text-align: right;
+}
+.resumo-titulo {
+  font-size: 12pt;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 15px;
+  line-height: 1.15;
+}
+.resumo-autores {
+  font-size: 12pt;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.resumo-afils {
+  font-size: 10pt;
+  text-align: justify;
+  margin-bottom: 20px;
+  color: #000;
+}
+.resumo-corpo {
+  font-size: 12pt;
+  text-align: justify;
+  text-indent: 0;
+  line-height: 1.0;
+  margin-bottom: 15px;
+}
+.resumo-corpo p {
+  margin-bottom: 10px;
+}
+.resumo-ack {
+  font-size: 11pt;
+  text-align: justify;
+  margin-bottom: 10px;
+}
+.resumo-kws {
+  font-size: 11pt;
+  margin-top: 15px;
+}
+.resumo-footer {
+  margin-top: 30px;
+  font-size: 10pt;
+  color: #999;
+  text-align: right;
+  font-family: var(--f-sans);
+}
 </style>
         <?php
     }
