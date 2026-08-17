@@ -1016,7 +1016,7 @@ endif; ?>
                 $block_len += 800;
             }
 
-            $max_chars = ($page_index === 0) ? 2400 : 3800;
+            $max_chars = ($page_index === 0) ? 1800 : 3000;
 
             if ($current_chars + $block_len > $max_chars && !empty($current_page_html)) {
                 $pages[] = $current_page_html;
@@ -1380,11 +1380,16 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
     max-height: 100vh !important;
     overflow: hidden !important;
   }
-  /* Item 10 – Rodapé fixo em print: garantir altura mínima para posicionamento */
+  /* Item 10 – Garante preenchimento exato da folha física sem scale-down */
   .resumo-page {
-    min-height: var(--ph) !important;
+    width: 100% !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
     page-break-inside: avoid;
     break-inside: avoid;
+    overflow: hidden !important;
   }
   
 }
@@ -1465,11 +1470,13 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
   min-height: var(--ph);
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 .resumo-container {
   flex: 1;
   display: flex;
   flex-direction: column;
+  padding-bottom: 20px;
 }
 .resumo-header-ctx {
   font-family: var(--f-sans);
@@ -1521,8 +1528,9 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
 /* Item 10 – Rodapé fixo na parte inferior via margin-top:auto (flex) */
 /* Item 10 – Removida a palavra "Página" do rodapé (feito no PHP) */
 .resumo-footer {
-  margin-top: auto;
-  padding-top: 10px;
+  position: absolute;
+  bottom: var(--margin-interna);
+  right: var(--margin-interna);
   font-size: 10pt;
   color: #999;
   text-align: right;
