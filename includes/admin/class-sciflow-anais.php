@@ -1206,6 +1206,8 @@ endif; ?>
             foreach ($run_matches[0] as $run_xml) {
                 $bold   = (bool) preg_match('/<w:b(?:\/| \/|[^a-zA-Z][^>]*\/?>)/', $run_xml);
                 $italic = (bool) preg_match('/<w:i(?:\/| \/|[^a-zA-Z][^>]*\/?>)/', $run_xml);
+                $sup    = (bool) preg_match('/<w:vertAlign[^>]*w:val="superscript"/i', $run_xml);
+                $sub    = (bool) preg_match('/<w:vertAlign[^>]*w:val="subscript"/i', $run_xml);
 
                 preg_match_all('/<w:t[^>]*>(.*?)<\/w:t>/s', $run_xml, $t_matches);
                 $run_text = implode('', $t_matches[1]);
@@ -1216,6 +1218,8 @@ endif; ?>
                 $run_text = esc_html($run_text);
                 if ($bold)   $run_text = '<strong>' . $run_text . '</strong>';
                 if ($italic) $run_text = '<em>' . $run_text . '</em>';
+                if ($sup)    $run_text = '<sup>' . $run_text . '</sup>';
+                if ($sub)    $run_text = '<sub>' . $run_text . '</sub>';
                 $para_html .= $run_text;
             }
 
@@ -1325,16 +1329,35 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
     page-break-before: always;
     page-break-inside: auto;
     break-inside: auto;
-    display: block;                  /* evita flex que força altura mínima */
+    display: flex;                   /* mantido flex para replicar layout dos resumos */
+    flex-direction: column;
   }
   .palestra-page .resumo-container {
     flex: none;
-    display: block;
+    display: flex;
+    flex-direction: column;
   }
   .palestra-page .resumo-footer {
     margin-top: 20px;
     border-top: 1px solid #ccc;
     padding-top: 5px;
+  }
+  
+  /* Garante que conversores de doc (LibreOffice) não injetem inline-styles distorcidos */
+  .palestra-page .resumo-corpo * {
+    font-family: var(--f-serif) !important;
+    line-height: 1.0 !important;
+    color: var(--c-text) !important;
+  }
+  .palestra-page .resumo-corpo sup, 
+  .palestra-page .resumo-corpo sub {
+    line-height: 0 !important;
+  }
+  .palestra-page .resumo-corpo p {
+    font-size: 12pt !important;
+    margin: 0 0 10px 0 !important;
+    text-align: justify !important;
+    text-indent: 0 !important;
   }
 }
 
