@@ -12,6 +12,7 @@ class SciFlow_Import_Export
     public function __construct()
     {
         add_action('admin_post_sciflow_export_works', array($this, 'handle_export'));
+        add_action('admin_post_sciflow_export_csv', array($this, 'handle_export_csv'));
         add_action('admin_post_sciflow_import_works', array($this, 'handle_import'));
     }
 
@@ -45,6 +46,13 @@ class SciFlow_Import_Export
                     <?php wp_nonce_field('sciflow_export_works'); ?>
                     <button type="submit" class="button button-primary"><?php esc_html_e('Baixar JSON', 'sciflow-wp'); ?></button>
                 </form>
+                <hr style="margin: 20px 0;">
+                <p><?php esc_html_e('Baixe uma planilha CSV com os dados principais dos resumos (Enfrute e Semco) para Excel.', 'sciflow-wp'); ?></p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="sciflow_export_csv">
+                    <?php wp_nonce_field('sciflow_export_csv'); ?>
+                    <button type="submit" class="button button-secondary"><?php esc_html_e('Baixar Planilha CSV', 'sciflow-wp'); ?></button>
+                </form>
             </div>
 
             <div class="card" style="max-width: 600px; padding: 20px; margin-top: 20px;">
@@ -64,6 +72,61 @@ class SciFlow_Import_Export
     /**
      * Handle the export request.
      */
+        /**
+     * Handle CSV export.
+     */
+    public function handle_export_csv()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        check_admin_referer('sciflow_export_csv');
+
+        $query = new WP_Query(array(
+            'post_type'      => array('enfrute_trabalhos', 'semco_trabalhos'),
+            'posts_per_page' => -1,
+            'post_status'    => 'any',
+        ));
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=resumos_export_' . date('Y-m-d') . '.csv');
+        echo "\xEF\xBB\xBF"; // UTF-8 BOM for Excel
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, array('Nome do trabalho', 'Nome do autor', 'Status Atual', 'Evento', 'Instituição do Autor Principal', 'CPF', 'E-mail', 'Telefone'));
+
+        if (!class_exists('SciFlow_Status_Manager')) {
+            require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-status-manager.php';
+        }
+        $sm = new SciFlow_Status_Manager();
+
+        foreach ($query->posts as $post) {
+            $title = $post->post_title;
+            $author = get_post_meta($post->ID, '_sciflow_main_author_name', true);
+            
+            // If the author name isn't directly stored, try to get it from the user
+            if (empty($author)) {
+                $author_id = get_post_meta($post->ID, '_sciflow_author_id', true);
+                if ($author_id) {
+                    $user = get_userdata($author_id);
+                    if ($user) $author = $user->display_name;
+                }
+            }
+            
+            $status_label = $sm->get_status_label($sm->get_status($post->ID));
+            $event = ($post->post_type === 'enfrute_trabalhos') ? 'Enfrute' : 'Semco';
+            $inst = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
+            $cpf = get_post_meta($post->ID, '_sciflow_main_author_cpf', true);
+            $email = get_post_meta($post->ID, '_sciflow_main_author_email', true);
+            $phone = get_post_meta($post->ID, '_sciflow_main_author_telefone', true);
+
+            fputcsv($output, array($title, $author, $status_label, $event, $inst, $cpf, $email, $phone));
+        }
+
+        fclose($output);
+        exit;
+    }
+
     public function handle_export()
     {
         if (!current_user_can('manage_options')) {
