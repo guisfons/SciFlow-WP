@@ -1318,6 +1318,14 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
     page-break-after: always; break-after: page;
     position: relative;
   }
+  
+  /* Enforça dimensões exatas da folha A4 para a capa e demais páginas estáticas, 
+     evitando que as margens automáticas da impressora distorçam a proporção */
+  .static-page {
+    width: 210mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+  }
   /* Item 10 – Rodapé fixo em print: garantir altura mínima para posicionamento */
   .resumo-page:not(.palestra-page) {
     min-height: var(--ph) !important;
@@ -1381,7 +1389,7 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
 .full-page-img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
 }
 
