@@ -456,8 +456,9 @@ class SciFlow_Anais
     private function linkify_enfrute_urls($text)
     {
         return preg_replace_callback(
-            '/(?<![="\'>])((https?:\/\/)?(?:www\.)?enfrute\.com(\/[^\s<>"\']*)?)/i',
+            '/<a\b[^>]*>.*?<\/a>|((?:https?:\/\/)?(?:www\.)?enfrute\.com(?:\.br)?(?:\/[^\s<]*)?)/i',
             function ($m) {
+                if (empty($m[1])) return $m[0];
                 $url  = $m[1];
                 $href = preg_match('/^https?:\/\//i', $url) ? $url : 'https://' . $url;
                 return '<a href="' . esc_attr($href) . '" target="_blank">' . esc_html($url) . '</a>';
@@ -600,13 +601,13 @@ class SciFlow_Anais
                 // Monta linhas do sumário
                 $sumario_lines = array();
                 if (!empty($palestra_enfrute)) {
-                    $sumario_lines[] = array('type' => 'event', 'text' => 'Palestras – XIX Enfrute');
+                    $sumario_lines[] = array('type' => 'area', 'text' => 'Palestras – XIX Enfrute');
                     foreach ($palestra_enfrute as $p) {
                         $sumario_lines[] = array('type' => 'post', 'post' => $p);
                     }
                 }
                 if (!empty($palestra_semco)) {
-                    $sumario_lines[] = array('type' => 'event', 'text' => 'Palestras – III Semco');
+                    $sumario_lines[] = array('type' => 'area', 'text' => 'Palestras – III Semco');
                     foreach ($palestra_semco as $p) {
                         $sumario_lines[] = array('type' => 'post', 'post' => $p);
                     }
@@ -713,8 +714,10 @@ class SciFlow_Anais
         <p style="text-align:justify; margin-bottom:12px;">
         <!-- Item 2 – "DE" → "SOBRE" na ficha catalográfica -->
         <strong>ENCONTRO NACIONAL SOBRE FRUTICULTURA DE CLIMA TEMPERADO, 19., SEMINÁRIO CATARINENSE DE OLERICULTURA, 3.</strong>, 2026, Fraiburgo, SC. 
-        <?php if ($is_palestras): ?>
+        <?php if ($is_palestras && !$is_palestras_preview): ?>
             <strong>Anais de Palestras...</strong> Caçador, SC: Epagri, vol. I (Palestras), 2026. <?php echo intval($total); ?> palestras.
+        <?php elseif ($is_palestras_preview): ?>
+            <strong>Anais de Palestras...</strong> Caçador, SC: Epagri, vol. I (Palestras), 2026. <?php echo intval($total_pages); ?> p.
         <?php else: ?>
             <!-- Item 3 – Número real de páginas do PDF (estimativa) -->
             <strong>Anais de Resumos...</strong> Caçador, SC: Epagri, vol. II (Resumos), 2026. <?php echo intval($total_pages); ?> p.
@@ -1378,7 +1381,7 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
 .full-page-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
