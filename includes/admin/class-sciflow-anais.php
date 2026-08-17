@@ -1364,12 +1364,6 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
     size: A4 portrait;
     margin: 0;
   }
-  /* Páginas de palestra podem ultrapassar uma página física;
-     @page nomeado garante margens corretas em TODAS as páginas do overflow */
-  @page palestra-content {
-    size: A4 portrait;
-    margin: 20mm;
-  }
   body.anais-body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .noprint-bar { display: none; }
   .page {
@@ -1387,49 +1381,29 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
     overflow: hidden !important;
   }
   /* Item 10 – Rodapé fixo em print: garantir altura mínima para posicionamento */
-  .resumo-page:not(.palestra-page) {
+  .resumo-page {
     min-height: var(--ph) !important;
-  }
-  .resumo-page:not(.palestra-page) { page-break-inside: avoid; break-inside: avoid; }
-
-  /* Palestra: permite overflow para múltiplas páginas com margens corretas */
-  .palestra-page {
-    page: palestra-content;          /* margens geridas pelo @page nomeado */
-    padding: 20mm;                   /* preview de tela; impresso o @page sobrescreve */
-    min-height: 0 !important;
-    page-break-before: always;
-    page-break-inside: auto;
-    break-inside: auto;
-    display: flex;                   /* mantido flex para replicar layout dos resumos */
-    flex-direction: column;
-  }
-  .palestra-page .resumo-container {
-    flex: none;
-    display: flex;
-    flex-direction: column;
-  }
-  .palestra-page .resumo-footer {
-    margin-top: 20px;
-    border-top: 1px solid #ccc;
-    padding-top: 5px;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
   
-  /* Garante que conversores de doc (LibreOffice) não injetem inline-styles distorcidos */
-  .palestra-page .resumo-corpo * {
-    font-family: var(--f-serif) !important;
-    line-height: 1.0 !important;
-    color: var(--c-text) !important;
-  }
-  .palestra-page .resumo-corpo sup, 
-  .palestra-page .resumo-corpo sub {
-    line-height: 0 !important;
-  }
-  .palestra-page .resumo-corpo p {
-    font-size: 12pt !important;
-    margin: 0 0 10px 0 !important;
-    text-align: justify !important;
-    text-indent: 0 !important;
-  }
+}
+
+/* Garante que conversores de doc (LibreOffice) não injetem inline-styles distorcidos */
+.palestra-page .resumo-corpo * {
+  font-family: var(--f-serif) !important;
+  line-height: 1.0 !important;
+  color: var(--c-text) !important;
+}
+.palestra-page .resumo-corpo sup, 
+.palestra-page .resumo-corpo sub {
+  line-height: 0 !important;
+}
+.palestra-page .resumo-corpo p {
+  font-size: 12pt !important;
+  margin: 0 0 10px 0 !important;
+  text-align: justify !important;
+  text-indent: 0 !important;
 }
 
 /* ─── Formatação Geral de Texto (Páginas Internas) ─────────── */
