@@ -634,7 +634,8 @@ class SciFlow_Anais
                 $base_pages += $num_sumario_pages;
                 $base_pages += 1; // Separador (página 6 na numeração do usuário)
 
-                // Calcula números de página por palestra
+                // Calcula números de página por palestra e extrai conteúdo para paginação
+                $palestra_contents = array();
                 if ($custom_post_pages !== null) {
                     $post_pages  = $custom_post_pages;
                     $total_pages = !empty($post_pages) ? max($post_pages) : $base_pages;
@@ -644,6 +645,23 @@ class SciFlow_Anais
                     foreach (array_merge($palestra_enfrute, $palestra_semco) as $p) {
                         $current_page_num++;
                         $post_pages[$p->ID] = $current_page_num;
+                        
+                        // Extrai e fatiar o conteúdo
+                        $attachment_id = get_post_meta($p->ID, '_sciflow_attachment_id', true);
+                        $content = '';
+                        if ($attachment_id) {
+                            $content = $this->extract_docx_content($attachment_id);
+                        }
+                        if (empty($content)) {
+                            $content = wp_kses_post($p->post_content);
+                        }
+                        $content = $this->convert_scientific_notation($content);
+                        $content = $this->linkify_enfrute_urls($content);
+                        
+                        $pages_html = $this->split_html_into_pages($content);
+                        $palestra_contents[$p->ID] = $pages_html;
+                        
+                        $current_page_num += (count($pages_html) - 1);
                     }
                     $total_pages = $current_page_num;
                 }
@@ -931,8 +949,8 @@ endif; ?>
         echo '  <div class="resumo-container">';
         
         // Item 7 – Cabeçalho mantém conteúdo existente e agrega local/data do evento
-        $event_location = 'Fraiburgo, SC | 28, 29 e 30 de julho de 2026';
-        echo '    <p class="resumo-header-ctx">' . esc_html($evento_label) . ' | <strong>' . esc_html($area_label) . '</strong> | ' . esc_html($event_location) . '</p>';
+        $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
+        echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
 
         // Título centralizado, uppercase, Arial/Calibri ou TNR 12pt Bold
         echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
@@ -976,12 +994,55 @@ endif; ?>
         echo '</div>';
     }
 
+    private function split_html_into_pages($html)
+    {
+        $pages = array();
+        $current_page_html = '';
+        $current_chars = 0;
+        $page_index = 0;
+        
+        if (preg_match_all('/<p[^>]*>.*?<\/p>|<div[^>]*>.*?<\/div>|<img[^>]*>|<ul[^>]*>.*?<\/ul>|<ol[^>]*>.*?<\/ol>|<table[^>]*>.*?<\/table>/is', $html, $matches)) {
+            $blocks = $matches[0];
+        } else {
+            $blocks = array($html);
+        }
+
+        foreach ($blocks as $block) {
+            $block_len = mb_strlen(strip_tags($block));
+            if (strpos($block, '<img') !== false) {
+                $block_len += 1200;
+            }
+            if (strpos($block, '<table') !== false) {
+                $block_len += 800;
+            }
+
+            $max_chars = ($page_index === 0) ? 2400 : 3800;
+
+            if ($current_chars + $block_len > $max_chars && !empty($current_page_html)) {
+                $pages[] = $current_page_html;
+                $current_page_html = $block;
+                $current_chars = $block_len;
+                $page_index++;
+            } else {
+                $current_page_html .= "\n" . $block;
+                $current_chars += $block_len;
+            }
+        }
+        if (!empty($current_page_html)) {
+            $pages[] = $current_page_html;
+        }
+        if (empty($pages)) {
+            $pages[] = '';
+        }
+        return $pages;
+    }
+
     /**
      * Renderiza uma página de resumo de palestra.
      * Campos disponíveis: título, evento, duração, autor WP, corpo do texto.
      * Cabeçalho: 'Palestras | [Evento] | Fraiburgo, SC | 28, 29 e 30 de julho de 2026'
      */
-    private function render_palestra_resumo($post, $num)
+    private function render_palestra_resumo($post, $num, $pages_html = null)
     {
         $event_raw = strtolower(get_post_meta($post->ID, '_sciflow_event', true));
         if ($event_raw === 'enfrute') {
@@ -1008,59 +1069,57 @@ endif; ?>
         $coauthors   = get_post_meta($post->ID, '_sciflow_coauthors', true);
         if (!is_array($coauthors)) $coauthors = array();
 
-        // Monta linha de autores e afiliações (igual ao render_resumo)
         $ad = self::build_author_affiliations($author_name, $main_instit, $coauthors);
 
-        // Conteúdo: tenta extrair o arquivo Word anexado; cai para post_content
-        $attachment_id = get_post_meta($post->ID, '_sciflow_attachment_id', true);
-        $content = '';
-        if ($attachment_id) {
-            $content = $this->extract_docx_content($attachment_id);
-        }
-        if (empty($content)) {
-            $content = wp_kses_post($post->post_content);
-        }
-        $content = $this->convert_scientific_notation($content);
-        $content = $this->linkify_enfrute_urls($content);
-
-        // ID âncora: palestra-{ID} (para links do sumário)
-        echo '<div class="page resumo-page palestra-page" id="palestra-' . intval($post->ID) . '">';
-        echo '  <div class="resumo-container">';
-
-        // Cabeçalho: mesmo formato dos resumos normais
-        echo '    <p class="resumo-header-ctx">Palestras | <strong>' . esc_html($event_label) . '</strong> | ' . esc_html($event_location) . '</p>';
-
-        // Título (uppercase, bold, centralizado)
-        echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
-
-        // Autores
-        if (!empty($ad['authors_line'])) {
-            echo '    <p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
-        } elseif (!empty($author_name)) {
-            echo '    <p class="resumo-autores">' . esc_html($author_name) . '</p>';
+        if ($pages_html === null) {
+            $attachment_id = get_post_meta($post->ID, '_sciflow_attachment_id', true);
+            $content = '';
+            if ($attachment_id) {
+                $content = $this->extract_docx_content($attachment_id);
+            }
+            if (empty($content)) {
+                $content = wp_kses_post($post->post_content);
+            }
+            $content = $this->convert_scientific_notation($content);
+            $content = $this->linkify_enfrute_urls($content);
+            $pages_html = $this->split_html_into_pages($content);
         }
 
-        // Afiliações
-        if (!empty($ad['affiliations_line'])) {
-            echo '    <p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
+        $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
+
+        foreach ($pages_html as $i => $page_content) {
+            echo '<div class="page resumo-page palestra-page" id="palestra-' . intval($post->ID) . ($i > 0 ? '-p'.$i : '') . '">';
+            echo '  <div class="resumo-container">';
+
+            if ($i === 0) {
+                echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
+                echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
+
+                if (!empty($ad['authors_line'])) {
+                    echo '    <p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
+                } elseif (!empty($author_name)) {
+                    echo '    <p class="resumo-autores">' . esc_html($author_name) . '</p>';
+                }
+
+                if (!empty($ad['affiliations_line'])) {
+                    echo '    <p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
+                }
+
+                if (!empty($duration)) {
+                    echo '    <p class="resumo-afils" style="margin-top:4px;"><em>Duração: ' . esc_html($duration) . ' min</em></p>';
+                }
+            } else {
+                echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '<br><br><em>Continuação – ' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</em></p>';
+            }
+
+            if (!empty($page_content)) {
+                echo '    <div class="resumo-corpo">' . $page_content . '</div>';
+            }
+
+            echo '  </div>';
+            echo '  <div class="resumo-footer">' . intval($num + $i) . '</div>';
+            echo '</div>';
         }
-
-        // Duração (se disponível)
-        if (!empty($duration)) {
-            echo '    <p class="resumo-afils" style="margin-top:4px;"><em>Duração: ' . esc_html($duration) . ' min</em></p>';
-        }
-
-        // Corpo do texto (extraído do Word ou post_content)
-        if (!empty($content)) {
-            echo '    <div class="resumo-corpo">' . $content . '</div>';
-        }
-
-        echo '  </div>';
-
-        // Rodapé com número de página (Item 10 – mesmo padrão dos resumos)
-        echo '  <div class="resumo-footer">' . intval($num) . '</div>';
-
-        echo '</div>';
     }
 
     /**
