@@ -1021,7 +1021,7 @@ endif; ?>
         $content = $this->linkify_enfrute_urls($content);
 
         // ID âncora: palestra-{ID} (para links do sumário)
-        echo '<div class="page resumo-page" id="palestra-' . intval($post->ID) . '">';
+        echo '<div class="page resumo-page palestra-page" id="palestra-' . intval($post->ID) . '">';
         echo '  <div class="resumo-container">';
 
         // Cabeçalho: mesmo formato dos resumos normais
@@ -1133,21 +1133,73 @@ endif; ?>
         $zip = new ZipArchive();
         if ($zip->open($file_path) !== true) return '';
 
-        $xml = $zip->getFromName('word/document.xml');
+        $xml      = $zip->getFromName('word/document.xml');
+        $rels_xml = $zip->getFromName('word/_rels/document.xml.rels');
+
+        // ── Mapa de relacionamentos: rId → caminho relativo ────────────────
+        $rel_map = array();
+        if ($rels_xml) {
+            preg_match_all('/Id="([^"]+)"[^>]*Target="([^"]+)"/i', $rels_xml, $rm, PREG_SET_ORDER);
+            foreach ($rm as $r) {
+                $rel_map[$r[1]] = $r[2];
+            }
+        }
+
+        // ── Extrai imagens como data URI base64 ────────────────────────
+        $images_b64 = array();
+        $img_exts   = array('png', 'jpg', 'jpeg', 'gif', 'bmp');
+        foreach ($rel_map as $rid => $target) {
+            $ext = strtolower(pathinfo($target, PATHINFO_EXTENSION));
+            if (!in_array($ext, $img_exts, true)) continue;
+
+            // Target é relativo a word/; pode começar com ../ subindo ao ZIP raiz
+            if (strpos($target, '../') === 0) {
+                $zip_path = ltrim(substr($target, 3), '/');
+            } else {
+                $zip_path = 'word/' . $target;
+            }
+
+            $img_data = $zip->getFromName($zip_path);
+            if ($img_data !== false) {
+                $mime = 'image/' . ($ext === 'jpg' ? 'jpeg' : $ext);
+                $images_b64[$rid] = 'data:' . $mime . ';base64,' . base64_encode($img_data);
+            }
+        }
+
         $zip->close();
 
         if (!$xml) return '';
 
-        // Extrai blocos de parágrafo <w:p>...</w:p>
-        preg_match_all('/<w:p[ >\/>].*?<\/w:p>/s', $xml, $para_matches);
+        // ── Processa parágrafos <w:p>...</w:p> ────────────────────────
+        preg_match_all('/<w:p[ >\/].*?<\/w:p>/s', $xml, $para_matches);
 
         $html_parts = array();
 
         foreach ($para_matches[0] as $para_xml) {
-            // Detecta se o parágrafo é título (pStyle que conte'm 'Heading' ou 'Título')
+
+            // ── IMAGENS (w:drawing / w:pict) ───────────────────────
+            if (preg_match('/<w:drawing\b/', $para_xml) || preg_match('/<v:imagedata\b/', $para_xml)) {
+                // a:blip r:embed (moderno DOCX)
+                preg_match_all('/<a:blip[^>]+r:embed="([^"]+)"/i', $para_xml, $bm1);
+                // v:imagedata r:id (legado)
+                preg_match_all('/<v:imagedata[^>]+r:id="([^"]+)"/i', $para_xml, $bm2);
+                $rids = array_unique(array_merge($bm1[1], $bm2[1]));
+
+                $img_rendered = false;
+                foreach ($rids as $rid) {
+                    if (isset($images_b64[$rid])) {
+                        $html_parts[] = '<p style="text-align:center; margin:8px 0;">';
+                        $html_parts[] = '<img src="' . $images_b64[$rid] . '" style="max-width:100%; height:auto;">';
+                        $html_parts[] = '</p>';
+                        $img_rendered = true;
+                    }
+                }
+                if ($img_rendered) continue; // parágrafo tratado como imagem
+            }
+
+            // ── TEXTO ────────────────────────────────────
             $is_heading = preg_match('/<w:pStyle[^>]*w:val="(?:Heading|T[iI]tulo|Title)[^"]*"/i', $para_xml);
 
-            // Coleta todos os runs preservando negrito e itálico
             preg_match_all('/<w:r[ >].*?<\/w:r>/s', $para_xml, $run_matches);
 
             $para_html = '';
@@ -1155,7 +1207,6 @@ endif; ?>
                 $bold   = (bool) preg_match('/<w:b(?:\/| \/|[^a-zA-Z][^>]*\/?>)/', $run_xml);
                 $italic = (bool) preg_match('/<w:i(?:\/| \/|[^a-zA-Z][^>]*\/?>)/', $run_xml);
 
-                // Extrai texto de <w:t> (preserva espaços com xml:space="preserve")
                 preg_match_all('/<w:t[^>]*>(.*?)<\/w:t>/s', $run_xml, $t_matches);
                 $run_text = implode('', $t_matches[1]);
                 $run_text = html_entity_decode($run_text, ENT_XML1 | ENT_QUOTES, 'UTF-8');
@@ -1168,7 +1219,7 @@ endif; ?>
                 $para_html .= $run_text;
             }
 
-            // Trata hyperlinks dentro do parágrafo
+            // Hyperlinks
             preg_match_all('/<w:hyperlink[^>]*>(.*?)<\/w:hyperlink>/s', $para_xml, $hl_matches);
             foreach ($hl_matches[1] as $hl_inner) {
                 preg_match_all('/<w:t[^>]*>(.*?)<\/w:t>/s', $hl_inner, $ht);
@@ -1181,11 +1232,9 @@ endif; ?>
             $para_html = trim($para_html);
             if (empty($para_html)) continue;
 
-            if ($is_heading) {
-                $html_parts[] = '<p><strong>' . $para_html . '</strong></p>';
-            } else {
-                $html_parts[] = '<p>' . $para_html . '</p>';
-            }
+            $html_parts[] = $is_heading
+                ? '<p><strong>' . $para_html . '</strong></p>'
+                : '<p>' . $para_html . '</p>';
         }
 
         return implode('', $html_parts);
@@ -1249,6 +1298,12 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
     size: A4 portrait;
     margin: 0;
   }
+  /* Páginas de palestra podem ultrapassar uma página física;
+     @page nomeado garante margens corretas em TODAS as páginas do overflow */
+  @page palestra-content {
+    size: A4 portrait;
+    margin: 20mm;
+  }
   body.anais-body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .noprint-bar { display: none; }
   .page {
@@ -1257,10 +1312,30 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
     position: relative;
   }
   /* Item 10 – Rodapé fixo em print: garantir altura mínima para posicionamento */
-  .resumo-page {
+  .resumo-page:not(.palestra-page) {
     min-height: var(--ph) !important;
   }
-  .resumo-page { page-break-inside: avoid; break-inside: avoid; }
+  .resumo-page:not(.palestra-page) { page-break-inside: avoid; break-inside: avoid; }
+
+  /* Palestra: permite overflow para múltiplas páginas com margens corretas */
+  .palestra-page {
+    page: palestra-content;          /* margens geridas pelo @page nomeado */
+    padding: 20mm;                   /* preview de tela; impresso o @page sobrescreve */
+    min-height: 0 !important;
+    page-break-before: always;
+    page-break-inside: auto;
+    break-inside: auto;
+    display: block;                  /* evita flex que força altura mínima */
+  }
+  .palestra-page .resumo-container {
+    flex: none;
+    display: block;
+  }
+  .palestra-page .resumo-footer {
+    margin-top: 20px;
+    border-top: 1px solid #ccc;
+    padding-top: 5px;
+  }
 }
 
 /* ─── Formatação Geral de Texto (Páginas Internas) ─────────── */
