@@ -104,6 +104,125 @@ class SciFlow_Anais
         echo '</div>';
     }
 
+        private function generate_server_pdf_palestras($palestra_posts)
+    {
+        $enfrute_posts = array();
+        $semco_posts = array();
+        foreach ($palestra_posts as $p) {
+            $ev = strtolower(get_post_meta($p->ID, '_sciflow_event', true));
+            if ($ev === 'semco') {
+                $semco_posts[] = $p;
+            } else {
+                $enfrute_posts[] = $p;
+            }
+        }
+
+        // Convert Word to PDF and count pages
+        $pdfs_to_merge = array();
+        $post_pages = array();
+        
+        $base_pages = 5;
+        $reviewers = $this->get_reviewers();
+        if (empty($reviewers)) { $reviewers = array('Nenhum revisor cadastrado.'); }
+        $reviewer_chunks = array_chunk($reviewers, 70);
+        $base_pages += count($reviewer_chunks);
+
+        // We need to estimate Sumario pages. 
+        // For palestras, we know exactly how many items.
+        $total_items = count($enfrute_posts) + count($semco_posts);
+        $sumario_rows = 0;
+        if (!empty($enfrute_posts)) { $sumario_rows += 2 + 2 + count($enfrute_posts); }
+        if (!empty($semco_posts)) { $sumario_rows += 2 + 2 + count($semco_posts); }
+        $sumario_pages = ceil($sumario_rows / 38);
+        if ($sumario_pages == 0) $sumario_pages = 1;
+        $base_pages += $sumario_pages;
+
+        $current_page_num = $base_pages;
+
+        set_time_limit(300);
+        $upload_dir = wp_upload_dir();
+        $temp_dir = $upload_dir['basedir'] . '/sciflow_palestras_' . time();
+        mkdir($temp_dir);
+        $debug_log = $temp_dir . '/debug.log';
+        file_put_contents($debug_log, "Iniciando geração de palestras\n");
+
+        $process_posts = function($posts) use (&$current_page_num, &$post_pages, &$pdfs_to_merge, $temp_dir, $debug_log) {
+            $current_page_num++; // Separator page
+            foreach ($posts as $p) {
+                $post_pages[$p->ID] = $current_page_num; // This is where the Palestra starts!
+                $attachment_id = get_post_meta($p->ID, '_sciflow_attachment_id', true);
+                $file_path = get_attached_file($attachment_id);
+                if ($file_path && file_exists($file_path)) {
+                    // Convert to PDF
+                    $cmd_convert = sprintf('libreoffice --headless --convert-to pdf %s --outdir %s 2>&1', escapeshellarg($file_path), escapeshellarg($temp_dir));
+                    $out = shell_exec($cmd_convert);
+                    file_put_contents($debug_log, "Libreoffice $file_path: $out\n", FILE_APPEND);
+                    $pdf_name = pathinfo($file_path, PATHINFO_FILENAME) . '.pdf';
+                    $pdf_path = $temp_dir . '/' . $pdf_name;
+                    if (file_exists($pdf_path)) {
+                        $pdfs_to_merge[] = $pdf_path;
+                        // Count pages
+                        $cmd_count = sprintf('gs -q -dNODISPLAY -c "(%s) (r) file runpdfbegin pdfpagecount = quit"', $pdf_path);
+                        $pages = (int) trim(shell_exec($cmd_count));
+                        if ($pages > 0) {
+                            $current_page_num += $pages;
+                        } else {
+                            $current_page_num += 1;
+                        }
+                    } else {
+                        $current_page_num += 1; // Fallback
+                    }
+                } else {
+                    $current_page_num += 1; // Fallback
+                }
+            }
+        };
+
+        if (!empty($enfrute_posts)) { $process_posts($enfrute_posts); }
+        if (!empty($semco_posts)) { $process_posts($semco_posts); }
+
+        // Generate HTML for preliminary pages
+        ob_start();
+        // Since output_html expects to run in a web context, we need to inject the $post_pages logic into it.
+        // Wait, output_html has its own calculation for $post_pages! We need to override it or let it use ours.
+        // I will pass an extra parameter to output_html.
+        $this->output_html($enfrute_posts, $semco_posts, $palestra_posts, 'palestras', $post_pages);
+        $html = ob_get_clean();
+
+        // Save HTML and generate PDF
+        $html_file = $temp_dir . '/preliminar.html';
+        $prelim_pdf = $temp_dir . '/preliminar.pdf';
+        file_put_contents($html_file, $html);
+        
+        $cmd_chrome = sprintf('chromium-browser --headless --disable-gpu --no-sandbox --print-to-pdf=%s %s 2>&1', escapeshellarg($prelim_pdf), escapeshellarg($html_file));
+        $out = shell_exec($cmd_chrome);
+        file_put_contents($debug_log, "Chromium: $out\n", FILE_APPEND);
+
+        // Merge PDFs
+        $final_pdf = $temp_dir . '/anais_palestras.pdf';
+        if (file_exists($prelim_pdf)) {
+            array_unshift($pdfs_to_merge, $prelim_pdf);
+        }
+        
+        $cmd_merge = sprintf('gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=%s %s 2>&1', escapeshellarg($final_pdf), implode(' ', array_map('escapeshellarg', $pdfs_to_merge)));
+        $out = shell_exec($cmd_merge);
+        file_put_contents($debug_log, "Ghostscript: $out\n", FILE_APPEND);
+
+        // Serve PDF
+        if (file_exists($final_pdf)) {
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="Anais_Palestras.pdf"');
+            header('Content-Length: ' . filesize($final_pdf));
+            readfile($final_pdf);
+        } else {
+            wp_die('Erro ao gerar o PDF consolidado.');
+        }
+
+        // Cleanup
+        // shell_exec('rm -rf ' . escapeshellarg($temp_dir)); // Comentado temporariamente para debug
+        exit;
+    }
+
     public function render_print_page()
     {
         $volume = sanitize_text_field($_GET['anais_volume'] ?? 'resumos');
@@ -126,6 +245,7 @@ class SciFlow_Anais
             $palestra_posts = $query->posts ?: array();
         }
 
+        if ($volume === 'palestras') { $this->generate_server_pdf_palestras($palestra_posts); return; }
         $this->output_html($enfrute_posts, $semco_posts, $palestra_posts, $volume);
         exit;
     }
@@ -163,7 +283,7 @@ class SciFlow_Anais
         $grouped = array();
         foreach ($posts as $p) {
             $area = get_post_meta($p->ID, '_sciflow_knowledge_area', true);
-            $area = $area ? trim($area) : 'Outros';
+            if ($p->post_type === 'sciflow_palestra') { $area = 'Palestras'; } else { $area = $area ? trim($area) : 'Outros'; }
             if (!isset($grouped[$area])) {
                 $grouped[$area] = array();
             }
@@ -243,15 +363,19 @@ class SciFlow_Anais
         };
 
         $authors_parts = array();
+        // Item 11 – Normalizar nome do autor principal em Title Case
+        $main_name_normalized = self::title_case_name($main_name);
         $main_nums   = $get_or_add($main_institution);
         $main_sup    = self::nums_to_superscript($main_nums);
-        $authors_parts[] = trim($main_name) . $main_sup;
+        $authors_parts[] = trim($main_name_normalized) . $main_sup;
 
         foreach ($coauthors as $ca) {
             if (empty($ca['name'])) continue;
+            // Item 11 – Normalizar nome do coautor em Title Case
+            $ca_name_normalized = self::title_case_name($ca['name']);
             $ca_nums = $get_or_add($ca['institution'] ?? '');
             $ca_sup  = self::nums_to_superscript($ca_nums);
-            $authors_parts[] = trim($ca['name']) . $ca_sup;
+            $authors_parts[] = trim($ca_name_normalized) . $ca_sup;
         }
 
         $affil_parts = array();
@@ -286,20 +410,178 @@ class SciFlow_Anais
         return ($idx >= 0 && $idx < count($map)) ? $map[$idx] : (string) $n;
     }
 
-    private function get_image_url($filename)
+    /**
+     * Item 11 – Normaliza nome de autor para Title Case,
+     * preservando preposições/artigos em minúsculas.
+     */
+    private static function title_case_name($name)
     {
-        return plugins_url('admin/images/' . $filename, dirname(dirname(__DIR__)) . '/dummy.php');
+        if (empty(trim($name))) return $name;
+        // Normaliza para lowercase e depois aplica Title Case
+        $name = mb_strtolower(trim($name), 'UTF-8');
+        $name = mb_convert_case($name, MB_CASE_TITLE, 'UTF-8');
+        // Mantém preposições e artigos comuns em minúsculas (exceto no início)
+        $lower_words = array('da', 'de', 'do', 'das', 'dos', 'e', 'a', 'o', 'as', 'os', 'na', 'no', 'nas', 'nos', 'em', 'di', 'del', 'van', 'von', 'der');
+        $words = explode(' ', $name);
+        for ($i = 1; $i < count($words); $i++) {
+            $word_lower = mb_strtolower($words[$i], 'UTF-8');
+            if (in_array($word_lower, $lower_words, true)) {
+                $words[$i] = $word_lower;
+            }
+        }
+        return implode(' ', $words);
     }
 
-    private function output_html($enfrute_posts, $semco_posts, $palestra_posts, $volume)
+    /**
+     * Item 12 – Converte notação científica com ^ para superscript HTML.
+     * Ex: 10^3 → 10<sup>3</sup> | 10^-1 → 10<sup>-1</sup>
+     * Aplica-se apenas a ^N fora de tags HTML.
+     */
+    private function convert_scientific_notation($text)
+    {
+        // Converte padrão ^(sinal opcional)(dígitos) para <sup>...</sup>
+        // O negative lookbehind evita alterar dentro de atributos HTML
+        return preg_replace('/(?<![="\'\w])\^([-+]?\d+)/', '<sup>$1</sup>', $text);
+    }
+
+    /**
+     * Item 1 – Torna URLs do domínio enfrute.com clicáveis no PDF.
+     * Detecta variações: http/https, com/sem www, com caminho.
+     * Não duplica links já existentes em atributos href.
+     */
+    private function linkify_enfrute_urls($text)
+    {
+        return preg_replace_callback(
+            '/(?<![="\'>])((https?:\/\/)?(?:www\.)?enfrute\.com(\/[^\s<>"\']*)?)/i',
+            function ($m) {
+                $url  = $m[1];
+                $href = preg_match('/^https?:\/\//i', $url) ? $url : 'https://' . $url;
+                return '<a href="' . esc_attr($href) . '" target="_blank">' . esc_html($url) . '</a>';
+            },
+            $text
+        );
+    }
+
+    private function get_image_url($filename)
+    {
+        $path = SCIFLOW_PATH . 'admin/images/' . $filename;
+        if (file_exists($path)) {
+            $type = pathinfo($path, PATHINFO_EXTENSION);
+            $data = file_get_contents($path);
+            return 'data:image/' . $type . ';base64,' . base64_encode($data);
+        }
+        return '';
+    }
+
+    private function output_html($enfrute_posts, $semco_posts, $palestra_posts, $volume, $custom_post_pages = null)
     {
         $is_palestras = ($volume === 'palestras');
         $total = $is_palestras ? count($palestra_posts) : (count($enfrute_posts) + count($semco_posts));
 
-        $img_capa = $is_palestras ? 'static_palestras_pg0.png' : 'static_pg0.png';
-        $img_rosto = $is_palestras ? 'static_palestras_pg1.png' : 'static_pg1.png';
+        $img_capa      = $is_palestras ? 'static_palestras_pg0.png' : 'static_pg0.png';
+        $img_rosto     = $is_palestras ? 'static_palestras_pg1.png' : 'static_pg1.png';
         $img_parceiros = $is_palestras ? 'static_palestras_pg3.png' : 'static_pg3.png';
-        $img_apres = $is_palestras ? 'static_palestras_apres.png' : null;
+        $img_apres     = $is_palestras ? 'static_palestras_apres.png' : null;
+
+        // ── PRE-CÁLCULOS (movidos para antes do HTML para que $total_pages
+        //    esteja disponível na ficha catalográfica – Item 3) ─────────────
+        if (!$is_palestras) {
+            $base_pages = 5; // capa, rosto, ficha, parceiros, apresentação
+
+            $reviewers = $this->get_reviewers();
+            if (empty($reviewers)) { $reviewers = array('Nenhum revisor cadastrado.'); }
+            $reviewer_chunks    = array_chunk($reviewers, 70);
+            $num_reviewer_pages = count($reviewer_chunks);
+            $base_pages += $num_reviewer_pages;
+
+            // Monta estrutura do sumário e agrupa posts por área
+            $sumario_lines   = array();
+            $grouped_enfrute = array();
+            $grouped_semco   = array();
+
+            if (!empty($enfrute_posts)) {
+                $sumario_lines[] = array('type' => 'event', 'text' => 'Resumos – XIX Enfrute');
+                $grouped_enfrute = $this->group_by_area($enfrute_posts);
+                foreach ($grouped_enfrute as $area => $posts) {
+                    $sumario_lines[] = array('type' => 'area', 'text' => $area);
+                    foreach ($posts as $p) {
+                        $sumario_lines[] = array('type' => 'post', 'post' => $p);
+                    }
+                }
+            }
+            if (!empty($semco_posts)) {
+                $sumario_lines[] = array('type' => 'event', 'text' => 'Resumos – III Semco');
+                $grouped_semco = $this->group_by_area($semco_posts);
+                foreach ($grouped_semco as $area => $posts) {
+                    $sumario_lines[] = array('type' => 'area', 'text' => $area);
+                    foreach ($posts as $p) {
+                        $sumario_lines[] = array('type' => 'post', 'post' => $p);
+                    }
+                }
+            }
+
+            // Pagina o sumário
+            $sumario_pages = array();
+            $_cur_page     = array();
+            $_rows         = 0;
+            $max_rows      = 38;
+            foreach ($sumario_lines as $line) {
+                $row_cost = ($line['type'] === 'post') ? 1 : 2;
+                if ($_rows + $row_cost > $max_rows && !empty($_cur_page)) {
+                    $sumario_pages[] = $_cur_page;
+                    $_cur_page = array();
+                    $_rows     = 0;
+                }
+                $_cur_page[] = $line;
+                $_rows += $row_cost;
+            }
+            if (!empty($_cur_page)) { $sumario_pages[] = $_cur_page; }
+
+            $num_sumario_pages = count($sumario_pages);
+            if ($num_sumario_pages === 0) $num_sumario_pages = 1;
+            $base_pages += $num_sumario_pages;
+
+            // Calcula números de página por artigo
+            if ($custom_post_pages !== null) {
+                $post_pages  = $custom_post_pages;
+                $total_pages = !empty($post_pages) ? max($post_pages) : $base_pages;
+            } else {
+                $post_pages       = array();
+                $current_page_num = $base_pages;
+
+                if (!empty($enfrute_posts)) {
+                    foreach ($grouped_enfrute as $area => $posts) {
+                        $current_page_num++; // Separador
+                        foreach ($posts as $p) {
+                            $current_page_num++;
+                            $post_pages[$p->ID] = $current_page_num;
+                        }
+                    }
+                }
+                if (!empty($semco_posts)) {
+                    foreach ($grouped_semco as $area => $posts) {
+                        $current_page_num++; // Separador
+                        foreach ($posts as $p) {
+                            $current_page_num++;
+                            $post_pages[$p->ID] = $current_page_num;
+                        }
+                    }
+                }
+                // Item 3 – Total estimado de páginas do PDF final
+                $total_pages = $current_page_num;
+            }
+        } else {
+            // Palestras: inicialização mínima das variáveis
+            $base_pages      = 0;
+            $reviewers       = array();
+            $reviewer_chunks = array();
+            $sumario_lines   = array();
+            $sumario_pages   = array();
+            $grouped_enfrute = array();
+            $grouped_semco   = array();
+            $post_pages      = ($custom_post_pages !== null) ? $custom_post_pages : array();
+            $total_pages     = $total; // Para palestras, mantém contagem original
+        }
         ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -319,18 +601,18 @@ class SciFlow_Anais
 
 <!-- ═══════════════ CAPA ═══════════════ -->
 <div class="page static-page">
-    <img src="<?php echo esc_url($this->get_image_url($img_capa)); ?>" alt="Capa" class="full-page-img">
+    <img src="<?php echo esc_attr($this->get_image_url($img_capa)); ?>" alt="Capa" class="full-page-img">
 </div>
 
 <!-- ═══════════════ PÁGINA 2 (Folha de Rosto) ═══════════════ -->
 <div class="page static-page">
-    <img src="<?php echo esc_url($this->get_image_url($img_rosto)); ?>" alt="Folha de Rosto" class="full-page-img">
+    <img src="<?php echo esc_attr($this->get_image_url($img_rosto)); ?>" alt="Folha de Rosto" class="full-page-img">
 </div>
 
 <!-- ═══════════════ PÁGINA 3 (Ficha Catalográfica) ═══════════════ -->
 <div class="page text-page pg-ficha">
     <p>Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina<br>
-    Epagri/Estação Experimental de Caçador “José Oscar Kurtz”<br>
+    Epagri/Estação Experimental de Caçador "José Oscar Kurtz"<br>
     Rua Abílio Franco, 1500, Bairro Bom Sucesso<br>
     89501-032, Caçador, SC<br>
     Fone: (49) 3561-6800<br>
@@ -354,11 +636,13 @@ class SciFlow_Anais
     <div class="ficha-caixa">
         <p style="text-align:center; font-weight:bold; margin-bottom:12px;">Ficha Catalográfica</p>
         <p style="text-align:justify; margin-bottom:12px;">
-        <strong>ENCONTRO NACIONAL DE FRUTICULTURA DE CLIMA TEMPERADO, 19., SEMINÁRIO CATARINENSE DE OLERICULTURA, 3.</strong>, 2026, Fraiburgo, SC. 
+        <!-- Item 2 – "DE" → "SOBRE" na ficha catalográfica -->
+        <strong>ENCONTRO NACIONAL SOBRE FRUTICULTURA DE CLIMA TEMPERADO, 19., SEMINÁRIO CATARINENSE DE OLERICULTURA, 3.</strong>, 2026, Fraiburgo, SC. 
         <?php if ($is_palestras): ?>
             <strong>Anais de Palestras...</strong> Caçador, SC: Epagri, vol. I (Palestras), 2026. <?php echo intval($total); ?> palestras.
         <?php else: ?>
-            <strong>Anais de Resumos...</strong> Caçador, SC: Epagri, vol. II (Resumos), 2026. <?php echo intval($total); ?> resumos.
+            <!-- Item 3 – Número real de páginas do PDF (estimativa) -->
+            <strong>Anais de Resumos...</strong> Caçador, SC: Epagri, vol. II (Resumos), 2026. <?php echo intval($total_pages); ?> p.
         <?php endif; ?>
         </p>
         <p style="text-align:justify; margin-bottom:12px;">
@@ -370,19 +654,20 @@ class SciFlow_Anais
 
 <!-- ═══════════════ PÁGINA 4 (Realização e Patrocínio) ═══════════════ -->
 <div class="page static-page">
-    <img src="<?php echo esc_url($this->get_image_url($img_parceiros)); ?>" alt="Realização e Patrocínio" class="full-page-img">
+    <img src="<?php echo esc_attr($this->get_image_url($img_parceiros)); ?>" alt="Realização e Patrocínio" class="full-page-img">
 </div>
 
 <!-- ═══════════════ PÁGINA 5 (Apresentação) ═══════════════ -->
 <?php if ($is_palestras && $img_apres): ?>
 <div class="page static-page">
-    <img src="<?php echo esc_url($this->get_image_url($img_apres)); ?>" alt="Apresentação" class="full-page-img">
+    <img src="<?php echo esc_attr($this->get_image_url($img_apres)); ?>" alt="Apresentação" class="full-page-img">
 </div>
 <?php else: ?>
 <div class="page text-page pg-apresentacao">
     <p class="apres-titulo"><strong>APRESENTAÇÃO</strong></p>
     
-    <p class="apres-texto">A Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina (Epagri), Associação dos Engenheiros Agrônomos de Caçador (AEAC), Universidade Alto Vale do Rio do Peixe (Uniarp) e Prefeitura de Fraiburgo realizaram em Fraiburgo-SC nos dias 28, 29 e 30 de julho de 2026 o XIX Encontro Nacional de Fruticultura de Clima Temperado – XIX Enfrute e III Seminário Catarinense de Olericultura – III Semco. O tema central do evento foi a valorização da ciência brasileira para a produção de frutas e de hortaliças, em busca de uma produção cada vez mais competitiva, aderente as boas práticas de produção. No XIX Enfrute e III Semco foram submetidos mais de 400 resumos científicos contendo informações científicas relacionadas à fruticultura e olericultura, tudo em primeira mão. Os trabalhos aprovados pelo comitê científico foram apresentados em formato de pôster digital no website dos eventos, e estão disponíveis publicamente para consulta a qualquer momento. Nessa edição, foi criado o <strong>1º Prêmio HortiFruti Ciência</strong>, que tem como objetivo prestigiar, valorizar e premiar os melhores trabalhos científicos submetidos e apresentados. De todos os resumos submetidos ao XIX Enfrute e III Semco, 12 foram selecionados pelo comitê técnico-científico para apresentação oral pelos autores, sendo os três melhores premiados. Nesta obra estão apresentados os resumos de todos os trabalhos científicos aprovados nos dois eventos.</p>
+    <!-- Item 2 – "DE" → "SOBRE" no texto da apresentação -->
+    <p class="apres-texto">A Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina (Epagri), Associação dos Engenheiros Agrônomos de Caçador (AEAC), Universidade Alto Vale do Rio do Peixe (Uniarp) e Prefeitura de Fraiburgo realizaram em Fraiburgo-SC nos dias 28, 29 e 30 de julho de 2026 o XIX Encontro Nacional SOBRE Fruticultura de Clima Temperado – XIX Enfrute e III Seminário Catarinense de Olericultura – III Semco. O tema central do evento foi a valorização da ciência brasileira para a produção de frutas e de hortaliças, em busca de uma produção cada vez mais competitiva, aderente as boas práticas de produção. No XIX Enfrute e III Semco foram submetidos mais de 400 resumos científicos contendo informações científicas relacionadas à fruticultura e olericultura, tudo em primeira mão. Os trabalhos aprovados pelo comitê científico foram apresentados em formato de pôster digital no website dos eventos, e estão disponíveis publicamente para consulta a qualquer momento em <a href="https://enfrute.com" target="_blank">enfrute.com</a>. Nessa edição, foi criado o <strong>1º Prêmio HortiFruti Ciência</strong>, que tem como objetivo prestigiar, valorizar e premiar os melhores trabalhos científicos submetidos e apresentados. De todos os resumos submetidos ao XIX Enfrute e III Semco, 12 foram selecionados pelo comitê técnico-científico para apresentação oral pelos autores, sendo os três melhores premiados. Nesta obra estão apresentados os resumos de todos os trabalhos científicos aprovados nos dois eventos.</p>
     
     <p class="apres-texto">Desejamos a todos uma ótima leitura.</p>
     
@@ -412,17 +697,7 @@ endif;
 
 <!-- ═══════════════ PÁGINA 6 (Revisores) ═══════════════ -->
 <?php
-        $base_pages = 5;
-
-        $reviewers = $this->get_reviewers();
-        if (empty($reviewers)) {
-            $reviewers = array('Nenhum revisor cadastrado.');
-        }
-        $reviewer_chunks = array_chunk($reviewers, 70);
-        $num_reviewer_pages = count($reviewer_chunks);
-
-        $base_pages += $num_reviewer_pages;
-
+        // Renderiza páginas de revisores usando $reviewer_chunks pré-calculado
         foreach ($reviewer_chunks as $idx => $chunk) {
             echo '<div class="page text-page pg-revisores">';
             if ($idx === 0) {
@@ -435,77 +710,6 @@ endif;
                 echo '<p style="margin-bottom: 5px;">' . esc_html($r) . '</p>';
             }
             echo '</div></div>';
-        }
-
-        // ── CHUNK SUMÁRIO ───────────────────────────────────────────────────
-        $sumario_lines = array();
-        $grouped_enfrute = array();
-        $grouped_semco = array();
-
-        if (!empty($enfrute_posts)) {
-            $sumario_lines[] = array('type' => 'event', 'text' => 'Resumos – XIX Enfrute');
-            $grouped_enfrute = $this->group_by_area($enfrute_posts);
-            foreach ($grouped_enfrute as $area => $posts) {
-                $sumario_lines[] = array('type' => 'area', 'text' => $area);
-                foreach ($posts as $p) {
-                    $sumario_lines[] = array('type' => 'post', 'post' => $p);
-                }
-            }
-        }
-        if (!empty($semco_posts)) {
-            $sumario_lines[] = array('type' => 'event', 'text' => 'Resumos – III Semco');
-            $grouped_semco = $this->group_by_area($semco_posts);
-            foreach ($grouped_semco as $area => $posts) {
-                $sumario_lines[] = array('type' => 'area', 'text' => $area);
-                foreach ($posts as $p) {
-                    $sumario_lines[] = array('type' => 'post', 'post' => $p);
-                }
-            }
-        }
-
-        $sumario_pages = array();
-        $current_page = array();
-        $rows = 0;
-        $max_rows = 38; 
-
-        foreach ($sumario_lines as $line) {
-            $row_cost = ($line['type'] === 'post') ? 1 : 2;
-            if ($rows + $row_cost > $max_rows && !empty($current_page)) {
-                $sumario_pages[] = $current_page;
-                $current_page = array();
-                $rows = 0;
-            }
-            $current_page[] = $line;
-            $rows += $row_cost;
-        }
-        if (!empty($current_page)) {
-            $sumario_pages[] = $current_page;
-        }
-
-        $num_sumario_pages = count($sumario_pages);
-        $base_pages += $num_sumario_pages;
-
-        // Calcula números de página
-        $post_pages = array();
-        $current_page_num = $base_pages;
-
-        if (!empty($enfrute_posts)) {
-            foreach ($grouped_enfrute as $area => $posts) {
-                $current_page_num++; // Separador
-                foreach ($posts as $p) {
-                    $current_page_num++;
-                    $post_pages[$p->ID] = $current_page_num;
-                }
-            }
-        }
-        if (!empty($semco_posts)) {
-            foreach ($grouped_semco as $area => $posts) {
-                $current_page_num++; // Separador
-                foreach ($posts as $p) {
-                    $current_page_num++;
-                    $post_pages[$p->ID] = $current_page_num;
-                }
-            }
         }
 
         // ── RENDER SUMÁRIO ──────────────────────────────────────────────────
@@ -523,11 +727,16 @@ endif;
                 } elseif ($line['type'] === 'area') {
                     echo '<p style="margin-top:10px; font-weight:bold; text-transform:uppercase; font-size:11pt;">' . esc_html($line['text']) . '</p>';
                 } elseif ($line['type'] === 'post') {
-                    $p = $line['post'];
+                    $p  = $line['post'];
                     $pg = isset($post_pages[$p->ID]) ? $post_pages[$p->ID] : '';
-                    echo '<div style="display:flex; justify-content:space-between; margin-left:20px; font-size:10pt; line-height:1.2; margin-bottom:4px;">';
-                    echo '<span style="flex:1; padding-right:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' . wp_kses($this->format_scientific_title($p->post_title), array('i'=>array(),'em'=>array())) . '</span>';
-                    echo '<span>Pág. ' . $pg . '</span>';
+                    // Item 5 – Título completo sem truncamento
+                    // Item 6 – Links clicáveis no sumário (id no artigo, href aqui)
+                    // Item 4 – Apenas o número, sem "Pág."
+                    echo '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-left:20px; font-size:10pt; line-height:1.2; margin-bottom:4px;">';
+                    echo '<a href="#post-' . intval($p->ID) . '" style="flex:1; padding-right:10px; color:inherit; text-decoration:none;">'
+                        . wp_kses($this->format_scientific_title($p->post_title), array('i' => array(), 'em' => array()))
+                        . '</a>';
+                    echo '<a href="#post-' . intval($p->ID) . '" style="white-space:nowrap; color:inherit; text-decoration:none;">' . $pg . '</a>';
                     echo '</div>';
                 }
             }
@@ -572,6 +781,7 @@ endif;
 </html>
 <?php
     }
+
     private function render_resumo($post, $num, $evento_label, $area_label)
     {
         $main_name    = get_post_meta($post->ID, '_sciflow_main_author_name', true);
@@ -586,16 +796,18 @@ endif;
 
         $ad = self::build_author_affiliations($main_name, $main_instit, $coauthors);
 
-        echo '<div class="page resumo-page">';
+        // Item 6 – id para link interno do sumário
+        echo '<div class="page resumo-page" id="post-' . intval($post->ID) . '">';
         echo '  <div class="resumo-container">';
         
-        // Cabeçalho de contexto na página do resumo
-        echo '    <p class="resumo-header-ctx">' . esc_html($evento_label) . ' | <strong>' . esc_html($area_label) . '</strong></p>';
+        // Item 7 – Cabeçalho mantém conteúdo existente e agrega local/data do evento
+        $event_location = 'Fraiburgo, SC | 28, 29 e 30 de julho de 2026';
+        echo '    <p class="resumo-header-ctx">' . esc_html($evento_label) . ' | <strong>' . esc_html($area_label) . '</strong> | ' . esc_html($event_location) . '</p>';
 
         // Título centralizado, uppercase, Arial/Calibri ou TNR 12pt Bold
         echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
 
-        // Autores (centralizados)
+        // Autores (centralizados) – Item 11: Title Case já aplicado em build_author_affiliations
         echo '    <p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
 
         // Afiliações (centralizadas, menor)
@@ -603,24 +815,34 @@ endif;
             echo '    <p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
         }
 
-        // Corpo do resumo
-        echo '    <p style="font-size:12pt; font-weight:bold; margin-bottom:5px;">Resumo:</p>';
-        echo '    <div class="resumo-corpo">' . wp_kses_post($post->post_content) . '</div>';
+        // Item 9 – Removido o label "Resumo:" que aparecia antes do corpo do artigo
 
-        // Agradecimentos
+        // Corpo do resumo – Item 1 (linkify), Item 12 (notação científica)
+        $content = wp_kses_post($post->post_content);
+        $content = $this->convert_scientific_notation($content);
+        $content = $this->linkify_enfrute_urls($content);
+        echo '    <div class="resumo-corpo">' . $content . '</div>';
+
+        // Agradecimentos – Item 1 (linkify), Item 12 (notação científica)
         if (!empty($ack)) {
-            echo '    <p class="resumo-ack"><strong>Agradecimentos:</strong> ' . esc_html($ack) . '</p>';
+            $ack_safe = esc_html($ack);
+            $ack_safe = $this->convert_scientific_notation($ack_safe);
+            $ack_safe = $this->linkify_enfrute_urls($ack_safe);
+            echo '    <p class="resumo-ack"><strong>Agradecimentos:</strong> ' . $ack_safe . '</p>';
         }
 
-        // Palavras-chave
+        // Palavras-chave – Item 12 (notação científica)
         if (!empty($keywords)) {
-            echo '    <p class="resumo-kws"><strong>Palavras-chave:</strong> ' . esc_html(implode('; ', $keywords)) . '.</p>';
+            $kw_safe = esc_html(implode('; ', $keywords));
+            $kw_safe = $this->convert_scientific_notation($kw_safe);
+            echo '    <p class="resumo-kws"><strong>Palavras-chave:</strong> ' . $kw_safe . '.</p>';
         }
-
-        // Rodapé com o número do resumo
-        echo '    <div class="resumo-footer">Página ' . intval($num) . '</div>';
 
         echo '  </div>';
+
+        // Item 10 – Rodapé fixo na parte inferior da página, sem a palavra "Página"
+        echo '  <div class="resumo-footer">' . intval($num) . '</div>';
+
         echo '</div>';
     }
 
@@ -644,7 +866,8 @@ html, body {
   color: var(--c-text);
   line-height: 1.0;
 }
-sup { font-size: 70%; line-height: 0; position: relative; top: -0.4em; }
+/* Item 8 – Corrige superscript: reduz elevação para não invadir linha anterior */
+sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-align: baseline; }
 
 /* ─── Screen Preview (Admin) ───────────────────────────────── */
 @media screen {
@@ -687,6 +910,10 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.4em; }
     width: auto; min-height: 0; margin: 0; box-shadow: none;
     page-break-after: always; break-after: page;
     position: relative;
+  }
+  /* Item 10 – Rodapé fixo em print: garantir altura mínima para posicionamento */
+  .resumo-page {
+    min-height: var(--ph) !important;
   }
   .resumo-page { page-break-inside: avoid; break-inside: avoid; }
 }
@@ -744,11 +971,17 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.4em; }
 .sep-area { font-size: 24pt; color: #555; }
 
 /* ─── Resumos Individuais ──────────────────────────────────── */
+/* Item 10 – Layout flex para posicionamento fixo do rodapé */
 .resumo-page {
   padding: var(--margin-interna);
+  min-height: var(--ph);
+  display: flex;
+  flex-direction: column;
 }
 .resumo-container {
-  /* Resumo único por página não deve quebrar */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 .resumo-header-ctx {
   font-family: var(--f-sans);
@@ -797,8 +1030,11 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.4em; }
   font-size: 11pt;
   margin-top: 15px;
 }
+/* Item 10 – Rodapé fixo na parte inferior via margin-top:auto (flex) */
+/* Item 10 – Removida a palavra "Página" do rodapé (feito no PHP) */
 .resumo-footer {
-  margin-top: 30px;
+  margin-top: auto;
+  padding-top: 10px;
   font-size: 10pt;
   color: #999;
   text-align: right;
