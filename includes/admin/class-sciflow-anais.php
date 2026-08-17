@@ -794,8 +794,13 @@ endif;
 <?php if ($is_palestras_preview): ?>
 <!-- ═══════════════ PÁGINA 5: SUMÁRIO (PALESTRAS) ═══════════════ -->
 <?php
+        $current_sumario_page = 5;
         foreach ($sumario_pages as $idx => $spage) {
-            echo '<div class="page text-page pg-sumario">';
+            echo '<div class="page resumo-page pg-sumario">';
+            echo '  <div class="resumo-container">';
+            $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
+            echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
+
             if ($idx === 0) {
                 echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO</p>';
             } else {
@@ -816,7 +821,11 @@ endif;
                     echo '</div>';
                 }
             }
-            echo '</div></div>';
+            echo '    </div>';
+            echo '  </div>';
+            echo '  <div class="resumo-footer">' . $current_sumario_page . '</div>';
+            echo '</div>';
+            $current_sumario_page++;
         }
 ?>
 
@@ -861,8 +870,13 @@ endif; ?>
         }
 
         // ── RENDER SUMÁRIO ──────────────────────────────────────────────────
+        $current_sumario_page = 5;
         foreach ($sumario_pages as $idx => $spage) {
-            echo '<div class="page text-page pg-sumario">';
+            echo '<div class="page resumo-page pg-sumario">';
+            echo '  <div class="resumo-container">';
+            $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
+            echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
+
             if ($idx === 0) {
                 echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO</p>';
             } else {
@@ -877,9 +891,6 @@ endif; ?>
                 } elseif ($line['type'] === 'post') {
                     $p  = $line['post'];
                     $pg = isset($post_pages[$p->ID]) ? $post_pages[$p->ID] : '';
-                    // Item 5 – Título completo sem truncamento
-                    // Item 6 – Links clicáveis no sumário (id no artigo, href aqui)
-                    // Item 4 – Apenas o número, sem "Pág."
                     echo '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-left:20px; font-size:10pt; line-height:1.2; margin-bottom:4px;">';
                     echo '<a href="#post-' . intval($p->ID) . '" style="flex:1; padding-right:10px; color:inherit; text-decoration:none;">'
                         . wp_kses($this->format_scientific_title($p->post_title), array('i' => array(), 'em' => array()))
@@ -888,7 +899,11 @@ endif; ?>
                     echo '</div>';
                 }
             }
-            echo '</div></div>';
+            echo '    </div>';
+            echo '  </div>';
+            echo '  <div class="resumo-footer">' . $current_sumario_page . '</div>';
+            echo '</div>';
+            $current_sumario_page++;
         }
 
         // ── PROCESSAMENTO: XIX ENFRUTE ──────────────────────────────────────
