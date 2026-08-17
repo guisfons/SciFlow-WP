@@ -816,6 +816,11 @@ endif;
         }
 ?>
 <?php endif; ?>
+<?php if ($is_palestras_preview): ?>
+</body>
+</html>
+<?php return; // Fim do preview de palestras — impede a renderização do bloco de resumos
+endif; ?>
 
 <!-- ═══════════════ PÁGINA 6 (Revisores) ═══════════════ -->
 <?php
@@ -1003,7 +1008,15 @@ endif;
         // Monta linha de autores e afiliações (igual ao render_resumo)
         $ad = self::build_author_affiliations($author_name, $main_instit, $coauthors);
 
-        $content = wp_kses_post($post->post_content);
+        // Conteúdo: tenta extrair o arquivo Word anexado; cai para post_content
+        $attachment_id = get_post_meta($post->ID, '_sciflow_attachment_id', true);
+        $content = '';
+        if ($attachment_id) {
+            $content = $this->extract_docx_content($attachment_id);
+        }
+        if (empty($content)) {
+            $content = wp_kses_post($post->post_content);
+        }
         $content = $this->convert_scientific_notation($content);
         $content = $this->linkify_enfrute_urls($content);
 
@@ -1034,7 +1047,7 @@ endif;
             echo '    <p class="resumo-afils" style="margin-top:4px;"><em>Duração: ' . esc_html($duration) . ' min</em></p>';
         }
 
-        // Corpo do texto
+        // Corpo do texto (extraído do Word ou post_content)
         if (!empty($content)) {
             echo '    <div class="resumo-corpo">' . $content . '</div>';
         }
@@ -1045,6 +1058,137 @@ endif;
         echo '  <div class="resumo-footer">' . intval($num) . '</div>';
 
         echo '</div>';
+    }
+
+    /**
+     * Extrai o conteúdo de um arquivo Word (DOCX) anexado como HTML.
+     * Suporta .docx nativamente via ZipArchive + regex.
+     * Para .doc, tenta conversão com LibreOffice (com cache em disco).
+     *
+     * @param  int    $attachment_id  ID do mídia do WordPress
+     * @return string HTML com os parágrafos do documento, ou string vazia
+     */
+    private function extract_docx_content($attachment_id)
+    {
+        if (!$attachment_id) return '';
+
+        $file_path = get_attached_file($attachment_id);
+        if (!$file_path || !file_exists($file_path)) return '';
+
+        $ext = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
+
+        if ($ext === 'docx') {
+            return $this->read_docx_as_html($file_path);
+        }
+
+        // Para .doc e outros formatos: conversão via LibreOffice com cache
+        $cache_path = $file_path . '.html.cache';
+        if (file_exists($cache_path) && filemtime($cache_path) >= filemtime($file_path)) {
+            return file_get_contents($cache_path);
+        }
+
+        $upload_dir = wp_upload_dir();
+        $temp_dir   = $upload_dir['basedir'] . '/sciflow_docconv_' . uniqid();
+        @mkdir($temp_dir, 0755, true);
+
+        $cmd = sprintf(
+            'libreoffice --headless --convert-to html %s --outdir %s 2>&1',
+            escapeshellarg($file_path),
+            escapeshellarg($temp_dir)
+        );
+        shell_exec($cmd);
+
+        $html_file = $temp_dir . '/' . pathinfo($file_path, PATHINFO_FILENAME) . '.html';
+        $body_content = '';
+
+        if (file_exists($html_file)) {
+            $raw = file_get_contents($html_file);
+            if (preg_match('/<body[^>]*>(.*?)<\/body>/si', $raw, $m)) {
+                $body_content = $m[1];
+            }
+            @unlink($html_file);
+        }
+        // Limpa arquivos de imagem gerados pela conversão
+        array_map('unlink', glob($temp_dir . '/*'));
+        @rmdir($temp_dir);
+
+        if (!empty($body_content)) {
+            file_put_contents($cache_path, $body_content);
+        }
+
+        return $body_content;
+    }
+
+    /**
+     * Lê um arquivo .docx (ZIP com word/document.xml) e retorna
+     * os parágrafos como HTML sem dependências externas.
+     *
+     * @param  string $file_path  Caminho absoluto para o .docx
+     * @return string HTML gerado
+     */
+    private function read_docx_as_html($file_path)
+    {
+        if (!class_exists('ZipArchive')) return '';
+
+        $zip = new ZipArchive();
+        if ($zip->open($file_path) !== true) return '';
+
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        if (!$xml) return '';
+
+        // Extrai blocos de parágrafo <w:p>...</w:p>
+        preg_match_all('/<w:p[ >\/>].*?<\/w:p>/s', $xml, $para_matches);
+
+        $html_parts = array();
+
+        foreach ($para_matches[0] as $para_xml) {
+            // Detecta se o parágrafo é título (pStyle que conte'm 'Heading' ou 'Título')
+            $is_heading = preg_match('/<w:pStyle[^>]*w:val="(?:Heading|T[iI]tulo|Title)[^"]*"/i', $para_xml);
+
+            // Coleta todos os runs preservando negrito e itálico
+            preg_match_all('/<w:r[ >].*?<\/w:r>/s', $para_xml, $run_matches);
+
+            $para_html = '';
+            foreach ($run_matches[0] as $run_xml) {
+                $bold   = (bool) preg_match('/<w:b(?:\/| \/|[^a-zA-Z][^>]*\/?>)/', $run_xml);
+                $italic = (bool) preg_match('/<w:i(?:\/| \/|[^a-zA-Z][^>]*\/?>)/', $run_xml);
+
+                // Extrai texto de <w:t> (preserva espaços com xml:space="preserve")
+                preg_match_all('/<w:t[^>]*>(.*?)<\/w:t>/s', $run_xml, $t_matches);
+                $run_text = implode('', $t_matches[1]);
+                $run_text = html_entity_decode($run_text, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+                if (empty($run_text)) continue;
+
+                $run_text = esc_html($run_text);
+                if ($bold)   $run_text = '<strong>' . $run_text . '</strong>';
+                if ($italic) $run_text = '<em>' . $run_text . '</em>';
+                $para_html .= $run_text;
+            }
+
+            // Trata hyperlinks dentro do parágrafo
+            preg_match_all('/<w:hyperlink[^>]*>(.*?)<\/w:hyperlink>/s', $para_xml, $hl_matches);
+            foreach ($hl_matches[1] as $hl_inner) {
+                preg_match_all('/<w:t[^>]*>(.*?)<\/w:t>/s', $hl_inner, $ht);
+                $hl_text = html_entity_decode(implode('', $ht[1]), ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                if (!empty($hl_text)) {
+                    $para_html .= esc_html($hl_text);
+                }
+            }
+
+            $para_html = trim($para_html);
+            if (empty($para_html)) continue;
+
+            if ($is_heading) {
+                $html_parts[] = '<p><strong>' . $para_html . '</strong></p>';
+            } else {
+                $html_parts[] = '<p>' . $para_html . '</p>';
+            }
+        }
+
+        return implode('', $html_parts);
     }
 
     private function output_css()
