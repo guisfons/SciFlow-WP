@@ -50,7 +50,8 @@ class SciFlow_Anais
                                     <option value="resumos" <?php selected($volume_filter, 'resumos'); ?>><?php esc_html_e('Resumos Vol. II (Completo)', 'sciflow-wp'); ?></option>
                                     <option value="resumos_enfrute" <?php selected($volume_filter, 'resumos_enfrute'); ?>><?php esc_html_e('Resumos: Somente XIX Enfrute', 'sciflow-wp'); ?></option>
                                     <option value="resumos_semco" <?php selected($volume_filter, 'resumos_semco'); ?>><?php esc_html_e('Resumos: Somente III Semco', 'sciflow-wp'); ?></option>
-                                    <option value="palestras" <?php selected($volume_filter, 'palestras'); ?>><?php esc_html_e('Palestras Vol. I (Páginas Iniciais)', 'sciflow-wp'); ?></option>
+                                    <option value="palestras" <?php selected($volume_filter, 'palestras'); ?>><?php esc_html_e('Palestras Vol. I (Gerar PDF Consolidado)', 'sciflow-wp'); ?></option>
+                                    <option value="palestras_resumos" <?php selected($volume_filter, 'palestras_resumos'); ?>><?php esc_html_e('Palestras Vol. I (Preview Completo – Resumos)', 'sciflow-wp'); ?></option>
                                 </select>
                             </td>
                         </tr>
@@ -236,16 +237,19 @@ class SciFlow_Anais
         if (in_array($volume, array('resumos', 'resumos_semco'), true)) {
             $semco_posts = $this->get_approved_works('semco');
         }
-        if ($volume === 'palestras') {
+        if (in_array($volume, array('palestras', 'palestras_resumos'), true)) {
             $query = new WP_Query(array(
                 'post_type'      => 'sciflow_palestra',
                 'posts_per_page' => -1,
                 'post_status'    => 'any',
+                'orderby'        => 'title',
+                'order'          => 'ASC',
             ));
             $palestra_posts = $query->posts ?: array();
         }
 
         if ($volume === 'palestras') { $this->generate_server_pdf_palestras($palestra_posts); return; }
+        if ($volume === 'palestras_resumos') { $this->output_html(array(), array(), $palestra_posts, 'palestras_resumos'); exit; }
         $this->output_html($enfrute_posts, $semco_posts, $palestra_posts, $volume);
         exit;
     }
@@ -475,7 +479,8 @@ class SciFlow_Anais
 
     private function output_html($enfrute_posts, $semco_posts, $palestra_posts, $volume, $custom_post_pages = null)
     {
-        $is_palestras = ($volume === 'palestras');
+        $is_palestras         = in_array($volume, array('palestras', 'palestras_resumos'), true);
+        $is_palestras_preview = ($volume === 'palestras_resumos');
         $total = $is_palestras ? count($palestra_posts) : (count($enfrute_posts) + count($semco_posts));
 
         $img_capa      = $is_palestras ? 'static_palestras_pg0.png' : 'static_pg0.png';
@@ -571,16 +576,86 @@ class SciFlow_Anais
                 $total_pages = $current_page_num;
             }
         } else {
-            // Palestras: inicialização mínima das variáveis
-            $base_pages      = 0;
+            // Palestras: inicialização de variáveis comuns
             $reviewers       = array();
             $reviewer_chunks = array();
-            $sumario_lines   = array();
-            $sumario_pages   = array();
             $grouped_enfrute = array();
             $grouped_semco   = array();
-            $post_pages      = ($custom_post_pages !== null) ? $custom_post_pages : array();
-            $total_pages     = $total; // Para palestras, mantém contagem original
+
+            if ($is_palestras_preview) {
+                // ── Preview completo (HTML): calcula sumário e páginas ──────
+                $palestra_enfrute = array();
+                $palestra_semco   = array();
+                foreach ($palestra_posts as $p) {
+                    $ev = strtolower(get_post_meta($p->ID, '_sciflow_event', true));
+                    if ($ev === 'semco') {
+                        $palestra_semco[] = $p;
+                    } else {
+                        $palestra_enfrute[] = $p;
+                    }
+                }
+
+                $base_pages = 5; // páginas 0-4: capa, rosto, ficha, parceiros, apresentação
+
+                // Monta linhas do sumário
+                $sumario_lines = array();
+                if (!empty($palestra_enfrute)) {
+                    $sumario_lines[] = array('type' => 'event', 'text' => 'Palestras – XIX Enfrute');
+                    foreach ($palestra_enfrute as $p) {
+                        $sumario_lines[] = array('type' => 'post', 'post' => $p);
+                    }
+                }
+                if (!empty($palestra_semco)) {
+                    $sumario_lines[] = array('type' => 'event', 'text' => 'Palestras – III Semco');
+                    foreach ($palestra_semco as $p) {
+                        $sumario_lines[] = array('type' => 'post', 'post' => $p);
+                    }
+                }
+
+                // Pagina o sumário
+                $sumario_pages = array();
+                $_cur_page     = array();
+                $_rows         = 0;
+                $max_rows      = 38;
+                foreach ($sumario_lines as $line) {
+                    $row_cost = ($line['type'] === 'post') ? 1 : 2;
+                    if ($_rows + $row_cost > $max_rows && !empty($_cur_page)) {
+                        $sumario_pages[] = $_cur_page;
+                        $_cur_page = array();
+                        $_rows     = 0;
+                    }
+                    $_cur_page[] = $line;
+                    $_rows += $row_cost;
+                }
+                if (!empty($_cur_page)) { $sumario_pages[] = $_cur_page; }
+                $num_sumario_pages = count($sumario_pages);
+                if ($num_sumario_pages === 0) $num_sumario_pages = 1;
+                $base_pages += $num_sumario_pages;
+                $base_pages += 1; // Separador (página 6 na numeração do usuário)
+
+                // Calcula números de página por palestra
+                if ($custom_post_pages !== null) {
+                    $post_pages  = $custom_post_pages;
+                    $total_pages = !empty($post_pages) ? max($post_pages) : $base_pages;
+                } else {
+                    $post_pages       = array();
+                    $current_page_num = $base_pages;
+                    foreach (array_merge($palestra_enfrute, $palestra_semco) as $p) {
+                        $current_page_num++;
+                        $post_pages[$p->ID] = $current_page_num;
+                    }
+                    $total_pages = $current_page_num;
+                }
+            } else {
+                // ── Modo PDF: inicialização mínima (páginas pré-textuais apenas) ──
+                $base_pages       = 0;
+                $sumario_lines    = array();
+                $sumario_pages    = array();
+                $palestra_enfrute = array();
+                $palestra_semco   = array();
+                $post_pages       = ($custom_post_pages !== null) ? $custom_post_pages : array();
+                $total_pages      = $total;
+            }
         }
         ?>
 <!DOCTYPE html>
@@ -594,9 +669,9 @@ class SciFlow_Anais
 <body class="anais-body">
 
 <div class="noprint-bar">
-  <span>⚠ Preview dos Anais – Vol. II (Resumos)</span>
+  <span>⚠ Preview dos Anais – <?php echo $is_palestras_preview ? 'Vol. I (Palestras)' : 'Vol. II (Resumos)'; ?></span>
   <button onclick="window.print()" class="print-btn">🖨 Imprimir / Salvar como PDF</button>
-  <span class="total-badge"><?php echo intval($total); ?> resumos</span>
+  <span class="total-badge"><?php echo intval($total); ?> <?php echo $is_palestras_preview ? 'palestras' : 'resumos'; ?></span>
 </div>
 
 <!-- ═══════════════ CAPA ═══════════════ -->
@@ -679,8 +754,8 @@ class SciFlow_Anais
 </div>
 <?php endif; ?>
 
-<?php if ($is_palestras): ?>
-<!-- ═══════════════ FIM DA SEÇÃO AUTOMÁTICA DE PALESTRAS ═══════════════ -->
+<?php if ($is_palestras && !$is_palestras_preview): ?>
+<!-- ═══════════════ FIM DA SEÇÃO AUTOMÁTICA DE PALESTRAS (MODO PDF) ═══════════════ -->
 <div class="page text-page centered-page">
     <h2 style="margin-top: 100px; color: #d32f2f;">Fim do Arquivo Introdutório (Volume I)</h2>
     <p style="margin-top: 30px; font-size: 16pt; color: #555;">
@@ -690,10 +765,57 @@ class SciFlow_Anais
 </div>
 </body>
 </html>
-<?php 
-        return; // Interrompe para Palestras (já que elas são Word soltos)
-endif; 
+<?php
+        return; // Interrompe para Palestras no modo PDF (geração de PDF consolidado)
+endif;
 ?>
+
+<?php if ($is_palestras_preview): ?>
+<!-- ═══════════════ PÁGINA 5: SUMÁRIO (PALESTRAS) ═══════════════ -->
+<?php
+        foreach ($sumario_pages as $idx => $spage) {
+            echo '<div class="page text-page pg-sumario">';
+            if ($idx === 0) {
+                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO</p>';
+            } else {
+                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO (Cont.)</p>';
+            }
+            echo '<div class="sumario-lista">';
+            foreach ($spage as $line) {
+                if ($line['type'] === 'event') {
+                    echo '<p style="font-weight:bold; margin-top:16px;">' . esc_html($line['text']) . '</p>';
+                } elseif ($line['type'] === 'post') {
+                    $p  = $line['post'];
+                    $pg = isset($post_pages[$p->ID]) ? $post_pages[$p->ID] : '';
+                    echo '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-left:20px; font-size:10pt; line-height:1.2; margin-bottom:4px;">';
+                    echo '<a href="#palestra-' . intval($p->ID) . '" style="flex:1; padding-right:10px; color:inherit; text-decoration:none;">'
+                        . wp_kses($this->format_scientific_title($p->post_title), array('i' => array(), 'em' => array()))
+                        . '</a>';
+                    echo '<a href="#palestra-' . intval($p->ID) . '" style="white-space:nowrap; color:inherit; text-decoration:none;">' . $pg . '</a>';
+                    echo '</div>';
+                }
+            }
+            echo '</div></div>';
+        }
+?>
+
+<!-- ═══════════════ PÁGINA 6: SEPARADOR (PALESTRAS) ═══════════════ -->
+<div class="page separator-page">
+    <div class="separator-content">
+        <p class="sep-evento">Palestras</p>
+        <p class="sep-area">XIX Enfrute / III Semco 2026</p>
+    </div>
+</div>
+
+<!-- ═══════════════ PÁGINAS 7+: RESUMOS DE PALESTRAS ═══════════════ -->
+<?php
+        $all_palestras_ordered = array_merge($palestra_enfrute, $palestra_semco);
+        foreach ($all_palestras_ordered as $palestra) {
+            $pg = isset($post_pages[$palestra->ID]) ? $post_pages[$palestra->ID] : 0;
+            $this->render_palestra_resumo($palestra, $pg);
+        }
+?>
+<?php endif; ?>
 
 <!-- ═══════════════ PÁGINA 6 (Revisores) ═══════════════ -->
 <?php
@@ -841,6 +963,85 @@ endif;
         echo '  </div>';
 
         // Item 10 – Rodapé fixo na parte inferior da página, sem a palavra "Página"
+        echo '  <div class="resumo-footer">' . intval($num) . '</div>';
+
+        echo '</div>';
+    }
+
+    /**
+     * Renderiza uma página de resumo de palestra.
+     * Campos disponíveis: título, evento, duração, autor WP, corpo do texto.
+     * Cabeçalho: 'Palestras | [Evento] | Fraiburgo, SC | 28, 29 e 30 de julho de 2026'
+     */
+    private function render_palestra_resumo($post, $num)
+    {
+        $event_raw = strtolower(get_post_meta($post->ID, '_sciflow_event', true));
+        if ($event_raw === 'enfrute') {
+            $event_label = 'XIX Enfrute';
+        } elseif ($event_raw === 'semco') {
+            $event_label = 'III Semco';
+        } else {
+            $event_label = ucfirst($event_raw) ?: 'Palestra';
+        }
+
+        $duration       = get_post_meta($post->ID, '_sciflow_duration', true);
+        $event_location = 'Fraiburgo, SC | 28, 29 e 30 de julho de 2026';
+
+        // Autor: prefere _sciflow_main_author_name, cai para WP post_author
+        $main_author_meta = get_post_meta($post->ID, '_sciflow_main_author_name', true);
+        if (!empty(trim($main_author_meta))) {
+            $author_name = self::title_case_name($main_author_meta);
+        } else {
+            $author_user = get_userdata($post->post_author);
+            $author_name = $author_user ? self::title_case_name($author_user->display_name) : '';
+        }
+
+        $main_instit = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
+        $coauthors   = get_post_meta($post->ID, '_sciflow_coauthors', true);
+        if (!is_array($coauthors)) $coauthors = array();
+
+        // Monta linha de autores e afiliações (igual ao render_resumo)
+        $ad = self::build_author_affiliations($author_name, $main_instit, $coauthors);
+
+        $content = wp_kses_post($post->post_content);
+        $content = $this->convert_scientific_notation($content);
+        $content = $this->linkify_enfrute_urls($content);
+
+        // ID âncora: palestra-{ID} (para links do sumário)
+        echo '<div class="page resumo-page" id="palestra-' . intval($post->ID) . '">';
+        echo '  <div class="resumo-container">';
+
+        // Cabeçalho: mesmo formato dos resumos normais
+        echo '    <p class="resumo-header-ctx">Palestras | <strong>' . esc_html($event_label) . '</strong> | ' . esc_html($event_location) . '</p>';
+
+        // Título (uppercase, bold, centralizado)
+        echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
+
+        // Autores
+        if (!empty($ad['authors_line'])) {
+            echo '    <p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
+        } elseif (!empty($author_name)) {
+            echo '    <p class="resumo-autores">' . esc_html($author_name) . '</p>';
+        }
+
+        // Afiliações
+        if (!empty($ad['affiliations_line'])) {
+            echo '    <p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
+        }
+
+        // Duração (se disponível)
+        if (!empty($duration)) {
+            echo '    <p class="resumo-afils" style="margin-top:4px;"><em>Duração: ' . esc_html($duration) . ' min</em></p>';
+        }
+
+        // Corpo do texto
+        if (!empty($content)) {
+            echo '    <div class="resumo-corpo">' . $content . '</div>';
+        }
+
+        echo '  </div>';
+
+        // Rodapé com número de página (Item 10 – mesmo padrão dos resumos)
         echo '  <div class="resumo-footer">' . intval($num) . '</div>';
 
         echo '</div>';
