@@ -530,9 +530,14 @@ class SciFlow_Anais
             $sumario_pages = array();
             $_cur_page     = array();
             $_rows         = 0;
-            $max_rows      = 38;
+            $max_rows      = 44;
             foreach ($sumario_lines as $line) {
-                $row_cost = ($line['type'] === 'post') ? 1 : 2;
+                if ($line['type'] === 'post') {
+                    $t_len = mb_strlen(strip_tags($line['post']->post_title));
+                    $row_cost = max(1, (int) ceil($t_len / 85));
+                } else {
+                    $row_cost = 2;
+                }
                 if ($_rows + $row_cost > $max_rows && !empty($_cur_page)) {
                     $sumario_pages[] = $_cur_page;
                     $_cur_page = array();
@@ -561,6 +566,8 @@ class SciFlow_Anais
                         foreach ($posts as $p) {
                             $current_page_num++;
                             $post_pages[$p->ID] = $current_page_num;
+                            $res_pages = $this->split_resumo_into_pages($p);
+                            $current_page_num += (count($res_pages) - 1);
                         }
                     }
                 }
@@ -570,6 +577,8 @@ class SciFlow_Anais
                         foreach ($posts as $p) {
                             $current_page_num++;
                             $post_pages[$p->ID] = $current_page_num;
+                            $res_pages = $this->split_resumo_into_pages($p);
+                            $current_page_num += (count($res_pages) - 1);
                         }
                     }
                 }
@@ -617,9 +626,14 @@ class SciFlow_Anais
                 $sumario_pages = array();
                 $_cur_page     = array();
                 $_rows         = 0;
-                $max_rows      = 38;
+                $max_rows      = 44;
                 foreach ($sumario_lines as $line) {
-                    $row_cost = ($line['type'] === 'post') ? 1 : 2;
+                    if ($line['type'] === 'post') {
+                        $t_len = mb_strlen(strip_tags($line['post']->post_title));
+                        $row_cost = max(1, (int) ceil($t_len / 85));
+                    } else {
+                        $row_cost = 2;
+                    }
                     if ($_rows + $row_cost > $max_rows && !empty($_cur_page)) {
                         $sumario_pages[] = $_cur_page;
                         $_cur_page = array();
@@ -655,10 +669,12 @@ class SciFlow_Anais
                         if (empty($content)) {
                             $content = wp_kses_post($p->post_content);
                         }
-                        $content = $this->convert_scientific_notation($content);
-                        $content = $this->linkify_enfrute_urls($content);
-                        
-                        $pages_html = $this->split_html_into_pages($content);
+                        $title_str    = strip_tags($p->post_title);
+                        $authors_str  = strip_tags($ad['authors_line'] ?? '');
+                        $afils_str    = strip_tags($ad['affiliations_line'] ?? '');
+                        $meta_cost    = 250 + (mb_strlen($title_str) * 1.0) + (mb_strlen($authors_str) * 1.0) + (mb_strlen($afils_str) * 0.8);
+
+                        $pages_html = $this->split_html_into_pages($content, $meta_cost);
                         $palestra_contents[$p->ID] = $pages_html;
                         
                         $current_page_num += (count($pages_html) - 1);
@@ -947,97 +963,227 @@ endif; ?>
 
     private function render_resumo($post, $num, $evento_label, $area_label)
     {
-        $main_name    = get_post_meta($post->ID, '_sciflow_main_author_name', true);
-        $main_instit  = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
-        $coauthors    = get_post_meta($post->ID, '_sciflow_coauthors', true);
-        $keywords     = get_post_meta($post->ID, '_sciflow_keywords', true);
-        $ack          = get_post_meta($post->ID, '_sciflow_acknowledgement', true);
-        
+        $main_name   = get_post_meta($post->ID, '_sciflow_main_author_name', true);
+        $main_instit = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
+        $coauthors   = get_post_meta($post->ID, '_sciflow_coauthors', true);
+
         if (!is_array($coauthors)) $coauthors = array();
-        if (!is_array($keywords)) $keywords = $keywords ? array($keywords) : array();
+        $ad = self::build_author_affiliations($main_name, $main_instit, $coauthors);
+
+        $pages       = $this->split_resumo_into_pages($post);
+        $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
+
+        foreach ($pages as $i => $page_data) {
+            $page_anchor = ($i === 0) ? 'post-' . intval($post->ID) : 'post-' . intval($post->ID) . '-p' . ($i + 1);
+            echo '<div class="page resumo-page" id="' . $page_anchor . '">';
+            echo '  <div class="resumo-container">';
+
+            if ($i === 0) {
+                echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
+                echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
+                echo '    <p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
+                if (!empty($ad['affiliations_line'])) {
+                    echo '    <p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
+                }
+            } else {
+                echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '<br><br><em>Continuação – ' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</em></p>';
+            }
+
+            if (!empty($page_data['body'])) {
+                echo '    <div class="resumo-corpo">' . $page_data['body'] . '</div>';
+            }
+
+            if (!empty($page_data['ack'])) {
+                echo '    <p class="resumo-ack"><strong>Agradecimentos:</strong> ' . $page_data['ack'] . '</p>';
+            }
+
+            if (!empty($page_data['kws'])) {
+                echo '    <p class="resumo-kws"><strong>Palavras-chave:</strong> ' . $page_data['kws'] . '.</p>';
+            }
+
+            echo '  </div>';
+            echo '  <div class="resumo-footer">' . intval($num + $i) . '</div>';
+            echo '</div>';
+        }
+    }
+
+    /**
+     * Fatia o conteúdo de um resumo em páginas respeitando os limites da folha A4.
+     */
+    private function split_resumo_into_pages($post)
+    {
+        $main_name   = get_post_meta($post->ID, '_sciflow_main_author_name', true);
+        $main_instit = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
+        $coauthors   = get_post_meta($post->ID, '_sciflow_coauthors', true);
+        $keywords    = get_post_meta($post->ID, '_sciflow_keywords', true);
+        $ack         = get_post_meta($post->ID, '_sciflow_acknowledgement', true);
+
+        if (!is_array($coauthors)) $coauthors = array();
+        if (!is_array($keywords))  $keywords  = $keywords ? array($keywords) : array();
         $keywords = array_filter(array_map('trim', $keywords));
 
         $ad = self::build_author_affiliations($main_name, $main_instit, $coauthors);
 
-        // Item 6 – id para link interno do sumário
-        echo '<div class="page resumo-page" id="post-' . intval($post->ID) . '">';
-        echo '  <div class="resumo-container">';
-        
-        // Item 7 – Cabeçalho mantém conteúdo existente e agrega local/data do evento
-        $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
-        echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
+        $title_str    = strip_tags($post->post_title);
+        $authors_str  = strip_tags($ad['authors_line'] ?? '');
+        $afils_str    = strip_tags($ad['affiliations_line'] ?? '');
 
-        // Título centralizado, uppercase, Arial/Calibri ou TNR 12pt Bold
-        echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
+        $title_cost   = mb_strlen($title_str) * 1.0;
+        $authors_cost = mb_strlen($authors_str) * 1.0;
+        $afils_cost   = mb_strlen($afils_str) * 0.8;
+        $meta_cost    = 200 + $title_cost + $authors_cost + $afils_cost;
 
-        // Autores (centralizados) – Item 11: Title Case já aplicado em build_author_affiliations
-        echo '    <p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
+        // Capacidade expandida para suportar até ~700 palavras (~4500-4700 caracteres de corpo) na Pág. 1
+        $page1_max_body = max(1500, 4800 - $meta_cost);
+        $page2_max_body = 4500;
 
-        // Afiliações (centralizadas, menor)
-        if (!empty($ad['affiliations_line'])) {
-            echo '    <p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
+        $body = wp_kses_post($post->post_content);
+        $body = $this->convert_scientific_notation($body);
+        $body = $this->linkify_enfrute_urls($body);
+
+        if (preg_match_all('/<p[^>]*>.*?<\/p>|<div[^>]*>.*?<\/div>/is', $body, $m)) {
+            $raw_blocks = $m[0];
+        } else {
+            $raw_blocks = preg_split('/(?<=[.!?])\s+(?=[A-Z\xC0-\xFF<])/u', $body);
         }
 
-        // Item 9 – Removido o label "Resumo:" que aparecia antes do corpo do artigo
+        $pages    = array();
+        $cur_page = 0;
+        $cur_body = array();
+        $cur_load = 0;
+        $max_load = $page1_max_body;
 
-        // Corpo do resumo – Item 1 (linkify), Item 12 (notação científica)
-        $content = wp_kses_post($post->post_content);
-        $content = $this->convert_scientific_notation($content);
-        $content = $this->linkify_enfrute_urls($content);
-        echo '    <div class="resumo-corpo">' . $content . '</div>';
+        foreach ($raw_blocks as $block) {
+            $block = trim($block);
+            if (empty($block)) continue;
+            $block_len = mb_strlen(strip_tags($block));
 
-        // Agradecimentos – Item 1 (linkify), Item 12 (notação científica)
+            if ($block_len > $max_load && empty($cur_body)) {
+                $words = preg_split('/\s+/u', $block);
+                $word_chunk = array();
+                $chunk_len = 0;
+                foreach ($words as $w) {
+                    $w_len = mb_strlen(strip_tags($w)) + 1;
+                    if ($chunk_len + $w_len > $max_load && !empty($word_chunk)) {
+                        $pages[$cur_page]['body'] = implode(' ', $word_chunk);
+                        $cur_page++;
+                        $word_chunk = array($w);
+                        $chunk_len = $w_len;
+                        $max_load = $page2_max_body;
+                    } else {
+                        $word_chunk[] = $w;
+                        $chunk_len += $w_len;
+                    }
+                }
+                if (!empty($word_chunk)) {
+                    $cur_body[] = implode(' ', $word_chunk);
+                    $cur_load = $chunk_len;
+                }
+                continue;
+            }
+
+            if ($cur_load + $block_len > $max_load && !empty($cur_body)) {
+                $pages[$cur_page]['body'] = implode(' ', $cur_body);
+                $cur_page++;
+                $cur_body = array($block);
+                $cur_load = $block_len;
+                $max_load = $page2_max_body;
+            } else {
+                $cur_body[] = $block;
+                $cur_load += $block_len;
+            }
+        }
+        if (!empty($cur_body)) {
+            $pages[$cur_page]['body'] = implode(' ', $cur_body);
+        }
+
+        if (empty($pages)) {
+            $pages[0] = array('body' => '');
+        }
+
         if (!empty($ack)) {
             $ack_safe = esc_html($ack);
             $ack_safe = $this->convert_scientific_notation($ack_safe);
             $ack_safe = $this->linkify_enfrute_urls($ack_safe);
-            echo '    <p class="resumo-ack"><strong>Agradecimentos:</strong> ' . $ack_safe . '</p>';
+            $ack_len  = mb_strlen(strip_tags($ack_safe)) + 30;
+
+            if ($cur_load + $ack_len > $max_load && !empty($pages[$cur_page]['body'])) {
+                $cur_page++;
+                $cur_load = 0;
+                $max_load = $page2_max_body;
+            }
+            $pages[$cur_page]['ack'] = $ack_safe;
+            $cur_load += $ack_len;
         }
 
-        // Palavras-chave – Item 12 (notação científica)
         if (!empty($keywords)) {
             $kw_safe = esc_html(implode('; ', $keywords));
             $kw_safe = $this->convert_scientific_notation($kw_safe);
-            echo '    <p class="resumo-kws"><strong>Palavras-chave:</strong> ' . $kw_safe . '.</p>';
+            $kw_len  = mb_strlen($kw_safe) + 30;
+
+            if ($cur_load + $kw_len > $max_load && (!empty($pages[$cur_page]['body']) || !empty($pages[$cur_page]['ack']))) {
+                $cur_page++;
+                $cur_load = 0;
+                $max_load = $page2_max_body;
+            }
+            $pages[$cur_page]['kws'] = $kw_safe;
+            $cur_load += $kw_len;
         }
 
-        echo '  </div>';
-
-        // Item 10 – Rodapé fixo na parte inferior da página, sem a palavra "Página"
-        echo '  <div class="resumo-footer">' . intval($num) . '</div>';
-
-        echo '</div>';
+        return $pages;
     }
 
-    private function split_html_into_pages($html)
+    private function split_html_into_pages($html, $meta_cost = 600)
     {
+        @ini_set('pcre.backtrack_limit', '10000000');
         $pages = array();
         $current_page_html = '';
         $current_chars = 0;
         $page_index = 0;
-        
-        if (preg_match_all('/<p[^>]*>.*?<\/p>|<div[^>]*>.*?<\/div>|<img[^>]*>|<ul[^>]*>.*?<\/ul>|<ol[^>]*>.*?<\/ol>|<table[^>]*>.*?<\/table>/is', $html, $matches)) {
-            $blocks = $matches[0];
-        } else {
-            $blocks = array($html);
+
+        $page1_max_body = max(1000, 3100 - $meta_cost);
+        $page2_max_body = 3100;
+
+        $raw_blocks = preg_split('/(?<=<\/p>|<\/div>|<\/table>|<\/ul>|<\/ol>)/i', $html);
+        if (empty($raw_blocks)) {
+            $raw_blocks = array($html);
         }
+
+        $blocks = array();
+        foreach ($raw_blocks as $b) {
+            $b = trim($b);
+            if (empty($b)) continue;
+            $b_text = strip_tags($b);
+            if (mb_strlen($b_text) > 1000 && strpos($b, '<img') === false && strpos($b, '<table') === false) {
+                $sentences = preg_split('/(?<=[.!?])\s+(?=[A-Z\xC0-\xFF<])/u', $b);
+                foreach ($sentences as $s) {
+                    $s = trim($s);
+                    if (!empty($s)) {
+                        $blocks[] = '<p>' . $s . '</p>';
+                    }
+                }
+            } else {
+                $blocks[] = $b;
+            }
+        }
+
+        $max_load = $page1_max_body;
 
         foreach ($blocks as $block) {
             $block_len = mb_strlen(strip_tags($block));
             if (strpos($block, '<img') !== false) {
-                $block_len += 1200;
+                $block_len += 1700;
             }
             if (strpos($block, '<table') !== false) {
-                $block_len += 800;
+                $block_len += 1000;
             }
 
-            $max_chars = ($page_index === 0) ? 1800 : 3000;
-
-            if ($current_chars + $block_len > $max_chars && !empty($current_page_html)) {
+            if ($current_chars + $block_len > $max_load && !empty($current_page_html)) {
                 $pages[] = $current_page_html;
                 $current_page_html = $block;
                 $current_chars = $block_len;
                 $page_index++;
+                $max_load = $page2_max_body;
             } else {
                 $current_page_html .= "\n" . $block;
                 $current_chars += $block_len;
@@ -1097,7 +1243,13 @@ endif; ?>
             }
             $content = $this->convert_scientific_notation($content);
             $content = $this->linkify_enfrute_urls($content);
-            $pages_html = $this->split_html_into_pages($content);
+
+            $title_str    = strip_tags($post->post_title);
+            $authors_str  = strip_tags($ad['authors_line'] ?? '');
+            $afils_str    = strip_tags($ad['affiliations_line'] ?? '');
+            $meta_cost    = 250 + (mb_strlen($title_str) * 1.0) + (mb_strlen($authors_str) * 1.0) + (mb_strlen($afils_str) * 0.8);
+
+            $pages_html = $this->split_html_into_pages($content, $meta_cost);
         }
 
         $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
@@ -1530,6 +1682,14 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
 }
 .resumo-corpo p {
   margin-bottom: 10px;
+}
+.resumo-corpo img {
+  max-width: 100%;
+  max-height: 180mm;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 10px auto;
 }
 .resumo-ack {
   font-size: 11pt;
