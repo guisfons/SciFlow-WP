@@ -1141,8 +1141,8 @@ endif; ?>
         $current_chars = 0;
         $page_index = 0;
 
-        $page1_max_body = max(1000, 3100 - $meta_cost);
-        $page2_max_body = 3100;
+        $page1_max_body = max(1500, 4800 - $meta_cost);
+        $page2_max_body = 4500;
 
         $raw_blocks = preg_split('/(?<=<\/p>|<\/div>|<\/table>|<\/ul>|<\/ol>)/i', $html);
         if (empty($raw_blocks)) {
@@ -1172,10 +1172,10 @@ endif; ?>
         foreach ($blocks as $block) {
             $block_len = mb_strlen(strip_tags($block));
             if (strpos($block, '<img') !== false) {
-                $block_len += 1700;
+                $block_len += 2400;
             }
             if (strpos($block, '<table') !== false) {
-                $block_len += 1000;
+                $block_len += 1200;
             }
 
             if ($current_chars + $block_len > $max_load && !empty($current_page_html)) {
