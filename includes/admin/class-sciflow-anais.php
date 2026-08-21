@@ -669,10 +669,22 @@ class SciFlow_Anais
                         if (empty($content)) {
                             $content = wp_kses_post($p->post_content);
                         }
-                        $title_str    = strip_tags($p->post_title);
-                        $authors_str  = strip_tags($ad['authors_line'] ?? '');
-                        $afils_str    = strip_tags($ad['affiliations_line'] ?? '');
-                        $meta_cost    = 250 + (mb_strlen($title_str) * 1.0) + (mb_strlen($authors_str) * 1.0) + (mb_strlen($afils_str) * 0.8);
+                        $main_author_meta = get_post_meta($p->ID, '_sciflow_main_author_name', true);
+                        if (!empty(trim($main_author_meta))) {
+                            $author_name = self::title_case_name($main_author_meta);
+                        } else {
+                            $author_user = get_userdata($p->post_author);
+                            $author_name = $author_user ? self::title_case_name($author_user->display_name) : '';
+                        }
+                        $main_instit = get_post_meta($p->ID, '_sciflow_main_author_instituicao', true);
+                        $coauthors   = get_post_meta($p->ID, '_sciflow_coauthors', true);
+                        if (!is_array($coauthors)) $coauthors = array();
+                        $ad = self::build_author_affiliations($author_name, $main_instit, $coauthors);
+
+                        $title_str   = strip_tags($p->post_title);
+                        $authors_str = strip_tags($ad['authors_line'] ?? '');
+                        $afils_str   = strip_tags($ad['affiliations_line'] ?? '');
+                        $meta_cost   = mb_strlen($title_str) + mb_strlen($authors_str) + mb_strlen($afils_str);
 
                         $pages_html = $this->split_html_into_pages($content, $meta_cost);
                         $palestra_contents[$p->ID] = $pages_html;
@@ -858,7 +870,8 @@ endif;
         $all_palestras_ordered = array_merge($palestra_enfrute, $palestra_semco);
         foreach ($all_palestras_ordered as $palestra) {
             $pg = isset($post_pages[$palestra->ID]) ? $post_pages[$palestra->ID] : 0;
-            $this->render_palestra_resumo($palestra, $pg);
+            $p_pages_html = isset($palestra_contents[$palestra->ID]) ? $palestra_contents[$palestra->ID] : null;
+            $this->render_palestra_resumo($palestra, $pg, $p_pages_html);
         }
 ?>
 <?php endif; ?>
@@ -1033,9 +1046,8 @@ endif; ?>
         $afils_cost   = mb_strlen($afils_str) * 0.8;
         $meta_cost    = 200 + $title_cost + $authors_cost + $afils_cost;
 
-        // Capacidade expandida para suportar até ~700 palavras (~4500-4700 caracteres de corpo) na Pág. 1
-        $page1_max_body = max(1500, 4800 - $meta_cost);
-        $page2_max_body = 4500;
+        $page1_max_body = max(1000, 2500 - intval($meta_cost * 0.8));
+        $page2_max_body = 2800;
 
         $body = wp_kses_post($post->post_content);
         $body = $this->convert_scientific_notation($body);
@@ -1137,12 +1149,9 @@ endif; ?>
     {
         @ini_set('pcre.backtrack_limit', '10000000');
         $pages = array();
-        $current_page_html = '';
-        $current_chars = 0;
-        $page_index = 0;
 
-        $page1_max_body = max(1500, 4800 - $meta_cost);
-        $page2_max_body = 4500;
+        $page1_max_body = max(1000, 2500 - intval($meta_cost * 0.8));
+        $page2_max_body = 2800;
 
         $raw_blocks = preg_split('/(?<=<\/p>|<\/div>|<\/table>|<\/ul>|<\/ol>)/i', $html);
         if (empty($raw_blocks)) {
@@ -1153,39 +1162,61 @@ endif; ?>
         foreach ($raw_blocks as $b) {
             $b = trim($b);
             if (empty($b)) continue;
-            $b_text = strip_tags($b);
-            if (mb_strlen($b_text) > 1000 && strpos($b, '<img') === false && strpos($b, '<table') === false) {
-                $sentences = preg_split('/(?<=[.!?])\s+(?=[A-Z\xC0-\xFF<])/u', $b);
-                foreach ($sentences as $s) {
-                    $s = trim($s);
-                    if (!empty($s)) {
-                        $blocks[] = '<p>' . $s . '</p>';
-                    }
-                }
-            } else {
-                $blocks[] = $b;
-            }
+            $blocks[] = $b;
         }
 
+        $current_page_html = '';
+        $current_chars = 0;
         $max_load = $page1_max_body;
 
         foreach ($blocks as $block) {
-            $block_len = mb_strlen(strip_tags($block));
+            $block_text_len = mb_strlen(strip_tags($block));
+            $block_len = $block_text_len;
             if (strpos($block, '<img') !== false) {
-                $block_len += 2400;
+                $block_len += 1800;
             }
             if (strpos($block, '<table') !== false) {
                 $block_len += 1200;
             }
 
             if ($current_chars + $block_len > $max_load && !empty($current_page_html)) {
+                $b_text = strip_tags($block);
+                $space_avail = $max_load - $current_chars;
+
+                // Divide parágrafo longo de forma limpa para preencher a página sem estourar
+                if (strpos($block, '<img') === false && strpos($block, '<table') === false && mb_strlen($b_text) > 200 && $space_avail >= 200) {
+                    $sentences = preg_split('/(?<=[.!?])\s+/u', $b_text);
+                    $part1 = array();
+                    $part2 = array();
+                    $p1_len = 0;
+
+                    foreach ($sentences as $s) {
+                        $s_len = mb_strlen($s) + 1;
+                        if ($p1_len + $s_len <= $space_avail || empty($part1)) {
+                            $part1[] = $s;
+                            $p1_len += $s_len;
+                        } else {
+                            $part2[] = $s;
+                        }
+                    }
+
+                    if (!empty($part1) && !empty($part2) && $p1_len >= 150) {
+                        $current_page_html .= "\n<p>" . implode(' ', $part1) . '</p>';
+                        $pages[] = $current_page_html;
+
+                        $current_page_html = '<p>' . implode(' ', $part2) . '</p>';
+                        $current_chars = mb_strlen(strip_tags($current_page_html));
+                        $max_load = $page2_max_body;
+                        continue;
+                    }
+                }
+
                 $pages[] = $current_page_html;
                 $current_page_html = $block;
                 $current_chars = $block_len;
-                $page_index++;
                 $max_load = $page2_max_body;
             } else {
-                $current_page_html .= "\n" . $block;
+                $current_page_html .= ($current_page_html !== '' ? "\n" : '') . $block;
                 $current_chars += $block_len;
             }
         }
@@ -1452,15 +1483,6 @@ endif; ?>
                 $para_html .= $run_text;
             }
 
-            // Hyperlinks
-            preg_match_all('/<w:hyperlink[^>]*>(.*?)<\/w:hyperlink>/s', $para_xml, $hl_matches);
-            foreach ($hl_matches[1] as $hl_inner) {
-                preg_match_all('/<w:t[^>]*>(.*?)<\/w:t>/s', $hl_inner, $ht);
-                $hl_text = html_entity_decode(implode('', $ht[1]), ENT_XML1 | ENT_QUOTES, 'UTF-8');
-                if (!empty($hl_text)) {
-                    $para_html .= esc_html($hl_text);
-                }
-            }
 
             $para_html = trim($para_html);
             if (empty($para_html)) continue;
@@ -1564,7 +1586,7 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
 /* Garante que conversores de doc (LibreOffice) não injetem inline-styles distorcidos */
 .palestra-page .resumo-corpo * {
   font-family: var(--f-serif) !important;
-  line-height: 1.0 !important;
+  line-height: 1.15 !important;
   color: var(--c-text) !important;
 }
 .palestra-page .resumo-corpo sup, 
@@ -1573,7 +1595,7 @@ sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-
 }
 .palestra-page .resumo-corpo p {
   font-size: 12pt !important;
-  margin: 0 0 10px 0 !important;
+  margin: 0 0 6px 0 !important;
   text-align: justify !important;
   text-indent: 0 !important;
 }
