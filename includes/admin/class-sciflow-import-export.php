@@ -13,6 +13,7 @@ class SciFlow_Import_Export
     {
         add_action('admin_post_sciflow_export_works', array($this, 'handle_export'));
         add_action('admin_post_sciflow_export_csv', array($this, 'handle_export_csv'));
+        add_action('admin_post_sciflow_export_poster_aprovado_csv', array($this, 'handle_export_poster_aprovado_csv'));
         add_action('admin_post_sciflow_import_works', array($this, 'handle_import'));
     }
 
@@ -52,6 +53,13 @@ class SciFlow_Import_Export
                     <input type="hidden" name="action" value="sciflow_export_csv">
                     <?php wp_nonce_field('sciflow_export_csv'); ?>
                     <button type="submit" class="button button-secondary"><?php esc_html_e('Baixar Planilha CSV', 'sciflow-wp'); ?></button>
+                </form>
+                <hr style="margin: 20px 0;">
+                <p><?php esc_html_e('Baixe uma planilha CSV com os dados dos autores cujo pôster foi aprovado (status "Pôster Aprovado"), incluindo coautores.', 'sciflow-wp'); ?></p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="sciflow_export_poster_aprovado_csv">
+                    <?php wp_nonce_field('sciflow_export_poster_aprovado_csv'); ?>
+                    <button type="submit" class="button button-secondary"><?php esc_html_e('Baixar CSV – Pôsteres Aprovados', 'sciflow-wp'); ?></button>
                 </form>
             </div>
 
@@ -121,6 +129,115 @@ class SciFlow_Import_Export
             $phone = get_post_meta($post->ID, '_sciflow_main_author_telefone', true);
 
             fputcsv($output, array($title, $author, $status_label, $event, $inst, $cpf, $email, $phone));
+        }
+
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * Handle CSV export for works with 'poster_aprovado' status.
+     * Includes main author data and co-authors on separate rows.
+     */
+    public function handle_export_poster_aprovado_csv()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        check_admin_referer('sciflow_export_poster_aprovado_csv');
+
+        $query = new WP_Query(array(
+            'post_type'      => array('enfrute_trabalhos', 'semco_trabalhos'),
+            'posts_per_page' => -1,
+            'post_status'    => 'any',
+            'meta_query'     => array(
+                array(
+                    'key'     => '_sciflow_status',
+                    'value'   => 'poster_aprovado',
+                    'compare' => '=',
+                ),
+            ),
+            'orderby' => 'title',
+            'order'   => 'ASC',
+        ));
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=poster_aprovado_' . date('Y-m-d') . '.csv');
+        echo "\xEF\xBB\xBF"; // UTF-8 BOM para Excel
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, array(
+            'Título do Trabalho',
+            'Evento',
+            'Tipo de Autor',
+            'Nome',
+            'CPF',
+            'E-mail',
+            'Telefone',
+            'Instituição',
+            'URL do Pôster',
+        ));
+
+        foreach ($query->posts as $post) {
+            $event     = ($post->post_type === 'enfrute_trabalhos') ? 'Enfrute' : 'Semco';
+            $title     = $post->post_title;
+
+            // Poster file URL
+            $poster_id  = get_post_meta($post->ID, '_sciflow_poster_id', true);
+            $poster_url = $poster_id ? wp_get_attachment_url($poster_id) : '';
+
+            // ── Autor principal ──────────────────────────────────────────────
+            $main_name  = get_post_meta($post->ID, '_sciflow_main_author_name', true);
+            if (empty($main_name)) {
+                $author_id = get_post_meta($post->ID, '_sciflow_author_id', true);
+                if ($author_id) {
+                    $user = get_userdata($author_id);
+                    if ($user) $main_name = $user->display_name;
+                }
+            }
+            $main_cpf   = get_post_meta($post->ID, '_sciflow_main_author_cpf', true);
+            $main_email = get_post_meta($post->ID, '_sciflow_main_author_email', true);
+            $main_phone = get_post_meta($post->ID, '_sciflow_main_author_telefone', true);
+            $main_inst  = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
+
+            fputcsv($output, array(
+                $title,
+                $event,
+                'Autor Principal',
+                $main_name,
+                $main_cpf,
+                $main_email,
+                $main_phone,
+                $main_inst,
+                $poster_url,
+            ));
+
+            // ── Coautores ────────────────────────────────────────────────────
+            $coauthors = get_post_meta($post->ID, '_sciflow_coauthors', true);
+            if (!is_array($coauthors)) $coauthors = array();
+
+            foreach ($coauthors as $co) {
+                if (empty($co) || !is_array($co)) continue;
+                $co_name  = isset($co['name'])         ? $co['name']         : '';
+                $co_cpf   = isset($co['cpf'])          ? $co['cpf']          : '';
+                $co_email = isset($co['email'])        ? $co['email']        : '';
+                $co_phone = isset($co['telefone'])     ? $co['telefone']     : (isset($co['phone']) ? $co['phone'] : '');
+                $co_inst  = isset($co['instituicao'])  ? $co['instituicao']  : (isset($co['institution']) ? $co['institution'] : '');
+
+                if (empty($co_name) && empty($co_email)) continue;
+
+                fputcsv($output, array(
+                    $title,
+                    $event,
+                    'Coautor',
+                    $co_name,
+                    $co_cpf,
+                    $co_email,
+                    $co_phone,
+                    $co_inst,
+                    $poster_url,
+                ));
+            }
         }
 
         fclose($output);
