@@ -146,19 +146,20 @@ class SciFlow_Import_Export
         }
         check_admin_referer('sciflow_export_poster_aprovado_csv');
 
+        if (!class_exists('SciFlow_Status_Manager')) {
+            require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-status-manager.php';
+        }
+        $sm = new SciFlow_Status_Manager();
+
+        // Status que indicam que o pôster foi aprovado (inclui apto_publicacao pois vem após poster_aprovado)
+        $poster_aprovado_statuses = array('poster_aprovado', 'apto_publicacao');
+
         $query = new WP_Query(array(
             'post_type'      => array('enfrute_trabalhos', 'semco_trabalhos'),
             'posts_per_page' => -1,
             'post_status'    => 'any',
-            'meta_query'     => array(
-                array(
-                    'key'     => '_sciflow_status',
-                    'value'   => 'poster_aprovado',
-                    'compare' => '=',
-                ),
-            ),
-            'orderby' => 'title',
-            'order'   => 'ASC',
+            'orderby'        => 'title',
+            'order'          => 'ASC',
         ));
 
         header('Content-Type: text/csv; charset=utf-8');
@@ -179,6 +180,12 @@ class SciFlow_Import_Export
         ));
 
         foreach ($query->posts as $post) {
+            // Filtra apenas trabalhos com pôster aprovado
+            $current_status = $sm->get_status($post->ID);
+            if (!in_array($current_status, $poster_aprovado_statuses, true)) {
+                continue;
+            }
+
             $event     = ($post->post_type === 'enfrute_trabalhos') ? 'Enfrute' : 'Semco';
             $title     = $post->post_title;
 
