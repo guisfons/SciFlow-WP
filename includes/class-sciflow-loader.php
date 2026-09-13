@@ -33,6 +33,7 @@ class SciFlow_Loader
     private $access;
     private $redirection;
     private $templates;
+    private $certificates;
 
     /**
      * Instantiate all modules and register hooks.
@@ -73,6 +74,9 @@ class SciFlow_Loader
 
         // Payment.
         $this->payment = new SciFlow_PayGo_Gateway();
+
+        // Certificates.
+        $this->certificates = new SciFlow_Certificates();
 
         // Frontend.
         $this->shortcodes = new SciFlow_Shortcodes(

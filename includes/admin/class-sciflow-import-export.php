@@ -14,6 +14,7 @@ class SciFlow_Import_Export
         add_action('admin_post_sciflow_export_works', array($this, 'handle_export'));
         add_action('admin_post_sciflow_export_csv', array($this, 'handle_export_csv'));
         add_action('admin_post_sciflow_export_poster_aprovado_csv', array($this, 'handle_export_poster_aprovado_csv'));
+        add_action('admin_post_sciflow_export_authors_clean', array($this, 'handle_export_authors_clean'));
         add_action('admin_post_sciflow_import_works', array($this, 'handle_import'));
     }
 
@@ -22,7 +23,7 @@ class SciFlow_Import_Export
      */
     public function render_page()
     {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_options') && !current_user_can('manage_sciflow')) {
             wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
         }
         ?>
@@ -60,6 +61,57 @@ class SciFlow_Import_Export
                     <input type="hidden" name="action" value="sciflow_export_poster_aprovado_csv">
                     <?php wp_nonce_field('sciflow_export_poster_aprovado_csv'); ?>
                     <button type="submit" class="button button-secondary"><?php esc_html_e('Baixar CSV – Pôsteres Aprovados', 'sciflow-wp'); ?></button>
+                </form>
+                <hr style="margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #1d2327; font-size: 1.15em;">📄 <?php esc_html_e('Exportar Autores e Trabalhos (Sem Coautores)', 'sciflow-wp'); ?></h3>
+                <p><?php esc_html_e('Baixe uma planilha com Nome do autor, Nome do trabalho e E-mail, gerando apenas 1 linha por trabalho e sem incluir dados de coautores.', 'sciflow-wp'); ?></p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="sciflow_export_authors_clean">
+                    <?php wp_nonce_field('sciflow_export_authors_clean'); ?>
+                    
+                    <p style="margin-bottom: 8px;">
+                        <label for="export_clean_event"><strong><?php esc_html_e('Evento:', 'sciflow-wp'); ?></strong></label><br>
+                        <select name="export_event" id="export_clean_event" style="width: 100%; max-width: 320px;">
+                            <option value="all"><?php esc_html_e('Todos os Eventos (Enfrute e Semco)', 'sciflow-wp'); ?></option>
+                            <option value="enfrute"><?php esc_html_e('Apenas Enfrute', 'sciflow-wp'); ?></option>
+                            <option value="semco"><?php esc_html_e('Apenas Semco', 'sciflow-wp'); ?></option>
+                        </select>
+                    </p>
+
+                    <p style="margin-bottom: 8px;">
+                        <label for="export_clean_status"><strong><?php esc_html_e('Status do Trabalho:', 'sciflow-wp'); ?></strong></label><br>
+                        <select name="export_status" id="export_clean_status" style="width: 100%; max-width: 320px;">
+                            <option value="all"><?php esc_html_e('Todos os Status', 'sciflow-wp'); ?></option>
+                            <option value="poster_aprovado"><?php esc_html_e('Pôster Aprovado / Concluído', 'sciflow-wp'); ?></option>
+                            <?php
+                            if (!class_exists('SciFlow_Status_Manager')) {
+                                require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-status-manager.php';
+                            }
+                            $sm_render = new SciFlow_Status_Manager();
+                            foreach ($sm_render->get_statuses() as $s_k => $s_l) {
+                                if ($s_k === 'poster_aprovado') continue;
+                                echo '<option value="' . esc_attr($s_k) . '">' . esc_html($s_l) . '</option>';
+                            }
+                            ?>
+                        </select>
+                    </p>
+
+                    <p style="margin-bottom: 8px;">
+                        <label for="export_clean_format"><strong><?php esc_html_e('Formato do Arquivo:', 'sciflow-wp'); ?></strong></label><br>
+                        <select name="export_format" id="export_clean_format" style="width: 100%; max-width: 320px;">
+                            <option value="csv"><?php esc_html_e('CSV (Ponto e vírgula com UTF-8 BOM, ideal para Excel)', 'sciflow-wp'); ?></option>
+                            <option value="xls"><?php esc_html_e('Excel (.xls)', 'sciflow-wp'); ?></option>
+                        </select>
+                    </p>
+
+                    <p style="margin-top: 10px; margin-bottom: 15px;">
+                        <label>
+                            <input type="checkbox" name="unique_emails" value="1">
+                            <?php esc_html_e('Apenas e-mails únicos (remover duplicados caso o autor tenha múltiplos trabalhos)', 'sciflow-wp'); ?>
+                        </label>
+                    </p>
+
+                    <button type="submit" class="button button-primary"><?php esc_html_e('Baixar Planilha (Sem Coautores)', 'sciflow-wp'); ?></button>
                 </form>
             </div>
 
@@ -248,6 +300,135 @@ class SciFlow_Import_Export
         }
 
         fclose($output);
+        exit;
+    }
+
+    /**
+     * Export authors, work titles and emails cleanly without co-authors.
+     */
+    public function handle_export_authors_clean()
+    {
+        if (!current_user_can('manage_options') && !current_user_can('manage_sciflow')) {
+            wp_die(__('Você não tem permissão para exportar dados.', 'sciflow-wp'));
+        }
+        check_admin_referer('sciflow_export_authors_clean');
+
+        $event_filter  = isset($_POST['export_event']) ? sanitize_text_field($_POST['export_event']) : 'all';
+        $status_filter = isset($_POST['export_status']) ? sanitize_text_field($_POST['export_status']) : 'all';
+        $format        = isset($_POST['export_format']) && $_POST['export_format'] === 'xls' ? 'xls' : 'csv';
+        $unique_emails = !empty($_POST['unique_emails']);
+
+        $post_types = array('enfrute_trabalhos', 'semco_trabalhos');
+        if ($event_filter === 'enfrute') {
+            $post_types = array('enfrute_trabalhos');
+        } elseif ($event_filter === 'semco') {
+            $post_types = array('semco_trabalhos');
+        }
+
+        $query_args = array(
+            'post_type'      => $post_types,
+            'posts_per_page' => -1,
+            'post_status'    => array('publish', 'pending', 'draft', 'private'),
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+        );
+
+        $query = new WP_Query($query_args);
+
+        if (!class_exists('SciFlow_Status_Manager')) {
+            require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-status-manager.php';
+        }
+        $sm = new SciFlow_Status_Manager();
+
+        $filename = 'autores_trabalhos_' . date('Y-m-d_His') . '.' . $format;
+
+        if ($format === 'xls') {
+            header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            echo '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1">';
+            echo '<tr><th>' . esc_html__('Nome do autor', 'sciflow-wp') . '</th><th>' . esc_html__('Nome do trabalho', 'sciflow-wp') . '</th><th>' . esc_html__('E-mail', 'sciflow-wp') . '</th></tr>';
+        } else {
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            echo "\xEF\xBB\xBF"; // UTF-8 BOM for Excel / Google Sheets
+            $output = fopen('php://output', 'w');
+            fputcsv($output, array('Nome do autor', 'Nome do trabalho', 'E-mail'), ';');
+        }
+
+        $seen_emails = array();
+
+        foreach ($query->posts as $post) {
+            $current_status = $sm->get_status($post->ID);
+
+            // Filter status if requested
+            if ($status_filter === 'poster_aprovado') {
+                if (!in_array($current_status, array('poster_aprovado', 'apto_publicacao'), true)) {
+                    continue;
+                }
+            } elseif ($status_filter !== 'all') {
+                if ($current_status !== $status_filter) {
+                    continue;
+                }
+            }
+
+            // Author Name
+            $author_name = get_post_meta($post->ID, '_sciflow_main_author_name', true);
+            if (empty($author_name)) {
+                $author_id = get_post_meta($post->ID, '_sciflow_author_id', true) ?: $post->post_author;
+                if ($author_id) {
+                    $user = get_userdata($author_id);
+                    if ($user) {
+                        $author_name = $user->display_name;
+                    }
+                }
+            }
+            $author_name = trim(html_entity_decode((string)$author_name, ENT_QUOTES, 'UTF-8'));
+
+            // Work Title
+            $work_title = trim(html_entity_decode((string)$post->post_title, ENT_QUOTES, 'UTF-8'));
+
+            // Author Email
+            $email = get_post_meta($post->ID, '_sciflow_main_author_email', true);
+            if (empty($email)) {
+                $author_id = get_post_meta($post->ID, '_sciflow_author_id', true) ?: $post->post_author;
+                if ($author_id) {
+                    $user = get_userdata($author_id);
+                    if ($user) {
+                        $email = $user->user_email;
+                    }
+                }
+            }
+            $email = strtolower(trim((string)$email));
+
+            // Skip duplicate emails if requested
+            if ($unique_emails && !empty($email)) {
+                if (isset($seen_emails[$email])) {
+                    continue;
+                }
+                $seen_emails[$email] = true;
+            }
+
+            if ($format === 'xls') {
+                echo '<tr>';
+                echo '<td>' . htmlspecialchars($author_name, ENT_QUOTES, 'UTF-8') . '</td>';
+                echo '<td>' . htmlspecialchars($work_title, ENT_QUOTES, 'UTF-8') . '</td>';
+                echo '<td>' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '</td>';
+                echo '</tr>';
+            } else {
+                fputcsv($output, array($author_name, $work_title, $email), ';');
+            }
+        }
+
+        if ($format === 'xls') {
+            echo '</table></body></html>';
+        } else {
+            fclose($output);
+        }
+
         exit;
     }
 

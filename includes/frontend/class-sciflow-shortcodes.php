@@ -43,6 +43,10 @@ class SciFlow_Shortcodes
         add_shortcode('sciflow_ranking', array($this, 'ranking_page'));
         add_shortcode('sciflow_poster_upload', array($this, 'poster_upload_form'));
         add_shortcode('sciflow_public_posters', array($this, 'public_posters'));
+        add_shortcode('baixar_certificado', array($this, 'certificate_download_form'));
+        add_shortcode('baixar_certificados', array($this, 'certificate_download_form'));
+        add_shortcode('sciflow_certificados', array($this, 'certificate_download_form'));
+        add_shortcode('sciflow_certificates', array($this, 'certificate_download_form'));
     }
 
     /**
@@ -203,5 +207,16 @@ class SciFlow_Shortcodes
         ob_start();
         include SCIFLOW_PATH . 'public/templates/public-posters.php';
         return ob_get_clean();
+    }
+
+    /**
+     * [baixar_certificado] / [sciflow_certificados]
+     */
+    public function certificate_download_form($atts)
+    {
+        if (!class_exists('SciFlow_Certificates')) {
+            require_once SCIFLOW_PATH . 'includes/certificates/class-sciflow-certificates.php';
+        }
+        return SciFlow_Certificates::render_shortcode($atts);
     }
 }
