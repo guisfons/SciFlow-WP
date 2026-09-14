@@ -328,7 +328,7 @@ class SciFlow_Import_Export
         $query_args = array(
             'post_type'      => $post_types,
             'posts_per_page' => -1,
-            'post_status'    => array('publish', 'pending', 'draft', 'private'),
+            'post_status'    => 'any',
             'orderby'        => 'title',
             'order'          => 'ASC',
         );
