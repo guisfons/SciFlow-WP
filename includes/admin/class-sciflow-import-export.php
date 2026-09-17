@@ -13,8 +13,10 @@ class SciFlow_Import_Export
     {
         add_action('admin_post_sciflow_export_works', array($this, 'handle_export'));
         add_action('admin_post_sciflow_export_csv', array($this, 'handle_export_csv'));
+        add_action('admin_post_sciflow_export_approved_csv', array($this, 'handle_export_approved_csv'));
         add_action('admin_post_sciflow_export_poster_aprovado_csv', array($this, 'handle_export_poster_aprovado_csv'));
         add_action('admin_post_sciflow_export_authors_clean', array($this, 'handle_export_authors_clean'));
+        add_action('admin_post_sciflow_export_apresentacao_oral_csv', array($this, 'handle_export_apresentacao_oral_csv'));
         add_action('admin_post_sciflow_import_works', array($this, 'handle_import'));
     }
 
@@ -56,6 +58,14 @@ class SciFlow_Import_Export
                     <button type="submit" class="button button-secondary"><?php esc_html_e('Baixar Planilha CSV', 'sciflow-wp'); ?></button>
                 </form>
                 <hr style="margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #1d2327; font-size: 1.15em;">✅ <?php esc_html_e('Exportar Artigos Aprovados (planilha direta)', 'sciflow-wp'); ?></h3>
+                <p><?php esc_html_e('Baixe uma planilha com Nome do autor, Nome do trabalho e E-mail de todos os artigos aprovados — independente de o pôster ter sido enviado ou não. Inclui os status: Aprovado, Pôster Enviado, Pôster em Correção, Pôster Reenviado, Pôster Aprovado, Pôster Reprovado e Aprovado / Concluído.', 'sciflow-wp'); ?></p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="sciflow_export_approved_csv">
+                    <?php wp_nonce_field('sciflow_export_approved_csv'); ?>
+                    <button type="submit" class="button button-primary"><?php esc_html_e('Baixar Planilha — Aprovados', 'sciflow-wp'); ?></button>
+                </form>
+                <hr style="margin: 20px 0;">
                 <p><?php esc_html_e('Baixe uma planilha CSV com os dados dos autores cujo pôster foi aprovado (status "Pôster Aprovado"), incluindo coautores.', 'sciflow-wp'); ?></p>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="sciflow_export_poster_aprovado_csv">
@@ -82,6 +92,7 @@ class SciFlow_Import_Export
                         <label for="export_clean_status"><strong><?php esc_html_e('Status do Trabalho:', 'sciflow-wp'); ?></strong></label><br>
                         <select name="export_status" id="export_clean_status" style="width: 100%; max-width: 320px;">
                             <option value="all"><?php esc_html_e('Todos os Status', 'sciflow-wp'); ?></option>
+                            <option value="todos_aprovados"><?php esc_html_e('Todos os Aprovados (independente do pôster)', 'sciflow-wp'); ?></option>
                             <option value="poster_aprovado"><?php esc_html_e('Pôster Aprovado / Concluído', 'sciflow-wp'); ?></option>
                             <?php
                             if (!class_exists('SciFlow_Status_Manager')) {
@@ -112,6 +123,16 @@ class SciFlow_Import_Export
                     </p>
 
                     <button type="submit" class="button button-primary"><?php esc_html_e('Baixar Planilha (Sem Coautores)', 'sciflow-wp'); ?></button>
+                </form>
+                <hr style="margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #2271b1; font-size: 1.15em;">🎤 <?php esc_html_e('Exportar Apresentação Oral — Dados dos Anais', 'sciflow-wp'); ?></h3>
+                <p><?php esc_html_e('Exporta somente os trabalhos selecionados para apresentação oral (status "Aguardando Confirmação" e "Confirmado"), com todos os campos que aparecem nos anais: título, evento, área, linha de autores com afiliações, coautores individuais, corpo do resumo, palavras-chave e agradecimentos.', 'sciflow-wp'); ?></p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="sciflow_export_apresentacao_oral_csv">
+                    <?php wp_nonce_field('sciflow_export_apresentacao_oral_csv'); ?>
+                    <button type="submit" class="button" style="background:#2271b1;color:#fff;border-color:#2271b1;">
+                        <?php esc_html_e('Baixar CSV — Apresentação Oral', 'sciflow-wp'); ?>
+                    </button>
                 </form>
             </div>
 
@@ -181,6 +202,111 @@ class SciFlow_Import_Export
             $phone = get_post_meta($post->ID, '_sciflow_main_author_telefone', true);
 
             fputcsv($output, array($title, $author, $status_label, $event, $inst, $cpf, $email, $phone));
+        }
+
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * Export approved articles to CSV — one row per article, no co-authors.
+     *
+     * An article is considered approved if its _sciflow_status is any of:
+     *   aprovado, poster_enviado, poster_em_correcao, poster_reenviado,
+     *   poster_aprovado, poster_reprovado, apto_publicacao.
+     *
+     * The poster submission status is NOT a criterion — an approved article
+     * with no poster submitted is still exported.
+     */
+    public function handle_export_approved_csv()
+    {
+        if (!current_user_can('manage_options') && !current_user_can('manage_sciflow')) {
+            wp_die(__('Você não tem permissão para exportar dados.', 'sciflow-wp'));
+        }
+        check_admin_referer('sciflow_export_approved_csv');
+
+        if (!class_exists('SciFlow_Status_Manager')) {
+            require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-status-manager.php';
+        }
+        $sm = new SciFlow_Status_Manager();
+
+        // All statuses that indicate an article has been approved,
+        // regardless of whether a poster has been submitted yet.
+        $approved_statuses = array(
+            'aprovado',
+            'poster_enviado',
+            'poster_em_correcao',
+            'poster_reenviado',
+            'poster_aprovado',
+            'poster_reprovado',
+            'apto_publicacao',
+        );
+
+        $query = new WP_Query(array(
+            'post_type'      => array('enfrute_trabalhos', 'semco_trabalhos'),
+            'posts_per_page' => -1,
+            'post_status'    => 'any',
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+            // Pre-filter at query level: only fetch posts whose _sciflow_status
+            // is in the approved set, saving memory on large datasets.
+            'meta_query'     => array(
+                array(
+                    'key'     => '_sciflow_status',
+                    'value'   => $approved_statuses,
+                    'compare' => 'IN',
+                ),
+            ),
+        ));
+
+        $filename = 'aprovados_' . date('Y-m-d_His') . '.csv';
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        echo "\xEF\xBB\xBF"; // UTF-8 BOM for Excel / Google Sheets
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, array('Nome do autor', 'Nome do trabalho', 'E-mail'), ';');
+
+        foreach ($query->posts as $post) {
+            // Double-check status in PHP (meta_query already filtered, but defensive)
+            $current_status = $sm->get_status($post->ID);
+            if (!in_array($current_status, $approved_statuses, true)) {
+                continue;
+            }
+
+            // Author name
+            $author_name = get_post_meta($post->ID, '_sciflow_main_author_name', true);
+            if (empty($author_name)) {
+                $author_id = get_post_meta($post->ID, '_sciflow_author_id', true) ?: $post->post_author;
+                if ($author_id) {
+                    $user = get_userdata($author_id);
+                    if ($user) {
+                        $author_name = $user->display_name;
+                    }
+                }
+            }
+            $author_name = trim(html_entity_decode((string) $author_name, ENT_QUOTES, 'UTF-8'));
+
+            // Work title
+            $work_title = trim(html_entity_decode((string) $post->post_title, ENT_QUOTES, 'UTF-8'));
+
+            // Author email
+            $email = get_post_meta($post->ID, '_sciflow_main_author_email', true);
+            if (empty($email)) {
+                $author_id = get_post_meta($post->ID, '_sciflow_author_id', true) ?: $post->post_author;
+                if ($author_id) {
+                    $user = get_userdata($author_id);
+                    if ($user) {
+                        $email = $user->user_email;
+                    }
+                }
+            }
+            $email = strtolower(trim((string) $email));
+
+            fputcsv($output, array($author_name, $work_title, $email), ';');
         }
 
         fclose($output);
@@ -340,6 +466,28 @@ class SciFlow_Import_Export
         }
         $sm = new SciFlow_Status_Manager();
 
+        // DEBUG TEMPORÁRIO: mostra diagnóstico se ?sciflow_debug=1 estiver na URL
+        if (!empty($_GET['sciflow_debug'])) {
+            $debug = array(
+                'total_posts_found' => count($query->posts),
+                'status_filter'     => $status_filter,
+                'event_filter'      => $event_filter,
+                'post_types'        => $post_types,
+                'posts'             => array(),
+            );
+            foreach ($query->posts as $p) {
+                $debug['posts'][] = array(
+                    'ID'             => $p->ID,
+                    'title'          => $p->post_title,
+                    'wp_status'      => $p->post_status,
+                    'sciflow_status' => $sm->get_status($p->ID),
+                );
+            }
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode($debug, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
         $filename = 'autores_trabalhos_' . date('Y-m-d_His') . '.' . $format;
 
         if ($format === 'xls') {
@@ -361,11 +509,33 @@ class SciFlow_Import_Export
 
         $seen_emails = array();
 
+        // DEBUG: loga info no PHP error log para diagnóstico
+        error_log('[SciFlow Export Debug] status_filter=' . $status_filter . ' | event_filter=' . $event_filter . ' | total_posts=' . count($query->posts));
+        foreach ($query->posts as $post) {
+            error_log('[SciFlow Export Debug] Post ID=' . $post->ID . ' | wp_status=' . $post->post_status . ' | sciflow_status=' . $sm->get_status($post->ID) . ' | title=' . $post->post_title);
+        }
+
+        // All statuses that indicate an article has been approved (regardless of poster submission state).
+        $approved_statuses = array(
+            'aprovado',
+            'poster_enviado',
+            'poster_em_correcao',
+            'poster_reenviado',
+            'poster_aprovado',
+            'poster_reprovado',
+            'apto_publicacao',
+        );
+
         foreach ($query->posts as $post) {
             $current_status = $sm->get_status($post->ID);
 
             // Filter status if requested
-            if ($status_filter === 'poster_aprovado') {
+            if ($status_filter === 'todos_aprovados') {
+                // Export all articles that have been approved, regardless of poster submission status.
+                if (!in_array($current_status, $approved_statuses, true)) {
+                    continue;
+                }
+            } elseif ($status_filter === 'poster_aprovado') {
                 if (!in_array($current_status, array('poster_aprovado', 'apto_publicacao'), true)) {
                     continue;
                 }
@@ -429,6 +599,163 @@ class SciFlow_Import_Export
             fclose($output);
         }
 
+        exit;
+    }
+
+    /**
+     * Exporta somente os trabalhos de apresentação oral (aguardando_confirmacao / confirmado)
+     * com todos os campos presentes nos anais: título, evento, área de conhecimento,
+     * linha de autores formatada (com superscripts de afiliação), afiliações, coautores
+     * individualmente, corpo do resumo (texto puro), palavras-chave e agradecimentos.
+     */
+    public function handle_export_apresentacao_oral_csv()
+    {
+        if (!current_user_can('manage_options') && !current_user_can('manage_sciflow')) {
+            wp_die(__('Você não tem permissão para exportar dados.', 'sciflow-wp'));
+        }
+        check_admin_referer('sciflow_export_apresentacao_oral_csv');
+
+        if (!class_exists('SciFlow_Status_Manager')) {
+            require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-status-manager.php';
+        }
+        if (!class_exists('SciFlow_Anais')) {
+            require_once SCIFLOW_PATH . 'includes/admin/class-sciflow-anais.php';
+        }
+
+        $oral_statuses = array('aguardando_confirmacao', 'confirmado');
+
+        $query = new WP_Query(array(
+            'post_type'      => array('enfrute_trabalhos', 'semco_trabalhos'),
+            'posts_per_page' => -1,
+            'post_status'    => 'any',
+            'meta_query'     => array(
+                array(
+                    'key'     => '_sciflow_status',
+                    'value'   => $oral_statuses,
+                    'compare' => 'IN',
+                ),
+            ),
+            'meta_key'  => '_sciflow_knowledge_area',
+            'orderby'   => array('meta_value' => 'ASC', 'title' => 'ASC'),
+        ));
+
+        $filename = 'apresentacao_oral_anais_' . date('Y-m-d_His') . '.csv';
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        echo "\xEF\xBB\xBF"; // UTF-8 BOM para Excel
+
+        $output = fopen('php://output', 'w');
+
+        // Cabeçalho: campos dos anais + dados de contato do autor principal
+        fputcsv($output, array(
+            'Evento',
+            'Status',
+            'Área de Conhecimento',
+            'Título',
+            'Linha de Autores (formato anais)',
+            'Afiliações (formato anais)',
+            'Autor Principal — Nome',
+            'Autor Principal — Instituição',
+            'Autor Principal — E-mail',
+            'Coautores (nome | instituição | e-mail)',
+            'Resumo (texto puro)',
+            'Palavras-chave',
+            'Agradecimentos',
+        ), ';');
+
+        $sm = new SciFlow_Status_Manager();
+
+        foreach ($query->posts as $post) {
+            $current_status = $sm->get_status($post->ID);
+            if (!in_array($current_status, $oral_statuses, true)) {
+                continue;
+            }
+
+            // Evento
+            $event = ($post->post_type === 'enfrute_trabalhos') ? 'XIX Enfrute' : 'III Semco';
+
+            // Status legível
+            $status_label = $sm->get_status_label($current_status);
+
+            // Área de conhecimento
+            $area = get_post_meta($post->ID, '_sciflow_knowledge_area', true) ?: '';
+
+            // Título (texto puro)
+            $title = html_entity_decode(strip_tags($post->post_title), ENT_QUOTES, 'UTF-8');
+
+            // Autor principal
+            $main_name  = get_post_meta($post->ID, '_sciflow_main_author_name', true);
+            if (empty($main_name)) {
+                $author_id = get_post_meta($post->ID, '_sciflow_author_id', true) ?: $post->post_author;
+                $user      = $author_id ? get_userdata($author_id) : null;
+                if ($user) $main_name = $user->display_name;
+            }
+            $main_name  = trim(html_entity_decode((string) $main_name, ENT_QUOTES, 'UTF-8'));
+            $main_inst  = trim((string) get_post_meta($post->ID, '_sciflow_main_author_instituicao', true));
+            $main_email = trim((string) get_post_meta($post->ID, '_sciflow_main_author_email', true));
+            if (empty($main_email)) {
+                $author_id = get_post_meta($post->ID, '_sciflow_author_id', true) ?: $post->post_author;
+                $user      = $author_id ? get_userdata($author_id) : null;
+                if ($user) $main_email = $user->user_email;
+            }
+
+            // Coautores
+            $coauthors = get_post_meta($post->ID, '_sciflow_coauthors', true);
+            if (!is_array($coauthors)) $coauthors = array();
+
+            // Linha de autores e afiliações no formato dos anais (usa método estático da classe Anais)
+            $ad = SciFlow_Anais::build_author_affiliations($main_name, $main_inst, $coauthors);
+            $authors_line = strip_tags($ad['authors_line']);
+            $affils_line  = strip_tags($ad['affiliations_line']);
+
+            // Coautores — formato "Nome | Instituição | E-mail" separados por " / "
+            $co_parts = array();
+            foreach ($coauthors as $co) {
+                if (empty($co) || !is_array($co)) continue;
+                $co_name  = trim($co['name']         ?? '');
+                $co_inst  = trim($co['instituicao']  ?? ($co['institution'] ?? ''));
+                $co_email = trim($co['email']        ?? '');
+                if (empty($co_name)) continue;
+                $co_parts[] = implode(' | ', array_filter(array($co_name, $co_inst, $co_email)));
+            }
+            $coauthors_cell = implode(' / ', $co_parts);
+
+            // Corpo do resumo — texto puro, sem HTML
+            $body = html_entity_decode(strip_tags($post->post_content), ENT_QUOTES, 'UTF-8');
+            $body = preg_replace('/\s+/', ' ', trim($body));
+
+            // Palavras-chave
+            $keywords = get_post_meta($post->ID, '_sciflow_keywords', true);
+            if (is_array($keywords)) {
+                $keywords = implode('; ', array_filter(array_map('trim', $keywords)));
+            } else {
+                $keywords = trim((string) $keywords);
+            }
+
+            // Agradecimentos
+            $ack = trim(strip_tags((string) get_post_meta($post->ID, '_sciflow_acknowledgement', true)));
+
+            fputcsv($output, array(
+                $event,
+                $status_label,
+                $area,
+                $title,
+                $authors_line,
+                $affils_line,
+                $main_name,
+                $main_inst,
+                $main_email,
+                $coauthors_cell,
+                $body,
+                $keywords,
+                $ack,
+            ), ';');
+        }
+
+        fclose($output);
         exit;
     }
 

@@ -21,6 +21,8 @@ class SciFlow_Anais
         'poster_em_correcao',
         'poster_reenviado',
         'poster_reprovado',
+        'aguardando_confirmacao', // Selecionados para apresentação oral
+        'confirmado',             // Confirmados para apresentação oral
     );
 
     public function render_page()
