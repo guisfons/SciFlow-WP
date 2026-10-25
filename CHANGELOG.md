@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 — 2026-10-25
+### Correções
+- build: checksum com nome do arquivo sem caminho
+
+
 ## 1.1.0 — 2026-10-25
 ### Segurança
 - Corrige escalada de privilégio: o Gestor Técnico podia se promover a administrador e editar o administrador via REST (proteção global em `map_meta_cap` e `editable_roles`).
