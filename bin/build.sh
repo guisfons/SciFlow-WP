@@ -14,5 +14,5 @@ if unzip -l "$OUT" | grep -E '\.git/|/tests/|/docs/|\.env|\.sql|debug\.log|test-
   echo "ERRO: arquivo indevido no pacote" >&2; exit 1
 fi
 unzip -l "$OUT" | grep -q 'SciFlow-WP/sciflow-wp.php' || { echo "ERRO: arquivo principal ausente" >&2; exit 1; }
-sha256sum "$OUT" > "$OUT.sha256"
+( cd "$(dirname "$OUT")" && sha256sum "$(basename "$OUT")" > "$(basename "$OUT").sha256" )
 echo "OK $OUT ($(unzip -l "$OUT" | tail -1 | awk '{print $2}') arquivos)"
