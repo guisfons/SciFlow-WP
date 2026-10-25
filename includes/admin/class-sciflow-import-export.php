@@ -44,14 +44,14 @@ class SciFlow_Import_Export
 
             <div class="card" style="max-width: 600px; padding: 20px; margin-top: 20px;">
                 <h2><?php esc_html_e('Exportar', 'sciflow-wp'); ?></h2>
-                <p><?php esc_html_e('Baixe todos os trabalhos (Enfrute e Semco) em um arquivo JSON. Os arquivos de pôster não são incluídos no arquivo exportado.', 'sciflow-wp'); ?></p>
+                <p><?php esc_html_e('Baixe todos os trabalhos em um arquivo JSON. Os arquivos de pôster não são incluídos no arquivo exportado.', 'sciflow-wp'); ?></p>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="sciflow_export_works">
                     <?php wp_nonce_field('sciflow_export_works'); ?>
                     <button type="submit" class="button button-primary"><?php esc_html_e('Baixar JSON', 'sciflow-wp'); ?></button>
                 </form>
                 <hr style="margin: 20px 0;">
-                <p><?php esc_html_e('Baixe uma planilha CSV com os dados principais dos resumos (Enfrute e Semco) para Excel.', 'sciflow-wp'); ?></p>
+                <p><?php esc_html_e('Baixe uma planilha CSV com os dados principais dos resumos para Excel.', 'sciflow-wp'); ?></p>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="sciflow_export_csv">
                     <?php wp_nonce_field('sciflow_export_csv'); ?>
@@ -82,9 +82,9 @@ class SciFlow_Import_Export
                     <p style="margin-bottom: 8px;">
                         <label for="export_clean_event"><strong><?php esc_html_e('Evento:', 'sciflow-wp'); ?></strong></label><br>
                         <select name="export_event" id="export_clean_event" style="width: 100%; max-width: 320px;">
-                            <option value="all"><?php esc_html_e('Todos os Eventos (Enfrute e Semco)', 'sciflow-wp'); ?></option>
-                            <option value="enfrute"><?php esc_html_e('Apenas Enfrute', 'sciflow-wp'); ?></option>
-                            <option value="semco"><?php esc_html_e('Apenas Semco', 'sciflow-wp'); ?></option>
+                            <option value="all"><?php esc_html_e('Todos os Eventos', 'sciflow-wp'); ?></option>
+                            <option value="enfrute"><?php echo esc_html(sprintf(__('Apenas %s', 'sciflow-wp'), SciFlow_Events::label('enfrute'))); ?></option>
+                            <option value="semco"><?php echo esc_html(sprintf(__('Apenas %s', 'sciflow-wp'), SciFlow_Events::label('semco'))); ?></option>
                         </select>
                     </p>
 
@@ -174,7 +174,7 @@ class SciFlow_Import_Export
         echo "\xEF\xBB\xBF"; // UTF-8 BOM for Excel
 
         $output = fopen('php://output', 'w');
-        fputcsv($output, array('Nome do trabalho', 'Nome do autor', 'Status Atual', 'Evento', 'Instituição do Autor Principal', 'CPF', 'E-mail', 'Telefone'));
+        fputcsv($output, SciFlow_Security::csv_row(array('Nome do trabalho', 'Nome do autor', 'Status Atual', 'Evento', 'Instituição do Autor Principal', 'CPF', 'E-mail', 'Telefone')));
 
         if (!class_exists('SciFlow_Status_Manager')) {
             require_once SCIFLOW_PATH . 'includes/workflow/class-sciflow-status-manager.php';
@@ -195,13 +195,13 @@ class SciFlow_Import_Export
             }
             
             $status_label = $sm->get_status_label($sm->get_status($post->ID));
-            $event = ($post->post_type === 'enfrute_trabalhos') ? 'Enfrute' : 'Semco';
+            $event = SciFlow_Events::label(SciFlow_Status_Manager::get_event_from_post_type($post->post_type));
             $inst = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
             $cpf = get_post_meta($post->ID, '_sciflow_main_author_cpf', true);
             $email = get_post_meta($post->ID, '_sciflow_main_author_email', true);
             $phone = get_post_meta($post->ID, '_sciflow_main_author_telefone', true);
 
-            fputcsv($output, array($title, $author, $status_label, $event, $inst, $cpf, $email, $phone));
+            fputcsv($output, SciFlow_Security::csv_row(array($title, $author, $status_label, $event, $inst, $cpf, $email, $phone)));
         }
 
         fclose($output);
@@ -268,7 +268,7 @@ class SciFlow_Import_Export
         echo "\xEF\xBB\xBF"; // UTF-8 BOM for Excel / Google Sheets
 
         $output = fopen('php://output', 'w');
-        fputcsv($output, array('Nome do autor', 'Nome do trabalho', 'E-mail'), ';');
+        fputcsv($output, SciFlow_Security::csv_row(array('Nome do autor', 'Nome do trabalho', 'E-mail')), ';');
 
         foreach ($query->posts as $post) {
             // Double-check status in PHP (meta_query already filtered, but defensive)
@@ -306,7 +306,7 @@ class SciFlow_Import_Export
             }
             $email = strtolower(trim((string) $email));
 
-            fputcsv($output, array($author_name, $work_title, $email), ';');
+            fputcsv($output, SciFlow_Security::csv_row(array($author_name, $work_title, $email)), ';');
         }
 
         fclose($output);
@@ -345,7 +345,7 @@ class SciFlow_Import_Export
         echo "\xEF\xBB\xBF"; // UTF-8 BOM para Excel
 
         $output = fopen('php://output', 'w');
-        fputcsv($output, array(
+        fputcsv($output, SciFlow_Security::csv_row(array(
             'Título do Trabalho',
             'Evento',
             'Tipo de Autor',
@@ -355,7 +355,7 @@ class SciFlow_Import_Export
             'Telefone',
             'Instituição',
             'URL do Pôster',
-        ));
+        )));
 
         foreach ($query->posts as $post) {
             // Filtra apenas trabalhos com pôster aprovado
@@ -385,7 +385,7 @@ class SciFlow_Import_Export
             $main_phone = get_post_meta($post->ID, '_sciflow_main_author_telefone', true);
             $main_inst  = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
 
-            fputcsv($output, array(
+            fputcsv($output, SciFlow_Security::csv_row(array(
                 $title,
                 $event,
                 'Autor Principal',
@@ -395,7 +395,7 @@ class SciFlow_Import_Export
                 $main_phone,
                 $main_inst,
                 $poster_url,
-            ));
+            )));
 
             // ── Coautores ────────────────────────────────────────────────────
             $coauthors = get_post_meta($post->ID, '_sciflow_coauthors', true);
@@ -411,7 +411,7 @@ class SciFlow_Import_Export
 
                 if (empty($co_name) && empty($co_email)) continue;
 
-                fputcsv($output, array(
+                fputcsv($output, SciFlow_Security::csv_row(array(
                     $title,
                     $event,
                     'Coautor',
@@ -421,7 +421,7 @@ class SciFlow_Import_Export
                     $co_phone,
                     $co_inst,
                     $poster_url,
-                ));
+                )));
             }
         }
 
@@ -504,7 +504,7 @@ class SciFlow_Import_Export
             header('Expires: 0');
             echo "\xEF\xBB\xBF"; // UTF-8 BOM for Excel / Google Sheets
             $output = fopen('php://output', 'w');
-            fputcsv($output, array('Nome do autor', 'Nome do trabalho', 'E-mail'), ';');
+            fputcsv($output, SciFlow_Security::csv_row(array('Nome do autor', 'Nome do trabalho', 'E-mail')), ';');
         }
 
         $seen_emails = array();
@@ -584,12 +584,12 @@ class SciFlow_Import_Export
 
             if ($format === 'xls') {
                 echo '<tr>';
-                echo '<td>' . htmlspecialchars($author_name, ENT_QUOTES, 'UTF-8') . '</td>';
-                echo '<td>' . htmlspecialchars($work_title, ENT_QUOTES, 'UTF-8') . '</td>';
-                echo '<td>' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '</td>';
+                echo '<td>' . htmlspecialchars(SciFlow_Security::csv_cell($author_name), ENT_QUOTES, 'UTF-8') . '</td>';
+                echo '<td>' . htmlspecialchars(SciFlow_Security::csv_cell($work_title), ENT_QUOTES, 'UTF-8') . '</td>';
+                echo '<td>' . htmlspecialchars(SciFlow_Security::csv_cell($email), ENT_QUOTES, 'UTF-8') . '</td>';
                 echo '</tr>';
             } else {
-                fputcsv($output, array($author_name, $work_title, $email), ';');
+                fputcsv($output, SciFlow_Security::csv_row(array($author_name, $work_title, $email)), ';');
             }
         }
 
@@ -650,7 +650,7 @@ class SciFlow_Import_Export
         $output = fopen('php://output', 'w');
 
         // Cabeçalho: campos dos anais + dados de contato do autor principal
-        fputcsv($output, array(
+        fputcsv($output, SciFlow_Security::csv_row(array(
             'Evento',
             'Status',
             'Área de Conhecimento',
@@ -664,7 +664,7 @@ class SciFlow_Import_Export
             'Resumo (texto puro)',
             'Palavras-chave',
             'Agradecimentos',
-        ), ';');
+        )), ';');
 
         $sm = new SciFlow_Status_Manager();
 
@@ -738,7 +738,7 @@ class SciFlow_Import_Export
             // Agradecimentos
             $ack = trim(strip_tags((string) get_post_meta($post->ID, '_sciflow_acknowledgement', true)));
 
-            fputcsv($output, array(
+            fputcsv($output, SciFlow_Security::csv_row(array(
                 $event,
                 $status_label,
                 $area,
@@ -752,7 +752,7 @@ class SciFlow_Import_Export
                 $body,
                 $keywords,
                 $ack,
-            ), ';');
+            )), ';');
         }
 
         fclose($output);
@@ -847,14 +847,24 @@ class SciFlow_Import_Export
 
         $imported_count = 0;
 
+        $allowed_types = array_merge(SciFlow_Events::post_types(), array('sciflow_palestra'));
+        $allowed_statuses = array('publish', 'draft', 'pending', 'private');
+
         foreach ($data as $item) {
-            if (empty($item['post_title']) || empty($item['post_type'])) {
+            if (!is_array($item) || empty($item['post_title']) || empty($item['post_type'])) {
                 continue;
+            }
+            // Only SciFlow content can be imported.
+            if (!in_array($item['post_type'], $allowed_types, true)) {
+                continue;
+            }
+            if (empty($item['post_status']) || !in_array($item['post_status'], $allowed_statuses, true)) {
+                $item['post_status'] = 'draft';
             }
 
             // 1. Resolve author
             $author_id = get_current_user_id();
-            if (!empty($item['author_email'])) {
+            if (!empty($item['author_email']) && is_email($item['author_email'])) {
                 $user = get_user_by('email', $item['author_email']);
                 if ($user) {
                     $author_id = $user->ID;
@@ -871,14 +881,22 @@ class SciFlow_Import_Export
             }
 
             // 2. Check if post exists (by title and type)
-            $existing_post = get_page_by_title($item['post_title'], OBJECT, $item['post_type']);
+            $existing_ids = get_posts(array(
+                'post_type'        => $item['post_type'],
+                'title'            => $item['post_title'],
+                'post_status'      => 'any',
+                'numberposts'      => 1,
+                'fields'           => 'ids',
+                'suppress_filters' => true,
+            ));
+            $existing_post = $existing_ids ? get_post($existing_ids[0]) : null;
             
             $post_data = array(
                 'post_title'   => $item['post_title'],
-                'post_content' => $item['post_content'],
+                'post_content' => wp_kses_post($item['post_content'] ?? ''),
                 'post_status'  => $item['post_status'],
                 'post_type'    => $item['post_type'],
-                'post_date'    => $item['post_date'],
+                'post_date'    => isset($item['post_date']) ? sanitize_text_field($item['post_date']) : '',
                 'post_author'  => $author_id,
             );
 
@@ -896,6 +914,10 @@ class SciFlow_Import_Export
             // 3. Update meta
             if (!empty($item['meta']) && is_array($item['meta'])) {
                 foreach ($item['meta'] as $meta_key => $meta_value) {
+                    // Only SciFlow meta; never WordPress internals (_edit_lock, _wp_*).
+                    if (!is_string($meta_key) || 0 !== strpos($meta_key, '_sciflow_')) {
+                        continue;
+                    }
                     // Make sure author ID matches the resolved one
                     if ($meta_key === '_sciflow_author_id') {
                         $meta_value = $author_id;

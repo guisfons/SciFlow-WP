@@ -20,7 +20,7 @@ $poster_template_url = $settings['poster_template_url'] ?? '';
     </h2>
 
     <?php if ($poster_template_url): ?>
-        <div class="sciflow-poster-template-download" style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #2c5530;">
+        <div class="sciflow-poster-template-download" style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid var(--brand-primary, #1f6f78);">
             <p style="margin-top:0; font-weight: 500;">
                 <?php esc_html_e('Antes de enviar seu pôster, certifique-se de utilizar o modelo padrão do evento:', 'sciflow-wp'); ?>
             </p>

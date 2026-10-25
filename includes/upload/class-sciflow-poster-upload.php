@@ -13,10 +13,6 @@ class SciFlow_Poster_Upload
     private $status_manager;
     private $email;
 
-    /**
-     * Max file size in bytes (5 MB).
-     */
-    private const MAX_SIZE = 5242880;
 
     public function __construct(SciFlow_Status_Manager $status_manager, SciFlow_Email $email)
     {
@@ -33,11 +29,9 @@ class SciFlow_Poster_Upload
      */
     public function upload($post_id, $file)
     {
-        $user_id = get_current_user_id();
-        $author = (int) get_post_meta($post_id, '_sciflow_author_id', true);
-        $is_admin = current_user_can('manage_options') || current_user_can('sciflow_manager');
+        $is_admin = SciFlow_Security::can_manage_submission($post_id);
 
-        if ($user_id !== $author && !$is_admin) {
+        if (!SciFlow_Security::is_author($post_id) && !$is_admin) {
             return new WP_Error('unauthorized', __('Apenas o autor pode enviar o pôster.', 'sciflow-wp'));
         }
 
@@ -58,16 +52,16 @@ class SciFlow_Poster_Upload
             }
         }
 
-        // Validate file type.
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $mime = $finfo->file($file['tmp_name']);
-        if ($mime !== 'application/pdf') {
-            return new WP_Error('invalid_file', __('Apenas arquivos PDF são aceitos.', 'sciflow-wp'));
+        // Validate upload, size and real content type.
+        $mimes = array('pdf' => 'application/pdf');
+        $max_bytes = (int) SciFlow_Settings::get('poster_max_mb', 5) * MB_IN_BYTES;
+        $valid = SciFlow_Security::validate_upload($file, $mimes, $max_bytes);
+        if (is_wp_error($valid)) {
+            return $valid;
         }
-
-        // Validate size.
-        if ($file['size'] > self::MAX_SIZE) {
-            return new WP_Error('file_too_large', __('O arquivo excede o limite de 5 MB.', 'sciflow-wp'));
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        if ('application/pdf' !== $finfo->file($file['tmp_name'])) {
+            return new WP_Error('invalid_file', __('Apenas arquivos PDF são aceitos.', 'sciflow-wp'));
         }
 
         // Use WP upload.
@@ -79,7 +73,7 @@ class SciFlow_Poster_Upload
             require_once ABSPATH . 'wp-admin/includes/media.php';
         }
 
-        $upload = wp_handle_upload($file, array('test_form' => false));
+        $upload = wp_handle_upload($file, array('test_form' => false, 'mimes' => $mimes));
 
         if (isset($upload['error'])) {
             return new WP_Error('upload_error', $upload['error']);

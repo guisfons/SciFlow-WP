@@ -50,8 +50,7 @@ if (!defined('ABSPATH'))
                 $deadline = get_post_meta($post->ID, '_sciflow_confirmation_deadline', true);
 
                 // Resolve poster upload page URL.
-                $poster_pages = get_pages(array('meta_key' => '_wp_page_template', 'meta_value' => 'template-poster-upload.php', 'number' => 1, 'post_status' => 'publish'));
-                $poster_upload_url = !empty($poster_pages) ? get_permalink($poster_pages[0]->ID) : home_url('/');
+                $poster_upload_url = SciFlow_Pages::url('poster_upload');
                 ?>
                 <div class="sciflow-work-card" data-post-id="<?php echo esc_attr($post->ID); ?>">
                     <div class="sciflow-work-card__header">
@@ -177,8 +176,7 @@ if (!defined('ABSPATH'))
                             </div>
                         <?php else: ?>
                             <?php
-                            $detail_page = get_pages(array('meta_key' => '_wp_page_template', 'meta_value' => 'page-templates/template-article-detail.php'));
-                            $detail_url = !empty($detail_page) ? get_permalink($detail_page[0]->ID) : home_url('/avaliar-artigo');
+                            $detail_url = SciFlow_Pages::url('article_detail');
                             $view_url = add_query_arg('article_id', $post->ID, $detail_url);
                             ?>
                             <a href="<?php echo esc_url($view_url); ?>" class="sciflow-btn sciflow-btn--light sciflow-btn--sm">

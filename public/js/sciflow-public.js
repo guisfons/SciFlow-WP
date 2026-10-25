@@ -8,11 +8,22 @@
 
     // ─── Helpers ───
 
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Titles may contain <i>/<em> only.
+    function escapeTitle(value) {
+        return escapeHtml(value).replace(/&lt;(\/?)(i|em)&gt;/gi, '<$1$2>');
+    }
+
     function showMessage(container, message, type) {
         const $c = $(container);
         $c.removeClass('sciflow-notice--info sciflow-notice--success sciflow-notice--warning sciflow-notice--error')
             .addClass('sciflow-notice--' + (type || 'info'))
-            .html(message)
+            .text(message)
             .slideDown(200);
         setTimeout(() => $c.slideUp(400), 8000);
     }
@@ -258,18 +269,18 @@
         const mainAuthorName = $('#sciflow-authors-text').val() || 'Autor Principal';
 
         $select.empty();
-        $select.append(`<option value="main">${mainAuthorName} (Autor Principal)</option>`);
+        $select.append($('<option>', { value: 'main', text: mainAuthorName + ' (Autor Principal)' }));
 
         $('.sciflow-coauthor-row').each(function () {
             const index = $(this).data('index');
             const name = $(this).find('input[name$="[name]"]').val();
             if (name) {
-                $select.append(`<option value="${index}">${name}</option>`);
+                $select.append($('<option>', { value: index, text: name }));
             }
         });
 
         // Restore selection if it still exists
-        if ($select.find(`option[value="${currentValue}"]`).length) {
+        if ($select.find('option').filter(function () { return this.value === String(currentValue); }).length) {
             $select.val(currentValue);
         } else {
             $select.val('main');
@@ -309,20 +320,20 @@
             contentHtml = $('#sciflow_content').val() || '';
         }
 
-        let authors = '<strong>Autor Principal:</strong> ' + ($('#sciflow-authors-text').val() || '') + '<br>';
+        let authors = '<strong>Autor Principal:</strong> ' + escapeHtml($('#sciflow-authors-text').val() || '') + '<br>';
         $('.sciflow-coauthor-row').each(function () {
             const name = $(this).find('input[name$="[name]"]').val();
-            if (name) authors += '<strong>Coautor:</strong> ' + name + '<br>';
+            if (name) authors += '<strong>Coautor:</strong> ' + escapeHtml(name) + '<br>';
         });
 
-        ackHtml = $('#sciflow-acknowledgement').val() || '';
+        ackHtml = escapeHtml($('#sciflow-acknowledgement').val() || '');
 
         const previewHtml = `
-            <p><strong>Evento:</strong> ${event}</p>
-            <p><strong>Cultura:</strong> ${cultura}</p>
-            <p><strong>Área:</strong> ${area}</p>
+            <p><strong>Evento:</strong> ${escapeHtml(event)}</p>
+            <p><strong>Cultura:</strong> ${escapeHtml(cultura)}</p>
+            <p><strong>Área:</strong> ${escapeHtml(area)}</p>
             <hr>
-            <h4>${title}</h4>
+            <h4>${escapeTitle(title)}</h4>
             <div style="margin-bottom: 15px; font-size: 13px;">${authors}</div>
             <div>${contentHtml}</div>
             <hr>

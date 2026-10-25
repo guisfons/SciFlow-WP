@@ -48,16 +48,13 @@ class SciFlow_Loader
         $this->semco_cpt = new SciFlow_Semco_CPT();
         $this->palestra_cpt = new SciFlow_Palestra_CPT();
 
-        // Self-repair roles if missing capabilities.
-        $semco_editor = get_role('sciflow_semco_editor');
-        if ($semco_editor && !$semco_editor->has_cap('manage_sciflow')) {
-            $roles = new SciFlow_Roles();
-            $roles->add_roles();
-            $roles->add_caps();
-        }
-
         // Meta fields.
         $this->meta = new SciFlow_Meta();
+
+        // WooCommerce must exist before the modules that depend on it.
+        if (class_exists('WooCommerce')) {
+            $this->woocommerce = new SciFlow_WooCommerce();
+        }
 
         // Workflow.
         $this->status_manager = new SciFlow_Status_Manager();
@@ -104,8 +101,13 @@ class SciFlow_Loader
             $this->access = new SciFlow_Access();
         }
 
-        if (class_exists('WooCommerce')) {
-            $this->woocommerce = new SciFlow_WooCommerce();
+        // Setup screen, diagnostics and onboarding.
+        if (is_admin()) {
+            new SciFlow_Admin_Setup();
+            new SciFlow_Setup_Wizard();
+            SciFlow_Branding_Admin::init();
+            SciFlow_Admin_UI::init();
+            add_action('update_option_sciflow_settings', array('SciFlow_Admin_UI', 'flush_status'));
         }
 
         // Redirection logic.
@@ -125,21 +127,12 @@ class SciFlow_Loader
 
         // Cron for confirmation deadline.
         add_action('sciflow_check_confirmation_deadlines', array($this->ranking, 'check_deadlines'));
-        if (!wp_next_scheduled('sciflow_check_confirmation_deadlines')) {
-            wp_schedule_event(time(), 'hourly', 'sciflow_check_confirmation_deadlines');
-        }
 
         // Cron for corrections deadline.
         add_action('sciflow_check_corrections_deadlines', array($this->status_manager, 'check_corrections_deadlines'));
-        if (!wp_next_scheduled('sciflow_check_corrections_deadlines')) {
-            wp_schedule_event(time(), 'hourly', 'sciflow_check_corrections_deadlines');
-        }
 
         // Cron for poster deadline.
         add_action('sciflow_check_poster_deadlines', array($this->status_manager, 'check_poster_deadlines'));
-        if (!wp_next_scheduled('sciflow_check_poster_deadlines')) {
-            wp_schedule_event(time(), 'hourly', 'sciflow_check_poster_deadlines');
-        }
     }
 
     /**
@@ -150,13 +143,13 @@ class SciFlow_Loader
         wp_enqueue_style(
             'sciflow-public',
             SCIFLOW_URL . 'public/css/sciflow-public.css',
-            array(),
+            array('sciflow-brand'),
             SCIFLOW_VERSION
         );
 
         wp_enqueue_style(
             'bootstrap-icons',
-            'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
+            SCIFLOW_URL . 'public/vendor/bootstrap-icons/bootstrap-icons.min.css',
             array(),
             '1.11.3'
         );
@@ -171,7 +164,7 @@ class SciFlow_Loader
 
         wp_enqueue_script(
             'jquery-mask',
-            'https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js',
+            SCIFLOW_URL . 'public/vendor/jquery-mask/jquery.mask.min.js',
             array('jquery'),
             '1.14.16',
             true

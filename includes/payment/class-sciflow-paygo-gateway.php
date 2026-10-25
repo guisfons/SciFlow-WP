@@ -26,17 +26,23 @@ class SciFlow_PayGo_Gateway implements SciFlow_Payment_Gateway_Interface
      */
     private function get_settings()
     {
-        $settings = get_option('sciflow_settings', array());
-
-        // We will try to get these from SciFlow settings or WooCommerce fallback.
+        // SciFlow settings (or wp-config constants) first, WooCommerce gateway settings as fallback.
         $wc_settings = get_option('woocommerce_paygo_settings', array());
+        if (!is_array($wc_settings)) {
+            $wc_settings = array();
+        }
+
+        $api_key = (string) SciFlow_Settings::get('paygo_integration_key', '');
+        $auth_key = (string) SciFlow_Settings::get('paygo_token', '');
+        $pix_key = (string) SciFlow_Settings::get('paygo_pix_key', '');
+        $stored = get_option(SciFlow_Settings::OPTION, array());
 
         return array(
-            'api_key' => !empty($settings['paygo_integration_key']) ? $settings['paygo_integration_key'] : ($wc_settings['api_key'] ?? ''),
-            'auth_key' => !empty($settings['paygo_token']) ? $settings['paygo_token'] : ($wc_settings['auth_key'] ?? ''),
-            'pix_key' => !empty($settings['paygo_pix_key']) ? $settings['paygo_pix_key'] : ($wc_settings['pix_key'] ?? ''),
-            'ambiente' => !empty($settings['paygo_ambiente']) ? $settings['paygo_ambiente'] : (isset($wc_settings['sandbox']) && $wc_settings['sandbox'] === 'yes' ? 'sandbox' : 'producao'),
-            'valor' => floatval($settings['submission_price'] ?? 50.00),
+            'api_key' => '' !== $api_key ? $api_key : ($wc_settings['api_key'] ?? ''),
+            'auth_key' => '' !== $auth_key ? $auth_key : ($wc_settings['auth_key'] ?? ''),
+            'pix_key' => '' !== $pix_key ? $pix_key : ($wc_settings['pix_key'] ?? ''),
+            'ambiente' => !empty($stored['paygo_ambiente']) ? $stored['paygo_ambiente'] : (isset($wc_settings['sandbox']) && $wc_settings['sandbox'] === 'yes' ? 'sandbox' : 'producao'),
+            'valor' => (float) SciFlow_Settings::get('submission_price', 50.00),
         );
     }
 
@@ -70,7 +76,7 @@ class SciFlow_PayGo_Gateway implements SciFlow_Payment_Gateway_Interface
                     'provider' => 'C6BANK',
                 ),
             ),
-            'postBackUrl' => home_url('/wp-json/sciflow/v1/payment-webhook'),
+            'postBackUrl' => $this->get_webhook_url(),
         );
 
         $response = wp_remote_post($url, array(
@@ -85,17 +91,16 @@ class SciFlow_PayGo_Gateway implements SciFlow_Payment_Gateway_Interface
         ));
 
         if (is_wp_error($response)) {
-            error_log('SciFlow PayGo Charge Error: ' . $response->get_error_message());
-            return array('error' => $response->get_error_message());
+            error_log('SciFlow PayGo: charge request failed (' . $response->get_error_code() . ').');
+            return array('error' => __('Não foi possível contatar o serviço de pagamento. Tente novamente.', 'sciflow-wp'));
         }
 
         $body = json_decode(wp_remote_retrieve_body($response), true);
         $code = wp_remote_retrieve_response_code($response);
 
         if ($code >= 400 || !empty($body['error'])) {
-            $msg = $body['message'] ?? ($body['error']['message'] ?? 'Erro desconhecido PayGo');
-            error_log('SciFlow PayGo API Error: ' . $msg);
-            return array('error' => $msg);
+            error_log('SciFlow PayGo: API returned HTTP ' . (int) $code . '.');
+            return array('error' => __('O serviço de pagamento recusou a cobrança. Contate a organização.', 'sciflow-wp'));
         }
 
         // Handle successful response.
@@ -124,7 +129,10 @@ class SciFlow_PayGo_Gateway implements SciFlow_Payment_Gateway_Interface
     public function verify_payment(string $txid): bool
     {
         $s = $this->get_settings();
-        $url = $this->get_api_url() . '/' . $txid;
+        if ('' === $txid || empty($s['api_key']) || empty($s['auth_key'])) {
+            return false;
+        }
+        $url = $this->get_api_url() . '/' . rawurlencode($txid);
 
         $response = wp_remote_get($url, array(
             'headers' => array(
@@ -148,8 +156,8 @@ class SciFlow_PayGo_Gateway implements SciFlow_Payment_Gateway_Interface
      */
     public function handle_webhook(array $payload): bool
     {
-        $txid = $payload['id'] ?? '';
-        $status = $payload['status'] ?? '';
+        $txid = isset($payload['id']) && is_scalar($payload['id']) ? sanitize_text_field((string) $payload['id']) : '';
+        $status = isset($payload['status']) && is_scalar($payload['status']) ? (string) $payload['status'] : '';
 
         if (empty($txid) || !($status === 'PAID' || $status === 'CONFIRMED')) {
             return false;
@@ -172,6 +180,11 @@ class SciFlow_PayGo_Gateway implements SciFlow_Payment_Gateway_Interface
             $post_id = $query->posts[0]->ID;
             $current_payment = get_post_meta($post_id, '_sciflow_payment_status', true);
 
+            // Never trust the notification body: confirm the status with the API.
+            if ($current_payment !== 'confirmed' && !$this->verify_payment($txid)) {
+                return false;
+            }
+
             if ($current_payment !== 'confirmed') {
                 $submission = new SciFlow_Submission(
                     new SciFlow_Status_Manager(),
@@ -193,8 +206,40 @@ class SciFlow_PayGo_Gateway implements SciFlow_Payment_Gateway_Interface
         register_rest_route('sciflow/v1', '/payment-webhook', array(
             'methods' => 'POST',
             'callback' => array($this, 'webhook_callback'),
-            'permission_callback' => '__return_true',
+            // Public by design (called by PayGo). Authenticity is enforced by
+            // the optional shared secret and by re-checking the API.
+            'permission_callback' => array($this, 'webhook_permission'),
         ));
+    }
+
+    /**
+     * Webhook permission: when a secret is configured, require it in the
+     * `token` query argument or the `X-SciFlow-Token` header.
+     *
+     * @param WP_REST_Request $request
+     * @return bool|WP_Error
+     */
+    public function webhook_permission(WP_REST_Request $request)
+    {
+        $secret = (string) SciFlow_Settings::get('paygo_webhook_secret', '');
+        if ('' === $secret) {
+            return true;
+        }
+        $given = (string) ($request->get_header('x_sciflow_token') ?: $request->get_param('token'));
+        if ('' !== $given && hash_equals($secret, $given)) {
+            return true;
+        }
+        return new WP_Error('sciflow_forbidden', 'Forbidden', array('status' => 403));
+    }
+
+    /**
+     * URL PayGo must call (includes the secret when configured).
+     */
+    public function get_webhook_url()
+    {
+        $url = rest_url('sciflow/v1/payment-webhook');
+        $secret = (string) SciFlow_Settings::get('paygo_webhook_secret', '');
+        return '' !== $secret ? add_query_arg('token', rawurlencode($secret), $url) : $url;
     }
 
     /**
@@ -217,7 +262,7 @@ class SciFlow_PayGo_Gateway implements SciFlow_Payment_Gateway_Interface
      */
     public function manual_confirm($post_id)
     {
-        if (!current_user_can('manage_sciflow')) {
+        if (!SciFlow_Security::can_manage_submission($post_id)) {
             return new WP_Error('unauthorized', __('Permissão insuficiente.', 'sciflow-wp'));
         }
 

@@ -34,8 +34,9 @@ $current_user = wp_get_current_user();
                 <option value="">
                     <?php esc_html_e('Selecione o evento', 'sciflow-wp'); ?>
                 </option>
-                <option value="enfrute">Enfrute — Encontro Nacional sobre Fruticultura de Clima Temperado</option>
-                <option value="semco">Semco — Seminário Catarinense de Olericultura</option>
+                <?php foreach (SciFlow_Events::enabled() as $sf_slug => $sf_event) : ?>
+                    <option value="<?php echo esc_attr($sf_slug); ?>"><?php echo esc_html($sf_event['full_label']); ?></option>
+                <?php endforeach; ?>
             </select>
         </div>
 

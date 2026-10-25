@@ -11,7 +11,7 @@ class SciFlow_Redirection
 {
     private $woocommerce;
 
-    public function __construct(SciFlow_WooCommerce $woocommerce = null)
+    public function __construct(?SciFlow_WooCommerce $woocommerce = null)
     {
         $this->woocommerce = $woocommerce;
 
@@ -50,9 +50,8 @@ class SciFlow_Redirection
             'sciflow_enfrute_revisor'
         );
 
-        $settings = get_option('sciflow_settings', array());
-        $editor_url = !empty($settings['editor_dashboard_url']) ? $settings['editor_dashboard_url'] : home_url('/editor/dashboard/');
-        $reviewer_url = !empty($settings['reviewer_dashboard_url']) ? $settings['reviewer_dashboard_url'] : home_url('/revisor/dashboard/');
+        $editor_url = SciFlow_Pages::url('editor_dashboard');
+        $reviewer_url = SciFlow_Pages::url('reviewer_dashboard');
 
         foreach ($editor_roles as $role) {
             if (in_array($role, $roles, true)) {
@@ -66,10 +65,17 @@ class SciFlow_Redirection
 
         // --- AUTHOR EXCEPTION ---
         // If the user is a reviewer but is ALREADY on an author page, don't redirect them away.
-        $current_url = home_url(add_query_arg(array(), $GLOBALS['wp']->request));
-        $author_pages = array('/meus-artigos', '/submissao', '/meus-trabalhos');
-        foreach ($author_pages as $page) {
-            if (strpos($current_url, $page) !== false) {
+        if (is_page()) {
+            $queried = get_queried_object_id();
+            foreach (array('author_dashboard', 'submission', 'article_detail', 'poster_upload') as $role) {
+                if ($queried && $queried === SciFlow_Pages::get_id($role)) {
+                    return false;
+                }
+            }
+        }
+        $current_url = isset($GLOBALS['wp']->request) ? home_url(add_query_arg(array(), $GLOBALS['wp']->request)) : '';
+        foreach (array('/meus-artigos', '/submissao', '/meus-trabalhos') as $page) {
+            if ($current_url && strpos($current_url, $page) !== false) {
                 return false;
             }
         }
@@ -83,7 +89,7 @@ class SciFlow_Redirection
 
         if (in_array('sciflow_inscrito', $roles, true) || $user->has_cap('sciflow_tecnico_epagri')) {
             if ($this->woocommerce && $this->woocommerce->has_paid_registration($user->ID)) {
-                return home_url('/meus-artigos');
+                return SciFlow_Pages::url('author_dashboard');
             }
         }
 

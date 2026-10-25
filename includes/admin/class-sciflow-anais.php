@@ -31,38 +31,42 @@ class SciFlow_Anais
             wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
         }
 
-        $volume_filter = sanitize_text_field($_GET['anais_volume'] ?? 'resumos');
+        $volume_filter = sanitize_key($_GET['anais_volume'] ?? 'resumos');
+        $merge_available = self::find_binary(array('chromium-browser', 'chromium', 'google-chrome', 'google-chrome-stable'))
+            && self::find_binary(array('libreoffice', 'soffice')) && self::find_binary(array('gs'));
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Anais – XIX Enfrute / III Semco 2026', 'sciflow-wp'); ?></h1>
-            <p class="description">
-                <?php esc_html_e('Gera a visualização formatada dos Anais para impressão como PDF. Clique em "Abrir Preview" e depois use Ctrl+P (ou ⌘+P) para salvar como PDF.', 'sciflow-wp'); ?>
+            <h1><?php esc_html_e('Anais', 'sciflow-wp'); ?> <span style="font-weight:400;color:#646970;font-size:15px;">— <?php echo esc_html($this->title()); ?></span></h1>
+            <p class="description" style="max-width:760px;">
+                <?php esc_html_e('A pré-visualização é paginada pelo navegador a partir do layout real (padrão CSS Paged Media): nenhum texto é cortado, cada trabalho começa em página nova, o cabeçalho e a numeração seguem o modelo aprovado e o sumário aponta para a página efetiva de cada trabalho. Aguarde a mensagem "N páginas" na barra superior e use "Imprimir / Salvar como PDF".', 'sciflow-wp'); ?>
             </p>
 
-            <div class="card" style="max-width:680px;padding:20px;margin-top:20px;">
-                <h2 style="margin-top:0;"><?php esc_html_e('Gerar Anais – Vol. II (Resumos)', 'sciflow-wp'); ?></h2>
+            <div class="card" style="max-width:760px;padding:20px;margin-top:20px;">
+                <h2 style="margin-top:0;"><?php esc_html_e('Gerar Anais', 'sciflow-wp'); ?></h2>
                 <form method="get" target="_blank" action="">
                     <input type="hidden" name="page" value="sciflow-anais">
                     <input type="hidden" name="anais_preview" value="1">
                     <table class="form-table" style="margin-bottom:0;">
                         <tr>
-                            <th scope="row"><label for="anais_volume"><?php esc_html_e('Conteúdo', 'sciflow-wp'); ?></label></th>
+                            <th scope="row"><label for="anais_volume"><?php esc_html_e('Volume', 'sciflow-wp'); ?></label></th>
                             <td>
-                                <select id="anais_volume" name="anais_volume" class="regular-text">
-                                    <option value="resumos" <?php selected($volume_filter, 'resumos'); ?>><?php esc_html_e('Resumos Vol. II (Completo)', 'sciflow-wp'); ?></option>
-                                    <option value="resumos_enfrute" <?php selected($volume_filter, 'resumos_enfrute'); ?>><?php esc_html_e('Resumos: Somente XIX Enfrute', 'sciflow-wp'); ?></option>
-                                    <option value="resumos_semco" <?php selected($volume_filter, 'resumos_semco'); ?>><?php esc_html_e('Resumos: Somente III Semco', 'sciflow-wp'); ?></option>
-                                    <option value="palestras" <?php selected($volume_filter, 'palestras'); ?>><?php esc_html_e('Palestras Vol. I (Gerar PDF Consolidado)', 'sciflow-wp'); ?></option>
-                                    <option value="palestras_resumos" <?php selected($volume_filter, 'palestras_resumos'); ?>><?php esc_html_e('Palestras Vol. I (Preview Completo – Resumos)', 'sciflow-wp'); ?></option>
+                                <select id="anais_volume" name="anais_volume">
+                                    <option value="resumos" <?php selected($volume_filter, 'resumos'); ?>><?php esc_html_e('Vol. II – Resumos (todos os eventos)', 'sciflow-wp'); ?></option>
+                                    <option value="resumos_enfrute" <?php selected($volume_filter, 'resumos_enfrute'); ?>><?php echo esc_html(sprintf(__('Vol. II – Resumos: somente %s', 'sciflow-wp'), $this->ev('enfrute'))); ?></option>
+                                    <option value="resumos_semco" <?php selected($volume_filter, 'resumos_semco'); ?>><?php echo esc_html(sprintf(__('Vol. II – Resumos: somente %s', 'sciflow-wp'), $this->ev('semco'))); ?></option>
+                                    <option value="palestras_resumos" <?php selected($volume_filter, 'palestras_resumos'); ?>><?php esc_html_e('Vol. I – Palestras (formato padronizado)', 'sciflow-wp'); ?></option>
+                                    <option value="palestras" <?php selected($volume_filter, 'palestras'); disabled(!$merge_available); ?>><?php esc_html_e('Vol. I – Palestras: arquivos originais mesclados (PDF no servidor)', 'sciflow-wp'); ?></option>
                                 </select>
+                                <?php if (!$merge_available) : ?>
+                                    <p class="description"><?php esc_html_e('O PDF com os arquivos originais exige LibreOffice, Ghostscript e Chromium/Chrome no servidor (ver Diagnóstico).', 'sciflow-wp'); ?></p>
+                                <?php else : ?>
+                                    <p class="description"><?php esc_html_e('"Arquivos originais" mantém a formatação de cada palestrante; o formato padronizado aplica o padrão do livro a todas.', 'sciflow-wp'); ?></p>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     </table>
                     <p style="margin-top:16px;">
-                        <button type="submit" class="button button-primary button-large">
-                            <span class="dashicons dashicons-printer" style="margin-top:3px;vertical-align:middle;"></span>
-                            <?php esc_html_e('Abrir Preview para PDF', 'sciflow-wp'); ?>
-                        </button>
+                        <button type="submit" class="button button-primary button-large"><?php esc_html_e('Abrir pré-visualização', 'sciflow-wp'); ?></button>
                     </p>
                 </form>
             </div>
@@ -85,8 +89,8 @@ class SciFlow_Anais
         echo '<table class="widefat striped" style="max-width:420px;margin-bottom:16px;">';
         echo '<thead><tr><th>' . esc_html__('Evento', 'sciflow-wp') . '</th><th>' . esc_html__('Resumos aprovados', 'sciflow-wp') . '</th></tr></thead>';
         echo '<tbody>';
-        echo '<tr><td><strong>XIX Enfrute</strong></td><td>' . intval($enfrute_count) . '</td></tr>';
-        echo '<tr><td><strong>III Semco</strong></td><td>' . intval($semco_count) . '</td></tr>';
+        echo '<tr><td><strong>' . esc_html($this->ev('enfrute')) . '</strong></td><td>' . intval($enfrute_count) . '</td></tr>';
+        echo '<tr><td><strong>' . esc_html($this->ev('semco')) . '</strong></td><td>' . intval($semco_count) . '</td></tr>';
         echo '<tr><td><strong>' . esc_html__('Total', 'sciflow-wp') . '</strong></td><td><strong>' . ($enfrute_count + $semco_count) . '</strong></td></tr>';
         echo '</tbody></table>';
 
@@ -107,156 +111,280 @@ class SciFlow_Anais
         echo '</div>';
     }
 
-        private function generate_server_pdf_palestras($palestra_posts)
+    /**
+     * Collect and sanitize everything the renderer needs.
+     *
+     * @param string $volume
+     * @return array{items: array, sections: array, toc: array, reviewers: array}
+     */
+    public function collect($volume)
     {
-        $enfrute_posts = array();
-        $semco_posts = array();
-        foreach ($palestra_posts as $p) {
-            $ev = strtolower(get_post_meta($p->ID, '_sciflow_event', true));
-            if ($ev === 'semco') {
-                $semco_posts[] = $p;
-            } else {
-                $enfrute_posts[] = $p;
+        $is_palestras = in_array($volume, array('palestras', 'palestras_resumos'), true);
+        $sections = array();
+        $toc = array();
+        $items = array();
+
+        if ($is_palestras) {
+            $by_event = array('enfrute' => array(), 'semco' => array());
+            foreach ($this->get_lectures() as $p) {
+                $ev = strtolower((string) get_post_meta($p->ID, '_sciflow_event', true));
+                $by_event['semco' === $ev ? 'semco' : 'enfrute'][] = $p;
             }
-        }
-
-        // Convert Word to PDF and count pages
-        $pdfs_to_merge = array();
-        $post_pages = array();
-        
-        $base_pages = 5;
-        $reviewers = $this->get_reviewers();
-        if (empty($reviewers)) { $reviewers = array('Nenhum revisor cadastrado.'); }
-        $reviewer_chunks = array_chunk($reviewers, 70);
-        $base_pages += count($reviewer_chunks);
-
-        // We need to estimate Sumario pages. 
-        // For palestras, we know exactly how many items.
-        $total_items = count($enfrute_posts) + count($semco_posts);
-        $sumario_rows = 0;
-        if (!empty($enfrute_posts)) { $sumario_rows += 2 + 2 + count($enfrute_posts); }
-        if (!empty($semco_posts)) { $sumario_rows += 2 + 2 + count($semco_posts); }
-        $sumario_pages = ceil($sumario_rows / 38);
-        if ($sumario_pages == 0) $sumario_pages = 1;
-        $base_pages += $sumario_pages;
-
-        $current_page_num = $base_pages;
-
-        set_time_limit(300);
-        $upload_dir = wp_upload_dir();
-        $temp_dir = $upload_dir['basedir'] . '/sciflow_palestras_' . time();
-        mkdir($temp_dir);
-        $debug_log = $temp_dir . '/debug.log';
-        file_put_contents($debug_log, "Iniciando geração de palestras\n");
-
-        $process_posts = function($posts) use (&$current_page_num, &$post_pages, &$pdfs_to_merge, $temp_dir, $debug_log) {
-            $current_page_num++; // Separator page
-            foreach ($posts as $p) {
-                $post_pages[$p->ID] = $current_page_num; // This is where the Palestra starts!
-                $attachment_id = get_post_meta($p->ID, '_sciflow_attachment_id', true);
-                $file_path = get_attached_file($attachment_id);
-                if ($file_path && file_exists($file_path)) {
-                    // Convert to PDF
-                    $cmd_convert = sprintf('libreoffice --headless --convert-to pdf %s --outdir %s 2>&1', escapeshellarg($file_path), escapeshellarg($temp_dir));
-                    $out = shell_exec($cmd_convert);
-                    file_put_contents($debug_log, "Libreoffice $file_path: $out\n", FILE_APPEND);
-                    $pdf_name = pathinfo($file_path, PATHINFO_FILENAME) . '.pdf';
-                    $pdf_path = $temp_dir . '/' . $pdf_name;
-                    if (file_exists($pdf_path)) {
-                        $pdfs_to_merge[] = $pdf_path;
-                        // Count pages
-                        $cmd_count = sprintf('gs -q -dNODISPLAY -c "(%s) (r) file runpdfbegin pdfpagecount = quit"', $pdf_path);
-                        $pages = (int) trim(shell_exec($cmd_count));
-                        if ($pages > 0) {
-                            $current_page_num += $pages;
-                        } else {
-                            $current_page_num += 1;
-                        }
-                    } else {
-                        $current_page_num += 1; // Fallback
-                    }
-                } else {
-                    $current_page_num += 1; // Fallback
+            $section = array('title' => 'Palestras', 'subtitle' => $this->title(false), 'items' => array());
+            foreach ($by_event as $ev => $posts) {
+                if (!$posts) {
+                    continue;
+                }
+                $toc[] = array('type' => 'area', 'text' => 'Palestras – ' . $this->ev($ev));
+                foreach ($posts as $p) {
+                    $item = $this->prepare_item($p, true);
+                    $section['items'][] = $item;
+                    $items[] = $item;
+                    $toc[] = array('type' => 'post', 'id' => $p->ID, 'title_html' => $item['title_html']);
                 }
             }
-        };
-
-        if (!empty($enfrute_posts)) { $process_posts($enfrute_posts); }
-        if (!empty($semco_posts)) { $process_posts($semco_posts); }
-
-        // Generate HTML for preliminary pages
-        ob_start();
-        // Since output_html expects to run in a web context, we need to inject the $post_pages logic into it.
-        // Wait, output_html has its own calculation for $post_pages! We need to override it or let it use ours.
-        // I will pass an extra parameter to output_html.
-        $this->output_html($enfrute_posts, $semco_posts, $palestra_posts, 'palestras', $post_pages);
-        $html = ob_get_clean();
-
-        // Save HTML and generate PDF
-        $html_file = $temp_dir . '/preliminar.html';
-        $prelim_pdf = $temp_dir . '/preliminar.pdf';
-        file_put_contents($html_file, $html);
-        
-        $cmd_chrome = sprintf('chromium-browser --headless --disable-gpu --no-sandbox --print-to-pdf=%s %s 2>&1', escapeshellarg($prelim_pdf), escapeshellarg($html_file));
-        $out = shell_exec($cmd_chrome);
-        file_put_contents($debug_log, "Chromium: $out\n", FILE_APPEND);
-
-        // Merge PDFs
-        $final_pdf = $temp_dir . '/anais_palestras.pdf';
-        if (file_exists($prelim_pdf)) {
-            array_unshift($pdfs_to_merge, $prelim_pdf);
-        }
-        
-        $cmd_merge = sprintf('gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=%s %s 2>&1', escapeshellarg($final_pdf), implode(' ', array_map('escapeshellarg', $pdfs_to_merge)));
-        $out = shell_exec($cmd_merge);
-        file_put_contents($debug_log, "Ghostscript: $out\n", FILE_APPEND);
-
-        // Serve PDF
-        if (file_exists($final_pdf)) {
-            header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="Anais_Palestras.pdf"');
-            header('Content-Length: ' . filesize($final_pdf));
-            readfile($final_pdf);
+            $sections[] = $section;
         } else {
-            wp_die('Erro ao gerar o PDF consolidado.');
+            $events = array();
+            if (in_array($volume, array('resumos', 'resumos_enfrute'), true)) {
+                $events[] = 'enfrute';
+            }
+            if (in_array($volume, array('resumos', 'resumos_semco'), true)) {
+                $events[] = 'semco';
+            }
+            foreach ($events as $ev) {
+                $posts = $this->get_approved_works($ev);
+                if (!$posts) {
+                    continue;
+                }
+                $toc[] = array('type' => 'event', 'text' => 'Resumos – ' . $this->ev($ev));
+                foreach ($this->group_by_area($posts) as $area => $area_posts) {
+                    $toc[] = array('type' => 'area', 'text' => $area);
+                    $section = array('title' => 'Resumos – ' . $this->ev($ev), 'subtitle' => $area, 'items' => array());
+                    foreach ($area_posts as $p) {
+                        $item = $this->prepare_item($p, false);
+                        $section['items'][] = $item;
+                        $items[] = $item;
+                        $toc[] = array('type' => 'post', 'id' => $p->ID, 'title_html' => $item['title_html']);
+                    }
+                    $sections[] = $section;
+                }
+            }
         }
 
-        // Cleanup
-        // shell_exec('rm -rf ' . escapeshellarg($temp_dir)); // Comentado temporariamente para debug
+        return array(
+            'items'     => $items,
+            'sections'  => $sections,
+            'toc'       => $toc,
+            'reviewers' => $is_palestras ? array() : $this->get_reviewers(),
+        );
+    }
+
+    /**
+     * All published lectures, ordered by title.
+     *
+     * @return WP_Post[]
+     */
+    public function get_lectures()
+    {
+        $query = new WP_Query(array(
+            'post_type'      => 'sciflow_palestra',
+            'posts_per_page' => -1,
+            'post_status'    => 'publish',
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+        ));
+        return $query->posts ?: array();
+    }
+
+    /**
+     * Normalize one abstract or lecture for the renderer (all HTML sanitized).
+     *
+     * @param WP_Post $post
+     * @param bool    $is_lecture
+     * @return array
+     */
+    private function prepare_item($post, $is_lecture)
+    {
+        $main_name = (string) get_post_meta($post->ID, '_sciflow_main_author_name', true);
+        if ($is_lecture && '' === trim($main_name)) {
+            $u = get_userdata($post->post_author);
+            $main_name = $u ? $u->display_name : '';
+        }
+        $coauthors = get_post_meta($post->ID, '_sciflow_coauthors', true);
+        $ad = self::build_author_affiliations($main_name, (string) get_post_meta($post->ID, '_sciflow_main_author_instituicao', true), is_array($coauthors) ? $coauthors : array());
+
+        $allowed = array('sup' => array(), 'sub' => array(), 'em' => array(), 'i' => array(), 'strong' => array(), 'b' => array(), 'br' => array(), 'a' => array('href' => array()));
+
+        if ($is_lecture) {
+            $attachment_id = (int) get_post_meta($post->ID, '_sciflow_attachment_id', true);
+            $body = $attachment_id ? $this->extract_docx_content($attachment_id) : '';
+            if ('' === trim(wp_strip_all_tags($body, true)) && false === strpos($body, '<img')) {
+                $body = wp_kses_post($post->post_content);
+            }
+            // Images are embedded as data URIs; kses must keep that protocol.
+            $body = wp_kses($body, wp_kses_allowed_html('post'), array_merge(wp_allowed_protocols(), array('data')));
+        } else {
+            $body = wp_kses_post($post->post_content);
+            if (false === stripos($body, '<p')) {
+                $body = wpautop($body);
+            }
+        }
+        $body = $this->linkify_enfrute_urls($this->convert_scientific_notation($body));
+
+        $ack = (string) get_post_meta($post->ID, '_sciflow_acknowledgement', true);
+        $keywords = get_post_meta($post->ID, '_sciflow_keywords', true);
+        if (!is_array($keywords)) {
+            $keywords = $keywords ? array($keywords) : array();
+        }
+        $keywords = array_filter(array_map('trim', $keywords));
+
+        $meta = '';
+        if ($is_lecture) {
+            $duration = (int) get_post_meta($post->ID, '_sciflow_duration', true);
+            $meta = $duration ? sprintf('Duração: %d min', $duration) : '';
+        }
+
+        return array(
+            'id'                => (int) $post->ID,
+            'title_html'        => wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())),
+            'authors_html'      => wp_kses($ad['authors_line'], array('sup' => array())),
+            'affiliations_html' => wp_kses($ad['affiliations_line'], array('sup' => array())),
+            'meta'              => $meta,
+            'body_html'         => $body,
+            'ack'               => '' !== trim($ack) ? wp_kses($this->convert_scientific_notation(esc_html($ack)), $allowed) : '',
+            'keywords'          => $keywords ? wp_kses($this->convert_scientific_notation(esc_html(implode('; ', $keywords))), $allowed) : '',
+        );
+    }
+
+    /**
+     * Legacy "merged original files" lectures PDF: the speakers' own Word
+     * files converted by LibreOffice, preceded by the standard preliminary
+     * pages. Page numbers come from the measured PDFs; the preliminary part
+     * is rendered until its page count is stable.
+     *
+     * @param WP_Post[] $palestra_posts
+     */
+    private function generate_server_pdf_palestras($palestra_posts)
+    {
+        $chrome = self::find_binary(array('chromium-browser', 'chromium', 'google-chrome', 'google-chrome-stable'));
+        if (!$chrome || !self::find_binary(array('libreoffice', 'soffice')) || !self::find_binary(array('gs'))) {
+            wp_die(esc_html__('Este modo exige LibreOffice, Ghostscript e Chromium/Chrome no servidor. Use a pré-visualização padronizada das palestras.', 'sciflow-wp'));
+        }
+        @set_time_limit(600);
+
+        $temp_dir = untrailingslashit(SciFlow_Security::private_dir('anais-' . time() . '-' . wp_generate_password(8, false, false)));
+        $soffice = self::find_binary(array('libreoffice', 'soffice'));
+
+        // 1. Convert each lecture file and measure its pages.
+        $data = $this->collect('palestras');
+        $ordered = array();
+        foreach ($data['sections'] as $section) {
+            foreach ($section['items'] as $item) {
+                $ordered[] = $item['id'];
+            }
+        }
+        $lecture_pdfs = array();
+        $lecture_pages = array();
+        foreach ($ordered as $post_id) {
+            $file_path = get_attached_file((int) get_post_meta($post_id, '_sciflow_attachment_id', true));
+            $pages = 0;
+            if ($file_path && file_exists($file_path)) {
+                shell_exec(sprintf('%s --headless --convert-to pdf %s --outdir %s 2>&1', escapeshellarg($soffice), escapeshellarg($file_path), escapeshellarg($temp_dir))); // phpcs:ignore
+                $pdf_path = $temp_dir . '/' . pathinfo($file_path, PATHINFO_FILENAME) . '.pdf';
+                if (file_exists($pdf_path)) {
+                    $pages = max(1, $this->count_pdf_pages($pdf_path));
+                    $lecture_pdfs[] = $pdf_path;
+                }
+            }
+            $lecture_pages[$post_id] = $pages;
+        }
+
+        // 2. Render the preliminary part until its own length is stable.
+        $prelim_pdf = $temp_dir . '/preliminar.pdf';
+        $prelim_pages = 0;
+        for ($pass = 0; $pass < 4; $pass++) {
+            $fixed = array();
+            $next = $prelim_pages; // physical index of the first lecture page (cover = 0)
+            foreach ($ordered as $post_id) {
+                $fixed[$post_id] = $next;
+                $next += max(1, $lecture_pages[$post_id]);
+            }
+            ob_start();
+            (new SciFlow_Anais_Renderer($this))->render('palestras', $data, $fixed, true);
+            file_put_contents($temp_dir . '/preliminar.html', ob_get_clean());
+            @unlink($prelim_pdf);
+            shell_exec(sprintf('%s --headless=new --no-sandbox --disable-gpu --no-pdf-header-footer --allow-file-access-from-files --print-to-pdf=%s %s 2>&1', escapeshellarg($chrome), escapeshellarg($prelim_pdf), escapeshellarg('file://' . $temp_dir . '/preliminar.html'))); // phpcs:ignore
+            $measured = file_exists($prelim_pdf) ? $this->count_pdf_pages($prelim_pdf) : 0;
+            if (!$measured) {
+                break;
+            }
+            if ($measured === $prelim_pages) {
+                break;
+            }
+            $prelim_pages = $measured;
+        }
+
+        if (!file_exists($prelim_pdf)) {
+            wp_die(esc_html__('Erro ao gerar as páginas preliminares. Verifique o Diagnóstico.', 'sciflow-wp'));
+        }
+
+        // 3. Merge.
+        $final_pdf = $temp_dir . '/anais_palestras.pdf';
+        $parts = array_merge(array($prelim_pdf), $lecture_pdfs);
+        shell_exec(sprintf('gs -q -dNOPAUSE -dBATCH -dSAFER -sDEVICE=pdfwrite -sOutputFile=%s %s 2>&1', escapeshellarg($final_pdf), implode(' ', array_map('escapeshellarg', $parts)))); // phpcs:ignore
+
+        if (!file_exists($final_pdf)) {
+            wp_die(esc_html__('Erro ao gerar o PDF consolidado. Verifique o Diagnóstico.', 'sciflow-wp'));
+        }
+        nocache_headers();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="Anais_Palestras_arquivos_originais.pdf"');
+        header('Content-Length: ' . filesize($final_pdf));
+        readfile($final_pdf);
+        SciFlow_Security::remove_tree($temp_dir);
         exit;
+    }
+
+    /**
+     * First available executable among $names (or '').
+     *
+     * @param string[] $names
+     */
+    public static function find_binary(array $names)
+    {
+        if (!function_exists('shell_exec')) {
+            return '';
+        }
+        foreach ($names as $name) {
+            $path = trim((string) shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null')); // phpcs:ignore
+            if ('' !== $path) {
+                return $path;
+            }
+        }
+        return '';
     }
 
     public function render_print_page()
     {
-        $volume = sanitize_text_field($_GET['anais_volume'] ?? 'resumos');
-        $enfrute_posts = array();
-        $semco_posts   = array();
-        $palestra_posts = array();
-
-        if (in_array($volume, array('resumos', 'resumos_enfrute'), true)) {
-            $enfrute_posts = $this->get_approved_works('enfrute');
-        }
-        if (in_array($volume, array('resumos', 'resumos_semco'), true)) {
-            $semco_posts = $this->get_approved_works('semco');
-        }
-        if (in_array($volume, array('palestras', 'palestras_resumos'), true)) {
-            $query = new WP_Query(array(
-                'post_type'      => 'sciflow_palestra',
-                'posts_per_page' => -1,
-                'post_status'    => 'any',
-                'orderby'        => 'title',
-                'order'          => 'ASC',
-            ));
-            $palestra_posts = $query->posts ?: array();
+        $volume = sanitize_key($_GET['anais_volume'] ?? 'resumos');
+        $volumes = array('resumos', 'resumos_enfrute', 'resumos_semco', 'palestras_resumos', 'palestras');
+        if (!in_array($volume, $volumes, true)) {
+            $volume = 'resumos';
         }
 
-        if ($volume === 'palestras') { $this->generate_server_pdf_palestras($palestra_posts); return; }
-        if ($volume === 'palestras_resumos') { $this->output_html(array(), array(), $palestra_posts, 'palestras_resumos'); exit; }
-        $this->output_html($enfrute_posts, $semco_posts, $palestra_posts, $volume);
+        if ('palestras' === $volume) {
+            $this->generate_server_pdf_palestras($this->get_lectures());
+            exit;
+        }
+
+        nocache_headers();
+        header('Content-Type: text/html; charset=UTF-8');
+        (new SciFlow_Anais_Renderer($this))->render($volume, $this->collect($volume));
         exit;
     }
 
-    private function get_approved_works($event)
+    public function get_approved_works($event)
     {
         $post_type = SciFlow_Status_Manager::get_post_type_for_event($event);
         if (!$post_type) return array();
@@ -284,7 +412,7 @@ class SciFlow_Anais
     /**
      * Agrupa resumos por área de conhecimento.
      */
-    private function group_by_area($posts)
+    public function group_by_area($posts)
     {
         $grouped = array();
         foreach ($posts as $p) {
@@ -298,8 +426,7 @@ class SciFlow_Anais
         ksort($grouped);
         return $grouped;
     }
-
-        private function format_scientific_title($title)
+    public function format_scientific_title($title)
     {
         $parts = preg_split('/(<\/?(?:i|em)[^>]*>)/i', $title, -1, PREG_SPLIT_DELIM_CAPTURE);
         $in_italic = false;
@@ -316,8 +443,7 @@ class SciFlow_Anais
         }
         return implode('', $parts);
     }
-
-        private function get_reviewers()
+    public function get_reviewers()
     {
         $users = get_users();
         $reviewers = array();
@@ -443,11 +569,20 @@ class SciFlow_Anais
      * Ex: 10^3 → 10<sup>3</sup> | 10^-1 → 10<sup>-1</sup>
      * Aplica-se apenas a ^N fora de tags HTML.
      */
-    private function convert_scientific_notation($text)
+    public function convert_scientific_notation($text)
     {
         // Converte padrão ^(sinal opcional)(dígitos) para <sup>...</sup>
         // O negative lookbehind evita alterar dentro de atributos HTML
-        return preg_replace('/(?<![="\'\w])\^([-+]?\d+)/', '<sup>$1</sup>', $text);
+        // Only outside tags (attribute values never contain "^digit" in practice,
+        // but tags are skipped explicitly anyway).
+        $parts = preg_split('/(<[^>]*>)/', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+        foreach ($parts as $i => $part) {
+            if ('' === $part || '<' === $part[0]) {
+                continue;
+            }
+            $parts[$i] = preg_replace('/\^\s?([-+−]?\d+)/u', '<sup>$1</sup>', $part);
+        }
+        return implode('', $parts);
     }
 
     /**
@@ -455,7 +590,7 @@ class SciFlow_Anais
      * Detecta variações: http/https, com/sem www, com caminho.
      * Não duplica links já existentes em atributos href.
      */
-    private function linkify_enfrute_urls($text)
+    public function linkify_enfrute_urls($text)
     {
         return preg_replace_callback(
             '/<a\b[^>]*>.*?<\/a>|((?:https?:\/\/)?(?:www\.)?enfrute\.com(?:\.br)?(?:\/[^\s<]*)?)/i',
@@ -468,8 +603,7 @@ class SciFlow_Anais
             $text
         );
     }
-
-    private function get_image_url($filename)
+    public function get_image_url($filename)
     {
         $path = SCIFLOW_PATH . 'admin/images/' . $filename;
         if (file_exists($path)) {
@@ -480,848 +614,6 @@ class SciFlow_Anais
         return '';
     }
 
-    private function output_html($enfrute_posts, $semco_posts, $palestra_posts, $volume, $custom_post_pages = null)
-    {
-        $is_palestras         = in_array($volume, array('palestras', 'palestras_resumos'), true);
-        $is_palestras_preview = ($volume === 'palestras_resumos');
-        $total = $is_palestras ? count($palestra_posts) : (count($enfrute_posts) + count($semco_posts));
-
-        $img_capa      = $is_palestras ? 'static_palestras_pg0.png' : 'static_pg0.png';
-        $img_rosto     = $is_palestras ? 'static_palestras_pg1.png' : 'static_pg1.png';
-        $img_parceiros = $is_palestras ? 'static_palestras_pg3.png' : 'static_pg3.png';
-        $img_apres     = $is_palestras ? 'static_palestras_apres.png' : null;
-
-        // ── PRE-CÁLCULOS (movidos para antes do HTML para que $total_pages
-        //    esteja disponível na ficha catalográfica – Item 3) ─────────────
-        if (!$is_palestras) {
-            $base_pages = 5; // capa, rosto, ficha, parceiros, apresentação
-
-            $reviewers = $this->get_reviewers();
-            if (empty($reviewers)) { $reviewers = array('Nenhum revisor cadastrado.'); }
-            $reviewer_chunks    = array_chunk($reviewers, 70);
-            $num_reviewer_pages = count($reviewer_chunks);
-            $base_pages += $num_reviewer_pages;
-
-            // Monta estrutura do sumário e agrupa posts por área
-            $sumario_lines   = array();
-            $grouped_enfrute = array();
-            $grouped_semco   = array();
-
-            if (!empty($enfrute_posts)) {
-                $sumario_lines[] = array('type' => 'event', 'text' => 'Resumos – XIX Enfrute');
-                $grouped_enfrute = $this->group_by_area($enfrute_posts);
-                foreach ($grouped_enfrute as $area => $posts) {
-                    $sumario_lines[] = array('type' => 'area', 'text' => $area);
-                    foreach ($posts as $p) {
-                        $sumario_lines[] = array('type' => 'post', 'post' => $p);
-                    }
-                }
-            }
-            if (!empty($semco_posts)) {
-                $sumario_lines[] = array('type' => 'event', 'text' => 'Resumos – III Semco');
-                $grouped_semco = $this->group_by_area($semco_posts);
-                foreach ($grouped_semco as $area => $posts) {
-                    $sumario_lines[] = array('type' => 'area', 'text' => $area);
-                    foreach ($posts as $p) {
-                        $sumario_lines[] = array('type' => 'post', 'post' => $p);
-                    }
-                }
-            }
-
-            // Pagina o sumário
-            $sumario_pages = array();
-            $_cur_page     = array();
-            $_rows         = 0;
-            $max_rows      = 44;
-            foreach ($sumario_lines as $line) {
-                if ($line['type'] === 'post') {
-                    $t_len = mb_strlen(strip_tags($line['post']->post_title));
-                    $row_cost = max(1, (int) ceil($t_len / 85));
-                } else {
-                    $row_cost = 2;
-                }
-                if ($_rows + $row_cost > $max_rows && !empty($_cur_page)) {
-                    $sumario_pages[] = $_cur_page;
-                    $_cur_page = array();
-                    $_rows     = 0;
-                }
-                $_cur_page[] = $line;
-                $_rows += $row_cost;
-            }
-            if (!empty($_cur_page)) { $sumario_pages[] = $_cur_page; }
-
-            $num_sumario_pages = count($sumario_pages);
-            if ($num_sumario_pages === 0) $num_sumario_pages = 1;
-            $base_pages += $num_sumario_pages;
-
-            // Calcula números de página por artigo
-            if ($custom_post_pages !== null) {
-                $post_pages  = $custom_post_pages;
-                $total_pages = !empty($post_pages) ? max($post_pages) : $base_pages;
-            } else {
-                $post_pages       = array();
-                $current_page_num = $base_pages;
-
-                if (!empty($enfrute_posts)) {
-                    foreach ($grouped_enfrute as $area => $posts) {
-                        $current_page_num++; // Separador
-                        foreach ($posts as $p) {
-                            $current_page_num++;
-                            $post_pages[$p->ID] = $current_page_num;
-                            $res_pages = $this->split_resumo_into_pages($p);
-                            $current_page_num += (count($res_pages) - 1);
-                        }
-                    }
-                }
-                if (!empty($semco_posts)) {
-                    foreach ($grouped_semco as $area => $posts) {
-                        $current_page_num++; // Separador
-                        foreach ($posts as $p) {
-                            $current_page_num++;
-                            $post_pages[$p->ID] = $current_page_num;
-                            $res_pages = $this->split_resumo_into_pages($p);
-                            $current_page_num += (count($res_pages) - 1);
-                        }
-                    }
-                }
-                // Item 3 – Total estimado de páginas do PDF final
-                $total_pages = $current_page_num;
-            }
-        } else {
-            // Palestras: inicialização de variáveis comuns
-            $reviewers       = array();
-            $reviewer_chunks = array();
-            $grouped_enfrute = array();
-            $grouped_semco   = array();
-
-            if ($is_palestras_preview) {
-                // ── Preview completo (HTML): calcula sumário e páginas ──────
-                $palestra_enfrute = array();
-                $palestra_semco   = array();
-                foreach ($palestra_posts as $p) {
-                    $ev = strtolower(get_post_meta($p->ID, '_sciflow_event', true));
-                    if ($ev === 'semco') {
-                        $palestra_semco[] = $p;
-                    } else {
-                        $palestra_enfrute[] = $p;
-                    }
-                }
-
-                $base_pages = 5; // páginas 0-4: capa, rosto, ficha, parceiros, apresentação
-
-                // Monta linhas do sumário
-                $sumario_lines = array();
-                if (!empty($palestra_enfrute)) {
-                    $sumario_lines[] = array('type' => 'area', 'text' => 'Palestras – XIX Enfrute');
-                    foreach ($palestra_enfrute as $p) {
-                        $sumario_lines[] = array('type' => 'post', 'post' => $p);
-                    }
-                }
-                if (!empty($palestra_semco)) {
-                    $sumario_lines[] = array('type' => 'area', 'text' => 'Palestras – III Semco');
-                    foreach ($palestra_semco as $p) {
-                        $sumario_lines[] = array('type' => 'post', 'post' => $p);
-                    }
-                }
-
-                // Pagina o sumário
-                $sumario_pages = array();
-                $_cur_page     = array();
-                $_rows         = 0;
-                $max_rows      = 44;
-                foreach ($sumario_lines as $line) {
-                    if ($line['type'] === 'post') {
-                        $t_len = mb_strlen(strip_tags($line['post']->post_title));
-                        $row_cost = max(1, (int) ceil($t_len / 85));
-                    } else {
-                        $row_cost = 2;
-                    }
-                    if ($_rows + $row_cost > $max_rows && !empty($_cur_page)) {
-                        $sumario_pages[] = $_cur_page;
-                        $_cur_page = array();
-                        $_rows     = 0;
-                    }
-                    $_cur_page[] = $line;
-                    $_rows += $row_cost;
-                }
-                if (!empty($_cur_page)) { $sumario_pages[] = $_cur_page; }
-                $num_sumario_pages = count($sumario_pages);
-                if ($num_sumario_pages === 0) $num_sumario_pages = 1;
-                $base_pages += $num_sumario_pages;
-                $base_pages += 1; // Separador (página 6 na numeração do usuário)
-
-                // Calcula números de página por palestra e extrai conteúdo para paginação
-                $palestra_contents = array();
-                if ($custom_post_pages !== null) {
-                    $post_pages  = $custom_post_pages;
-                    $total_pages = !empty($post_pages) ? max($post_pages) : $base_pages;
-                } else {
-                    $post_pages       = array();
-                    $current_page_num = $base_pages;
-                    foreach (array_merge($palestra_enfrute, $palestra_semco) as $p) {
-                        $current_page_num++;
-                        $post_pages[$p->ID] = $current_page_num;
-                        
-                        // Extrai e fatiar o conteúdo
-                        $attachment_id = get_post_meta($p->ID, '_sciflow_attachment_id', true);
-                        $content = '';
-                        if ($attachment_id) {
-                            $content = $this->extract_docx_content($attachment_id);
-                        }
-                        if (empty($content)) {
-                            $content = wp_kses_post($p->post_content);
-                        }
-                        $main_author_meta = get_post_meta($p->ID, '_sciflow_main_author_name', true);
-                        if (!empty(trim($main_author_meta))) {
-                            $author_name = self::title_case_name($main_author_meta);
-                        } else {
-                            $author_user = get_userdata($p->post_author);
-                            $author_name = $author_user ? self::title_case_name($author_user->display_name) : '';
-                        }
-                        $main_instit = get_post_meta($p->ID, '_sciflow_main_author_instituicao', true);
-                        $coauthors   = get_post_meta($p->ID, '_sciflow_coauthors', true);
-                        if (!is_array($coauthors)) $coauthors = array();
-                        $ad = self::build_author_affiliations($author_name, $main_instit, $coauthors);
-
-                        $title_str   = strip_tags($p->post_title);
-                        $authors_str = strip_tags($ad['authors_line'] ?? '');
-                        $afils_str   = strip_tags($ad['affiliations_line'] ?? '');
-                        $meta_cost   = mb_strlen($title_str) + mb_strlen($authors_str) + mb_strlen($afils_str);
-
-                        $pages_html = $this->split_html_into_pages($content, $meta_cost);
-                        $palestra_contents[$p->ID] = $pages_html;
-                        
-                        $current_page_num += (count($pages_html) - 1);
-                    }
-                    $total_pages = $current_page_num;
-                }
-            } else {
-                // ── Modo PDF: inicialização mínima (páginas pré-textuais apenas) ──
-                $base_pages       = 0;
-                $sumario_lines    = array();
-                $sumario_pages    = array();
-                $palestra_enfrute = array();
-                $palestra_semco   = array();
-                $post_pages       = ($custom_post_pages !== null) ? $custom_post_pages : array();
-                $total_pages      = $total;
-            }
-        }
-        ?>
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Anais – XIX Enfrute / III Semco 2026 – <?php echo $is_palestras ? 'Vol. I Palestras' : 'Vol. II Resumos'; ?></title>
-<?php $this->output_css(); ?>
-</head>
-<body class="anais-body">
-
-<div class="noprint-bar">
-  <span>⚠ Preview dos Anais – <?php echo $is_palestras_preview ? 'Vol. I (Palestras)' : 'Vol. II (Resumos)'; ?></span>
-  <button onclick="window.print()" class="print-btn">🖨 Imprimir / Salvar como PDF</button>
-  <span class="total-badge"><?php echo intval($total); ?> <?php echo $is_palestras_preview ? 'palestras' : 'resumos'; ?></span>
-</div>
-
-<!-- ═══════════════ CAPA ═══════════════ -->
-<div class="page static-page">
-    <img src="<?php echo esc_attr($this->get_image_url($img_capa)); ?>" alt="Capa" class="full-page-img">
-</div>
-
-<!-- ═══════════════ PÁGINA 2 (Folha de Rosto) ═══════════════ -->
-<div class="page static-page">
-    <img src="<?php echo esc_attr($this->get_image_url($img_rosto)); ?>" alt="Folha de Rosto" class="full-page-img">
-</div>
-
-<!-- ═══════════════ PÁGINA 3 (Ficha Catalográfica) ═══════════════ -->
-<div class="page text-page pg-ficha">
-    <p>Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina<br>
-    Epagri/Estação Experimental de Caçador "José Oscar Kurtz"<br>
-    Rua Abílio Franco, 1500, Bairro Bom Sucesso<br>
-    89501-032, Caçador, SC<br>
-    Fone: (49) 3561-6800<br>
-    E-mail: <a href="mailto:eecd@epagri.sc.gov.br">eecd@epagri.sc.gov.br</a></p>
-
-    <p style="margin-top:24px;">Editado pela DOPPIO DESIGN</p>
-
-    <p style="margin-top:24px;">Edição: Julho 2026<br>
-    Divulgação: <em>on-line</em></p>
-
-    <p style="margin-top:24px;">Editoração: DOPPIO DESIGN<br>
-    Revisão textual: Marcus Vinícius Kvitschal, Fernando Pereira Monteiro, André Amarildo Sezerino, Guilherme Mallmann e Marcelo Couto<br>
-    Diagramação: DOPPIO DESIGN</p>
-
-    <p style="margin-top:24px;">A responsabilidade do editor limita-se à adequação dos trabalhos às normas editoriais estabelecidas.</p>
-    
-    <p style="margin-top:16px;">O conteúdo dos resumos aqui publicados é de responsabilidade exclusiva dos respectivos autores.</p>
-    
-    <p style="margin-top:16px;">É permitida a reprodução parcial dos resumos desta edição desde que citada a fonte.</p>
-    
-    <div class="ficha-caixa">
-        <p style="text-align:center; font-weight:bold; margin-bottom:12px;">Ficha Catalográfica</p>
-        <p style="text-align:justify; margin-bottom:12px;">
-        <!-- Item 2 – "DE" → "SOBRE" na ficha catalográfica -->
-        <strong>ENCONTRO NACIONAL SOBRE FRUTICULTURA DE CLIMA TEMPERADO, 19., SEMINÁRIO CATARINENSE DE OLERICULTURA, 3.</strong>, 2026, Fraiburgo, SC. 
-        <?php if ($is_palestras && !$is_palestras_preview): ?>
-            <strong>Anais de Palestras...</strong> Caçador, SC: Epagri, vol. I (Palestras), 2026. <?php echo intval($total); ?> palestras.
-        <?php elseif ($is_palestras_preview): ?>
-            <strong>Anais de Palestras...</strong> Caçador, SC: Epagri, vol. I (Palestras), 2026. <?php echo intval($total_pages); ?> p.
-        <?php else: ?>
-            <!-- Item 3 – Número real de páginas do PDF (estimativa) -->
-            <strong>Anais de Resumos...</strong> Caçador, SC: Epagri, vol. II (Resumos), 2026. <?php echo intval($total_pages); ?> p.
-        <?php endif; ?>
-        </p>
-        <p style="text-align:justify; margin-bottom:12px;">
-        Fruticultura de Clima Temperado; Maçã; Uva; Pêssego; Pera; Ameixa, Nectarina; Goiaba; Caqui; Pequenas frutas; Frutas nativas; Olericultura; Tomate; Cebola; Alho; Morango; Mandioca; Cenoura; Pimentão, Folhosas; Lúpulo.
-        </p>
-        <p>ISSN 2175-1889</p>
-    </div>
-</div>
-
-<!-- ═══════════════ PÁGINA 4 (Realização e Patrocínio) ═══════════════ -->
-<div class="page static-page">
-    <img src="<?php echo esc_attr($this->get_image_url($img_parceiros)); ?>" alt="Realização e Patrocínio" class="full-page-img">
-</div>
-
-<!-- ═══════════════ PÁGINA 5 (Apresentação) ═══════════════ -->
-<?php if ($is_palestras && $img_apres): ?>
-<div class="page static-page">
-    <img src="<?php echo esc_attr($this->get_image_url($img_apres)); ?>" alt="Apresentação" class="full-page-img">
-</div>
-<?php else: ?>
-<div class="page text-page pg-apresentacao">
-    <p class="apres-titulo"><strong>APRESENTAÇÃO</strong></p>
-    
-    <!-- Item 2 – "DE" → "SOBRE" no texto da apresentação -->
-    <p class="apres-texto">A Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina (Epagri), Associação dos Engenheiros Agrônomos de Caçador (AEAC), Universidade Alto Vale do Rio do Peixe (Uniarp) e Prefeitura de Fraiburgo realizaram em Fraiburgo-SC nos dias 28, 29 e 30 de julho de 2026 o XIX Encontro Nacional SOBRE Fruticultura de Clima Temperado – XIX Enfrute e III Seminário Catarinense de Olericultura – III Semco. O tema central do evento foi a valorização da ciência brasileira para a produção de frutas e de hortaliças, em busca de uma produção cada vez mais competitiva, aderente as boas práticas de produção. No XIX Enfrute e III Semco foram submetidos mais de 400 resumos científicos contendo informações científicas relacionadas à fruticultura e olericultura, tudo em primeira mão. Os trabalhos aprovados pelo comitê científico foram apresentados em formato de pôster digital no website dos eventos, e estão disponíveis publicamente para consulta a qualquer momento em <a href="https://enfrute.com" target="_blank">enfrute.com</a>. Nessa edição, foi criado o <strong>1º Prêmio HortiFruti Ciência</strong>, que tem como objetivo prestigiar, valorizar e premiar os melhores trabalhos científicos submetidos e apresentados. De todos os resumos submetidos ao XIX Enfrute e III Semco, 12 foram selecionados pelo comitê técnico-científico para apresentação oral pelos autores, sendo os três melhores premiados. Nesta obra estão apresentados os resumos de todos os trabalhos científicos aprovados nos dois eventos.</p>
-    
-    <p class="apres-texto">Desejamos a todos uma ótima leitura.</p>
-    
-    <div class="apres-assinatura">
-        <p>Marcus Vinícius Kvitschal<br>
-        Presidente da Comissão Organizadora do XIX Enfrute e III Semco<br>
-        Julho de 2026</p>
-    </div>
-</div>
-<?php endif; ?>
-
-<?php if ($is_palestras && !$is_palestras_preview): ?>
-<!-- ═══════════════ FIM DA SEÇÃO AUTOMÁTICA DE PALESTRAS (MODO PDF) ═══════════════ -->
-<div class="page text-page centered-page">
-    <h2 style="margin-top: 100px; color: #d32f2f;">Fim do Arquivo Introdutório (Volume I)</h2>
-    <p style="margin-top: 30px; font-size: 16pt; color: #555;">
-        Este arquivo contém as páginas pré-textuais do Vol. I.<br>
-        As páginas das palestras em si devem ser unidas a este PDF manualmente a partir dos arquivos Word enviados pelos palestrantes.
-    </p>
-</div>
-</body>
-</html>
-<?php
-        return; // Interrompe para Palestras no modo PDF (geração de PDF consolidado)
-endif;
-?>
-
-<?php if ($is_palestras_preview): ?>
-<!-- ═══════════════ PÁGINA 5: SUMÁRIO (PALESTRAS) ═══════════════ -->
-<?php
-        $current_sumario_page = 5;
-        foreach ($sumario_pages as $idx => $spage) {
-            echo '<div class="page resumo-page pg-sumario">';
-            echo '  <div class="resumo-container">';
-            $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
-            echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
-
-            if ($idx === 0) {
-                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO</p>';
-            } else {
-                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO (Cont.)</p>';
-            }
-            echo '<div class="sumario-lista">';
-            foreach ($spage as $line) {
-                if ($line['type'] === 'event') {
-                    echo '<p style="font-weight:bold; margin-top:16px;">' . esc_html($line['text']) . '</p>';
-                } elseif ($line['type'] === 'post') {
-                    $p  = $line['post'];
-                    $pg = isset($post_pages[$p->ID]) ? $post_pages[$p->ID] : '';
-                    echo '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-left:20px; font-size:10pt; line-height:1.2; margin-bottom:4px;">';
-                    echo '<a href="#palestra-' . intval($p->ID) . '" style="flex:1; padding-right:10px; color:inherit; text-decoration:none;">'
-                        . wp_kses($this->format_scientific_title($p->post_title), array('i' => array(), 'em' => array()))
-                        . '</a>';
-                    echo '<a href="#palestra-' . intval($p->ID) . '" style="white-space:nowrap; color:inherit; text-decoration:none;">' . $pg . '</a>';
-                    echo '</div>';
-                }
-            }
-            echo '    </div>';
-            echo '  </div>';
-            echo '  <div class="resumo-footer">' . $current_sumario_page . '</div>';
-            echo '</div>';
-            $current_sumario_page++;
-        }
-?>
-
-<!-- ═══════════════ PÁGINA 6: SEPARADOR (PALESTRAS) ═══════════════ -->
-<div class="page separator-page">
-    <div class="separator-content">
-        <p class="sep-evento">Palestras</p>
-        <p class="sep-area">XIX Enfrute / III Semco 2026</p>
-    </div>
-</div>
-
-<!-- ═══════════════ PÁGINAS 7+: RESUMOS DE PALESTRAS ═══════════════ -->
-<?php
-        $all_palestras_ordered = array_merge($palestra_enfrute, $palestra_semco);
-        foreach ($all_palestras_ordered as $palestra) {
-            $pg = isset($post_pages[$palestra->ID]) ? $post_pages[$palestra->ID] : 0;
-            $p_pages_html = isset($palestra_contents[$palestra->ID]) ? $palestra_contents[$palestra->ID] : null;
-            $this->render_palestra_resumo($palestra, $pg, $p_pages_html);
-        }
-?>
-<?php endif; ?>
-<?php if ($is_palestras_preview): ?>
-</body>
-</html>
-<?php return; // Fim do preview de palestras — impede a renderização do bloco de resumos
-endif; ?>
-
-<!-- ═══════════════ PÁGINA 6 (Revisores) ═══════════════ -->
-<?php
-        // Renderiza páginas de revisores usando $reviewer_chunks pré-calculado
-        foreach ($reviewer_chunks as $idx => $chunk) {
-            echo '<div class="page text-page pg-revisores">';
-            if ($idx === 0) {
-                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom:30px;">Lista de revisores <em>ad hoc</em> dos resumos científicos</p>';
-            } else {
-                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom:30px;">Lista de revisores <em>ad hoc</em> dos resumos científicos (Cont.)</p>';
-            }
-            echo '<div style="column-count: 2; column-gap: 40px; font-size: 11pt;">';
-            foreach ($chunk as $r) {
-                echo '<p style="margin-bottom: 5px;">' . esc_html($r) . '</p>';
-            }
-            echo '</div></div>';
-        }
-
-        // ── RENDER SUMÁRIO ──────────────────────────────────────────────────
-        $current_sumario_page = 5;
-        foreach ($sumario_pages as $idx => $spage) {
-            echo '<div class="page resumo-page pg-sumario">';
-            echo '  <div class="resumo-container">';
-            $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
-            echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
-
-            if ($idx === 0) {
-                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO</p>';
-            } else {
-                echo '<p style="font-weight:bold; font-size:12pt; text-align:center; margin-bottom: 24px;">SUMÁRIO (Cont.)</p>';
-            }
-            echo '<div class="sumario-lista">';
-            foreach ($spage as $line) {
-                if ($line['type'] === 'event') {
-                    echo '<p style="font-weight:bold; margin-top:16px;">' . esc_html($line['text']) . '</p>';
-                } elseif ($line['type'] === 'area') {
-                    echo '<p style="margin-top:10px; font-weight:bold; text-transform:uppercase; font-size:11pt;">' . esc_html($line['text']) . '</p>';
-                } elseif ($line['type'] === 'post') {
-                    $p  = $line['post'];
-                    $pg = isset($post_pages[$p->ID]) ? $post_pages[$p->ID] : '';
-                    echo '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-left:20px; font-size:10pt; line-height:1.2; margin-bottom:4px;">';
-                    echo '<a href="#post-' . intval($p->ID) . '" style="flex:1; padding-right:10px; color:inherit; text-decoration:none;">'
-                        . wp_kses($this->format_scientific_title($p->post_title), array('i' => array(), 'em' => array()))
-                        . '</a>';
-                    echo '<a href="#post-' . intval($p->ID) . '" style="white-space:nowrap; color:inherit; text-decoration:none;">' . $pg . '</a>';
-                    echo '</div>';
-                }
-            }
-            echo '    </div>';
-            echo '  </div>';
-            echo '  <div class="resumo-footer">' . $current_sumario_page . '</div>';
-            echo '</div>';
-            $current_sumario_page++;
-        }
-
-        // ── PROCESSAMENTO: XIX ENFRUTE ──────────────────────────────────────
-        if (!empty($enfrute_posts)) {
-            foreach ($grouped_enfrute as $area => $posts_in_area) {
-                echo '<div class="page separator-page">';
-                echo '  <div class="separator-content">';
-                echo '    <p class="sep-evento">Resumos – XIX Enfrute</p>';
-                echo '    <p class="sep-area">' . esc_html($area) . '</p>';
-                echo '  </div>';
-                echo '</div>';
-
-                foreach ($posts_in_area as $post) {
-                    $pg = isset($post_pages[$post->ID]) ? $post_pages[$post->ID] : 0;
-                    $this->render_resumo($post, $pg, 'XIX Enfrute', $area);
-                }
-            }
-        }
-
-        // ── PROCESSAMENTO: III SEMCO ────────────────────────────────────────
-        if (!empty($semco_posts)) {
-            foreach ($grouped_semco as $area => $posts_in_area) {
-                echo '<div class="page separator-page">';
-                echo '  <div class="separator-content">';
-                echo '    <p class="sep-evento">Resumos – III Semco</p>';
-                echo '    <p class="sep-area">' . esc_html($area) . '</p>';
-                echo '  </div>';
-                echo '</div>';
-
-                foreach ($posts_in_area as $post) {
-                    $pg = isset($post_pages[$post->ID]) ? $post_pages[$post->ID] : 0;
-                    $this->render_resumo($post, $pg, 'III Semco', $area);
-                }
-            }
-        }
-?>
-</body>
-</html>
-<?php
-    }
-
-    private function render_resumo($post, $num, $evento_label, $area_label)
-    {
-        $main_name   = get_post_meta($post->ID, '_sciflow_main_author_name', true);
-        $main_instit = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
-        $coauthors   = get_post_meta($post->ID, '_sciflow_coauthors', true);
-
-        if (!is_array($coauthors)) $coauthors = array();
-        $ad = self::build_author_affiliations($main_name, $main_instit, $coauthors);
-
-        $pages       = $this->split_resumo_into_pages($post);
-        $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
-
-        foreach ($pages as $i => $page_data) {
-            $page_anchor = ($i === 0) ? 'post-' . intval($post->ID) : 'post-' . intval($post->ID) . '-p' . ($i + 1);
-            echo '<div class="page resumo-page" id="' . $page_anchor . '">';
-            echo '  <div class="resumo-container">';
-
-            if ($i === 0) {
-                echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
-                echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
-                echo '    <p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
-                if (!empty($ad['affiliations_line'])) {
-                    echo '    <p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
-                }
-            } else {
-                echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '<br><br><em>Continuação – ' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</em></p>';
-            }
-
-            if (!empty($page_data['body'])) {
-                echo '    <div class="resumo-corpo">' . $page_data['body'] . '</div>';
-            }
-
-            if (!empty($page_data['ack'])) {
-                echo '    <p class="resumo-ack"><strong>Agradecimentos:</strong> ' . $page_data['ack'] . '</p>';
-            }
-
-            if (!empty($page_data['kws'])) {
-                echo '    <p class="resumo-kws"><strong>Palavras-chave:</strong> ' . $page_data['kws'] . '.</p>';
-            }
-
-            echo '  </div>';
-            echo '  <div class="resumo-footer">' . intval($num + $i) . '</div>';
-            echo '</div>';
-        }
-    }
-
-    /**
-     * Fatia o conteúdo de um resumo em páginas respeitando os limites da folha A4.
-     */
-    private function split_resumo_into_pages($post)
-    {
-        $main_name   = get_post_meta($post->ID, '_sciflow_main_author_name', true);
-        $main_instit = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
-        $coauthors   = get_post_meta($post->ID, '_sciflow_coauthors', true);
-        $keywords    = get_post_meta($post->ID, '_sciflow_keywords', true);
-        $ack         = get_post_meta($post->ID, '_sciflow_acknowledgement', true);
-
-        if (!is_array($coauthors)) $coauthors = array();
-        if (!is_array($keywords))  $keywords  = $keywords ? array($keywords) : array();
-        $keywords = array_filter(array_map('trim', $keywords));
-
-        $ad = self::build_author_affiliations($main_name, $main_instit, $coauthors);
-
-        $title_str    = strip_tags($post->post_title);
-        $authors_str  = strip_tags($ad['authors_line'] ?? '');
-        $afils_str    = strip_tags($ad['affiliations_line'] ?? '');
-
-        $title_cost   = mb_strlen($title_str) * 1.0;
-        $authors_cost = mb_strlen($authors_str) * 1.0;
-        $afils_cost   = mb_strlen($afils_str) * 0.8;
-        $meta_cost    = 200 + $title_cost + $authors_cost + $afils_cost;
-
-        $page1_max_body = max(1000, 2500 - intval($meta_cost * 0.8));
-        $page2_max_body = 2800;
-
-        $body = wp_kses_post($post->post_content);
-        $body = $this->convert_scientific_notation($body);
-        $body = $this->linkify_enfrute_urls($body);
-
-        if (preg_match_all('/<p[^>]*>.*?<\/p>|<div[^>]*>.*?<\/div>/is', $body, $m)) {
-            $raw_blocks = $m[0];
-        } else {
-            $raw_blocks = preg_split('/(?<=[.!?])\s+(?=[A-Z\xC0-\xFF<])/u', $body);
-        }
-
-        $pages    = array();
-        $cur_page = 0;
-        $cur_body = array();
-        $cur_load = 0;
-        $max_load = $page1_max_body;
-
-        foreach ($raw_blocks as $block) {
-            $block = trim($block);
-            if (empty($block)) continue;
-            $block_len = mb_strlen(strip_tags($block));
-
-            if ($block_len > $max_load && empty($cur_body)) {
-                $words = preg_split('/\s+/u', $block);
-                $word_chunk = array();
-                $chunk_len = 0;
-                foreach ($words as $w) {
-                    $w_len = mb_strlen(strip_tags($w)) + 1;
-                    if ($chunk_len + $w_len > $max_load && !empty($word_chunk)) {
-                        $pages[$cur_page]['body'] = implode(' ', $word_chunk);
-                        $cur_page++;
-                        $word_chunk = array($w);
-                        $chunk_len = $w_len;
-                        $max_load = $page2_max_body;
-                    } else {
-                        $word_chunk[] = $w;
-                        $chunk_len += $w_len;
-                    }
-                }
-                if (!empty($word_chunk)) {
-                    $cur_body[] = implode(' ', $word_chunk);
-                    $cur_load = $chunk_len;
-                }
-                continue;
-            }
-
-            if ($cur_load + $block_len > $max_load && !empty($cur_body)) {
-                $pages[$cur_page]['body'] = implode(' ', $cur_body);
-                $cur_page++;
-                $cur_body = array($block);
-                $cur_load = $block_len;
-                $max_load = $page2_max_body;
-            } else {
-                $cur_body[] = $block;
-                $cur_load += $block_len;
-            }
-        }
-        if (!empty($cur_body)) {
-            $pages[$cur_page]['body'] = implode(' ', $cur_body);
-        }
-
-        if (empty($pages)) {
-            $pages[0] = array('body' => '');
-        }
-
-        if (!empty($ack)) {
-            $ack_safe = esc_html($ack);
-            $ack_safe = $this->convert_scientific_notation($ack_safe);
-            $ack_safe = $this->linkify_enfrute_urls($ack_safe);
-            $ack_len  = mb_strlen(strip_tags($ack_safe)) + 30;
-
-            if ($cur_load + $ack_len > $max_load && !empty($pages[$cur_page]['body'])) {
-                $cur_page++;
-                $cur_load = 0;
-                $max_load = $page2_max_body;
-            }
-            $pages[$cur_page]['ack'] = $ack_safe;
-            $cur_load += $ack_len;
-        }
-
-        if (!empty($keywords)) {
-            $kw_safe = esc_html(implode('; ', $keywords));
-            $kw_safe = $this->convert_scientific_notation($kw_safe);
-            $kw_len  = mb_strlen($kw_safe) + 30;
-
-            if ($cur_load + $kw_len > $max_load && (!empty($pages[$cur_page]['body']) || !empty($pages[$cur_page]['ack']))) {
-                $cur_page++;
-                $cur_load = 0;
-                $max_load = $page2_max_body;
-            }
-            $pages[$cur_page]['kws'] = $kw_safe;
-            $cur_load += $kw_len;
-        }
-
-        return $pages;
-    }
-
-    private function split_html_into_pages($html, $meta_cost = 600)
-    {
-        @ini_set('pcre.backtrack_limit', '10000000');
-        $pages = array();
-
-        $page1_max_body = max(1000, 2500 - intval($meta_cost * 0.8));
-        $page2_max_body = 2800;
-
-        $raw_blocks = preg_split('/(?<=<\/p>|<\/div>|<\/table>|<\/ul>|<\/ol>)/i', $html);
-        if (empty($raw_blocks)) {
-            $raw_blocks = array($html);
-        }
-
-        $blocks = array();
-        foreach ($raw_blocks as $b) {
-            $b = trim($b);
-            if (empty($b)) continue;
-            $blocks[] = $b;
-        }
-
-        $current_page_html = '';
-        $current_chars = 0;
-        $max_load = $page1_max_body;
-
-        foreach ($blocks as $block) {
-            $block_text_len = mb_strlen(strip_tags($block));
-            $block_len = $block_text_len;
-            if (strpos($block, '<img') !== false) {
-                $block_len += 1800;
-            }
-            if (strpos($block, '<table') !== false) {
-                $block_len += 1200;
-            }
-
-            if ($current_chars + $block_len > $max_load && !empty($current_page_html)) {
-                $b_text = strip_tags($block);
-                $space_avail = $max_load - $current_chars;
-
-                // Divide parágrafo longo de forma limpa para preencher a página sem estourar
-                if (strpos($block, '<img') === false && strpos($block, '<table') === false && mb_strlen($b_text) > 200 && $space_avail >= 200) {
-                    $sentences = preg_split('/(?<=[.!?])\s+/u', $b_text);
-                    $part1 = array();
-                    $part2 = array();
-                    $p1_len = 0;
-
-                    foreach ($sentences as $s) {
-                        $s_len = mb_strlen($s) + 1;
-                        if ($p1_len + $s_len <= $space_avail || empty($part1)) {
-                            $part1[] = $s;
-                            $p1_len += $s_len;
-                        } else {
-                            $part2[] = $s;
-                        }
-                    }
-
-                    if (!empty($part1) && !empty($part2) && $p1_len >= 150) {
-                        $current_page_html .= "\n<p>" . implode(' ', $part1) . '</p>';
-                        $pages[] = $current_page_html;
-
-                        $current_page_html = '<p>' . implode(' ', $part2) . '</p>';
-                        $current_chars = mb_strlen(strip_tags($current_page_html));
-                        $max_load = $page2_max_body;
-                        continue;
-                    }
-                }
-
-                $pages[] = $current_page_html;
-                $current_page_html = $block;
-                $current_chars = $block_len;
-                $max_load = $page2_max_body;
-            } else {
-                $current_page_html .= ($current_page_html !== '' ? "\n" : '') . $block;
-                $current_chars += $block_len;
-            }
-        }
-        if (!empty($current_page_html)) {
-            $pages[] = $current_page_html;
-        }
-        if (empty($pages)) {
-            $pages[] = '';
-        }
-        return $pages;
-    }
-
-    /**
-     * Renderiza uma página de resumo de palestra.
-     * Campos disponíveis: título, evento, duração, autor WP, corpo do texto.
-     * Cabeçalho: 'Palestras | [Evento] | Fraiburgo, SC | 28, 29 e 30 de julho de 2026'
-     */
-    private function render_palestra_resumo($post, $num, $pages_html = null)
-    {
-        $event_raw = strtolower(get_post_meta($post->ID, '_sciflow_event', true));
-        if ($event_raw === 'enfrute') {
-            $event_label = 'XIX Enfrute';
-        } elseif ($event_raw === 'semco') {
-            $event_label = 'III Semco';
-        } else {
-            $event_label = ucfirst($event_raw) ?: 'Palestra';
-        }
-
-        $duration       = get_post_meta($post->ID, '_sciflow_duration', true);
-        $event_location = 'Fraiburgo, SC | 28, 29 e 30 de julho de 2026';
-
-        // Autor: prefere _sciflow_main_author_name, cai para WP post_author
-        $main_author_meta = get_post_meta($post->ID, '_sciflow_main_author_name', true);
-        if (!empty(trim($main_author_meta))) {
-            $author_name = self::title_case_name($main_author_meta);
-        } else {
-            $author_user = get_userdata($post->post_author);
-            $author_name = $author_user ? self::title_case_name($author_user->display_name) : '';
-        }
-
-        $main_instit = get_post_meta($post->ID, '_sciflow_main_author_instituicao', true);
-        $coauthors   = get_post_meta($post->ID, '_sciflow_coauthors', true);
-        if (!is_array($coauthors)) $coauthors = array();
-
-        $ad = self::build_author_affiliations($author_name, $main_instit, $coauthors);
-
-        if ($pages_html === null) {
-            $attachment_id = get_post_meta($post->ID, '_sciflow_attachment_id', true);
-            $content = '';
-            if ($attachment_id) {
-                $content = $this->extract_docx_content($attachment_id);
-            }
-            if (empty($content)) {
-                $content = wp_kses_post($post->post_content);
-            }
-            $content = $this->convert_scientific_notation($content);
-            $content = $this->linkify_enfrute_urls($content);
-
-            $title_str    = strip_tags($post->post_title);
-            $authors_str  = strip_tags($ad['authors_line'] ?? '');
-            $afils_str    = strip_tags($ad['affiliations_line'] ?? '');
-            $meta_cost    = 250 + (mb_strlen($title_str) * 1.0) + (mb_strlen($authors_str) * 1.0) + (mb_strlen($afils_str) * 0.8);
-
-            $pages_html = $this->split_html_into_pages($content, $meta_cost);
-        }
-
-        $full_header = 'XIX Encontro Nacional sobre Fruticultura de Clima Temperado (XIX Enfrute)<br>III Seminário Catarinense de Olericultura (III Semco)<br>28, 29 e 30 de julho de 2026 - Parque da Maçã - Fraiburgo/SC';
-
-        foreach ($pages_html as $i => $page_content) {
-            echo '<div class="page resumo-page palestra-page" id="palestra-' . intval($post->ID) . ($i > 0 ? '-p'.$i : '') . '">';
-            echo '  <div class="resumo-container">';
-
-            if ($i === 0) {
-                echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '</p>';
-                echo '    <h3 class="resumo-titulo">' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</h3>';
-
-                if (!empty($ad['authors_line'])) {
-                    echo '    <p class="resumo-autores">' . wp_kses($ad['authors_line'], array('sup' => array())) . '</p>';
-                } elseif (!empty($author_name)) {
-                    echo '    <p class="resumo-autores">' . esc_html($author_name) . '</p>';
-                }
-
-                if (!empty($ad['affiliations_line'])) {
-                    echo '    <p class="resumo-afils">' . wp_kses($ad['affiliations_line'], array('sup' => array())) . '</p>';
-                }
-
-                if (!empty($duration)) {
-                    echo '    <p class="resumo-afils" style="margin-top:4px;"><em>Duração: ' . esc_html($duration) . ' min</em></p>';
-                }
-            } else {
-                echo '    <p class="resumo-header-ctx" style="text-align:center; line-height:1.4;">' . $full_header . '<br><br><em>Continuação – ' . wp_kses($this->format_scientific_title($post->post_title), array('i' => array(), 'em' => array())) . '</em></p>';
-            }
-
-            if (!empty($page_content)) {
-                echo '    <div class="resumo-corpo">' . $page_content . '</div>';
-            }
-
-            echo '  </div>';
-            echo '  <div class="resumo-footer">' . intval($num + $i) . '</div>';
-            echo '</div>';
-        }
-    }
-
     /**
      * Extrai o conteúdo de um arquivo Word (DOCX) anexado como HTML.
      * Suporta .docx nativamente via ZipArchive + regex.
@@ -1330,7 +622,7 @@ endif; ?>
      * @param  int    $attachment_id  ID do mídia do WordPress
      * @return string HTML com os parágrafos do documento, ou string vazia
      */
-    private function extract_docx_content($attachment_id)
+    public function extract_docx_content($attachment_id)
     {
         if (!$attachment_id) return '';
 
@@ -1344,14 +636,13 @@ endif; ?>
         }
 
         // Para .doc e outros formatos: conversão via LibreOffice com cache
-        $cache_path = $file_path . '.html.cache';
+        // Cache in the protected private directory (never next to the public upload).
+        $cache_path = SciFlow_Security::private_dir('docconv-cache') . md5($file_path . '|' . filemtime($file_path)) . '.html';
         if (file_exists($cache_path) && filemtime($cache_path) >= filemtime($file_path)) {
             return file_get_contents($cache_path);
         }
 
-        $upload_dir = wp_upload_dir();
-        $temp_dir   = $upload_dir['basedir'] . '/sciflow_docconv_' . uniqid();
-        @mkdir($temp_dir, 0755, true);
+        $temp_dir   = untrailingslashit(SciFlow_Security::private_dir('docconv-' . wp_generate_password(12, false, false)));
 
         $cmd = sprintf(
             'libreoffice --headless --convert-to html %s --outdir %s 2>&1',
@@ -1366,13 +657,13 @@ endif; ?>
         if (file_exists($html_file)) {
             $raw = file_get_contents($html_file);
             if (preg_match('/<body[^>]*>(.*?)<\/body>/si', $raw, $m)) {
-                $body_content = $m[1];
+                // Uploaded documents are untrusted: strip scripts/handlers.
+                $body_content = wp_kses_post($m[1]);
             }
             @unlink($html_file);
         }
         // Limpa arquivos de imagem gerados pela conversão
-        array_map('unlink', glob($temp_dir . '/*'));
-        @rmdir($temp_dir);
+        SciFlow_Security::remove_tree($temp_dir);
 
         if (!empty($body_content)) {
             file_put_contents($cache_path, $body_content);
@@ -1432,310 +723,195 @@ endif; ?>
 
         if (!$xml) return '';
 
-        // ── Processa parágrafos <w:p>...</w:p> ────────────────────────
-        preg_match_all('/<w:p[ >\/].*?<\/w:p>/s', $xml, $para_matches);
-
-        $html_parts = array();
-
-        foreach ($para_matches[0] as $para_xml) {
-
-            // ── IMAGENS (w:drawing / w:pict) ───────────────────────
-            if (preg_match('/<w:drawing\b/', $para_xml) || preg_match('/<v:imagedata\b/', $para_xml)) {
-                // a:blip r:embed (moderno DOCX)
-                preg_match_all('/<a:blip[^>]+r:embed="([^"]+)"/i', $para_xml, $bm1);
-                // v:imagedata r:id (legado)
-                preg_match_all('/<v:imagedata[^>]+r:id="([^"]+)"/i', $para_xml, $bm2);
-                $rids = array_unique(array_merge($bm1[1], $bm2[1]));
-
-                $img_rendered = false;
-                foreach ($rids as $rid) {
-                    if (isset($images_b64[$rid])) {
-                        $html_parts[] = '<p style="text-align:center; margin:8px 0;">';
-                        $html_parts[] = '<img src="' . $images_b64[$rid] . '" style="max-width:100%; height:auto;">';
-                        $html_parts[] = '</p>';
-                        $img_rendered = true;
-                    }
-                }
-                if ($img_rendered) continue; // parágrafo tratado como imagem
-            }
-
-            // ── TEXTO ────────────────────────────────────
-            $is_heading = preg_match('/<w:pStyle[^>]*w:val="(?:Heading|T[iI]tulo|Title)[^"]*"/i', $para_xml);
-
-            preg_match_all('/<w:r[ >].*?<\/w:r>/s', $para_xml, $run_matches);
-
-            $para_html = '';
-            foreach ($run_matches[0] as $run_xml) {
-                $bold   = (bool) preg_match('/<w:b(?:\/| \/|[^a-zA-Z][^>]*\/?>)/', $run_xml);
-                $italic = (bool) preg_match('/<w:i(?:\/| \/|[^a-zA-Z][^>]*\/?>)/', $run_xml);
-                $sup    = (bool) preg_match('/<w:vertAlign[^>]*w:val="superscript"/i', $run_xml);
-                $sub    = (bool) preg_match('/<w:vertAlign[^>]*w:val="subscript"/i', $run_xml);
-
-                preg_match_all('/<w:t[^>]*>(.*?)<\/w:t>/s', $run_xml, $t_matches);
-                $run_text = implode('', $t_matches[1]);
-                $run_text = html_entity_decode($run_text, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-
-                if (empty($run_text)) continue;
-
-                $run_text = esc_html($run_text);
-                if ($bold)   $run_text = '<strong>' . $run_text . '</strong>';
-                if ($italic) $run_text = '<em>' . $run_text . '</em>';
-                if ($sup)    $run_text = '<sup>' . $run_text . '</sup>';
-                if ($sub)    $run_text = '<sub>' . $run_text . '</sub>';
-                $para_html .= $run_text;
-            }
-
-
-            $para_html = trim($para_html);
-            if (empty($para_html)) continue;
-
-            $html_parts[] = $is_heading
-                ? '<p><strong>' . $para_html . '</strong></p>'
-                : '<p>' . $para_html . '</p>';
+        // ── Percorre o corpo em ordem: parágrafos, tabelas e imagens ───────
+        $prev = libxml_use_internal_errors(true);
+        $dom = new DOMDocument();
+        $loaded = $dom->loadXML($xml, LIBXML_NONET | LIBXML_COMPACT);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prev);
+        if (!$loaded) {
+            return '';
         }
+        $xp = new DOMXPath($dom);
+        $xp->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+        $xp->registerNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
+        $xp->registerNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+        $xp->registerNamespace('v', 'urn:schemas-microsoft-com:vml');
 
-        return implode('', $html_parts);
+        $body = $xp->query('/w:document/w:body')->item(0);
+        if (!$body) {
+            return '';
+        }
+        return $this->docx_blocks($body, $xp, $images_b64);
     }
 
-    private function output_css()
+    /**
+     * Render the block-level children of a body/cell node.
+     */
+    private function docx_blocks(DOMNode $parent, DOMXPath $xp, array $images)
     {
-        ?>
-<style>
-/* ─── Base / Reset ─────────────────────────────────────────── */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --pw: 210mm; 
-  --ph: 297mm;
-  --margin-interna: 20mm;
-  --f-serif: 'Times New Roman', Times, serif;
-  --f-sans: Arial, Helvetica, sans-serif;
-  --c-text: #000;
-}
-html, body {
-  font-family: var(--f-serif);
-  font-size: 12pt;
-  color: var(--c-text);
-  line-height: 1.0;
-}
-/* Item 8 – Corrige superscript: reduz elevação para não invadir linha anterior */
-sup { font-size: 70%; line-height: 0; position: relative; top: -0.3em; vertical-align: baseline; }
+        $html = '';
+        foreach ($parent->childNodes as $node) {
+            if (!$node instanceof DOMElement) {
+                continue;
+            }
+            if ('p' === $node->localName) {
+                $html .= $this->docx_paragraph($node, $xp, $images);
+            } elseif ('tbl' === $node->localName) {
+                $html .= '<table>';
+                foreach ($xp->query('w:tr', $node) as $tr) {
+                    $html .= '<tr>';
+                    foreach ($xp->query('w:tc', $tr) as $tc) {
+                        $span = $xp->query('w:tcPr/w:gridSpan/@w:val', $tc)->item(0);
+                        $html .= '<td' . ($span ? ' colspan="' . (int) $span->nodeValue . '"' : '') . '>' . $this->docx_blocks($tc, $xp, $images) . '</td>';
+                    }
+                    $html .= '</tr>';
+                }
+                $html .= '</table>';
+            } elseif ('sdt' === $node->localName) {
+                $content = $xp->query('w:sdtContent', $node)->item(0);
+                if ($content) {
+                    $html .= $this->docx_blocks($content, $xp, $images);
+                }
+            }
+        }
+        return $html;
+    }
 
-/* ─── Screen Preview (Admin) ───────────────────────────────── */
-@media screen {
-  body.anais-body { background: #d4d4d4; padding-top: 50px; }
-  .page {
-    width: var(--pw);
-    min-height: var(--ph);
-    margin: 20px auto;
-    background: #fff;
-    box-shadow: 0 4px 15px rgba(0,0,0,.2);
-    position: relative;
-    overflow: hidden;
-  }
-  .noprint-bar {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-    background: #1d4ed8; color: #fff;
-    font-family: var(--f-sans); font-size: 13px;
-    display: flex; align-items: center; gap: 16px; padding: 10px 20px;
-  }
-  .noprint-bar span { flex: 1; }
-  .print-btn {
-    background: #fff; color: #1d4ed8; border: none;
-    padding: 6px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;
-  }
-  .total-badge {
-    background: rgba(255,255,255,.2);
-    padding: 3px 10px; border-radius: 20px;
-  }
-}
+    /**
+     * One paragraph: runs with bold/italic/sup/sub, breaks, tabs and images.
+     */
+    private function docx_paragraph(DOMElement $p, DOMXPath $xp, array $images)
+    {
+        $on = function ($run, $prop) use ($xp) {
+            $el = $xp->query('w:rPr/w:' . $prop, $run)->item(0);
+            if (!$el) {
+                return false;
+            }
+            $val = $el->getAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'val');
+            return !in_array(strtolower($val), array('0', 'false', 'none'), true);
+        };
 
-/* ─── Print Settings ───────────────────────────────────────── */
-@media print {
-  @page {
-    size: A4 portrait;
-    margin: 0;
-  }
-  body.anais-body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .noprint-bar { display: none; }
-  .page {
-    width: auto; min-height: 0; margin: 0; box-shadow: none;
-    page-break-after: always; break-after: page;
-    position: relative;
-  }
-  
-  /* Usa height: 100vh na impressão para preencher exatamente a folha
-     sem forçar dimensões fixas (o que causa scale down no Chrome) */
-  .static-page {
-    width: 100% !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
-  }
-  /* Item 10 – Garante preenchimento exato da folha física sem scale-down */
-  .resumo-page {
-    width: 100% !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    min-height: 100vh !important;
-    margin: 0 !important;
-    page-break-inside: avoid;
-    break-inside: avoid;
-    overflow: hidden !important;
-  }
-  
-}
+        $inner = '';
+        $imgs = '';
+        foreach ($xp->query('.//w:r', $p) as $run) {
+            foreach ($xp->query('.//a:blip/@r:embed | .//v:imagedata/@r:id', $run) as $rid) {
+                if (isset($images[$rid->nodeValue])) {
+                    $imgs .= '<img src="' . $images[$rid->nodeValue] . '" alt="">';
+                }
+            }
+            $text = '';
+            foreach ($xp->query('w:t | w:tab | w:br | w:cr', $run) as $part) {
+                if ('t' === $part->localName) {
+                    $text .= esc_html($part->textContent);
+                } elseif ('tab' === $part->localName) {
+                    $text .= ' ';
+                } else {
+                    $text .= '<br>';
+                }
+            }
+            if ('' === $text) {
+                continue;
+            }
+            $va = $xp->query('w:rPr/w:vertAlign/@w:val', $run)->item(0);
+            if ($on($run, 'b')) {
+                $text = '<strong>' . $text . '</strong>';
+            }
+            if ($on($run, 'i')) {
+                $text = '<em>' . $text . '</em>';
+            }
+            if ($va && 'superscript' === $va->nodeValue) {
+                $text = '<sup>' . $text . '</sup>';
+            } elseif ($va && 'subscript' === $va->nodeValue) {
+                $text = '<sub>' . $text . '</sub>';
+            }
+            $inner .= $text;
+        }
 
-/* Garante que conversores de doc (LibreOffice) não injetem inline-styles distorcidos */
-.palestra-page .resumo-corpo * {
-  font-family: var(--f-serif) !important;
-  line-height: 1.15 !important;
-  color: var(--c-text) !important;
-}
-.palestra-page .resumo-corpo sup, 
-.palestra-page .resumo-corpo sub {
-  line-height: 0 !important;
-}
-.palestra-page .resumo-corpo p {
-  font-size: 12pt !important;
-  margin: 0 0 6px 0 !important;
-  text-align: justify !important;
-  text-indent: 0 !important;
-}
+        $out = '';
+        if ('' !== $imgs) {
+            $out .= '<p class="sf-figura">' . $imgs . '</p>';
+        }
+        $inner = trim($inner);
+        if ('' === $inner) {
+            return $out;
+        }
+        $style = $xp->query('w:pPr/w:pStyle/@w:val', $p)->item(0);
+        if ($style && preg_match('/^(Heading|T[ií]tulo|Title)\s*(\d?)/iu', $style->nodeValue, $m)) {
+            $level = $m[2] ? min(4, max(2, (int) $m[2] + 1)) : 2;
+            return $out . '<h' . $level . '>' . $inner . '</h' . $level . '>';
+        }
+        $align = $xp->query('w:pPr/w:jc/@w:val', $p)->item(0);
+        $center = $align && 'center' === $align->nodeValue ? ' style="text-align:center"' : '';
+        return $out . '<p' . $center . '>' . $inner . '</p>';
+    }
 
-/* ─── Formatação Geral de Texto (Páginas Internas) ─────────── */
-.text-page {
-  padding: var(--margin-interna);
-}
-.centered-page {
-  text-align: center;
-}
+    /**
+     * Book title (settings → legacy default).
+     *
+     * @param bool $with_prefix Keep the "Anais – " prefix.
+     */
+    public function title($with_prefix = true)
+    {
+        $title = trim((string) SciFlow_Settings::get('anais_title', ''));
+        if ('' === $title) {
+            $labels = array();
+            foreach (SciFlow_Events::enabled() as $event) {
+                $labels[] = $event['label'];
+            }
+            $title = 'Anais – ' . implode(' / ', $labels);
+        }
+        return $with_prefix ? $title : preg_replace('/^Anais\s*[–-]\s*/u', '', $title);
+    }
 
-/* ─── Static Full Pages (Images) ───────────────────────────── */
-.static-page {
-  padding: 0;
-  margin: 0;
-  height: var(--ph);
-}
-.full-page-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
+    /**
+     * Running header shown on every page (limited HTML).
+     */
+    public function header_html()
+    {
+        $header = (string) SciFlow_Settings::get('anais_header', '');
+        if ('' === trim(wp_strip_all_tags($header))) {
+            $parts = array();
+            foreach (SciFlow_Events::enabled() as $event) {
+                $parts[] = esc_html($event['full_label']);
+            }
+            return implode('<br>', $parts);
+        }
+        return wp_kses($header, array('br' => array(), 'strong' => array(), 'em' => array(), 'i' => array(), 'b' => array()));
+    }
 
-/* ─── Ficha Catalográfica (Página 3) ───────────────────────── */
-.pg-ficha {
-  font-size: 12pt;
-  line-height: 1.4;
-}
-.ficha-caixa {
-  margin-top: 40px;
-  border: 1px solid #000;
-  padding: 20px;
-  width: 100%;
-}
+    /**
+     * Event label used in the book (e.g. "XIX Enfrute").
+     */
+    public function ev($slug)
+    {
+        $edition = trim((string) SciFlow_Settings::get('event_' . $slug . '_edition', ''));
+        return trim($edition . ' ' . SciFlow_Events::label($slug));
+    }
 
-/* ─── Apresentação (Página 5) ──────────────────────────────── */
-.pg-apresentacao { line-height: 1.6; }
-.apres-titulo { font-size: 12pt; font-weight: bold; margin-bottom: 30px; }
-.apres-texto { text-indent: 1.5cm; text-align: justify; margin-bottom: 15px; }
-.apres-assinatura { margin-top: 40px; text-align: right; }
+    /**
+     * The original pre-textual pages (cover, catalog card, presentation) are
+     * specific to the 2026 Enfrute/Semco edition. They are used only when the
+     * installation was migrated from that edition or explicitly selected.
+     */
+    public function use_legacy_pretextual()
+    {
+        return 'legacy' === (string) SciFlow_Settings::get('anais_pretextual', 'custom');
+    }
 
-/* ─── Sumário (Página 7) ───────────────────────────────────── */
-.sumario-lista { line-height: 1.8; }
-
-/* ─── Separadores de Categoria (XIX Enfrute / III Semco) ───── */
-.separator-page {
-  display: flex; align-items: center; justify-content: center;
-  height: var(--ph);
-  text-align: center;
-  font-family: var(--f-sans);
-}
-.sep-evento { font-size: 32pt; font-weight: bold; margin-bottom: 20px; }
-.sep-area { font-size: 24pt; color: #555; }
-
-/* ─── Resumos Individuais ──────────────────────────────────── */
-/* Item 10 – Layout flex para posicionamento fixo do rodapé */
-.resumo-page {
-  padding: var(--margin-interna);
-  min-height: var(--ph);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-.resumo-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 20px;
-}
-.resumo-header-ctx {
-  font-family: var(--f-sans);
-  font-size: 10pt;
-  color: #777;
-  border-bottom: 1px solid #ccc;
-  padding-bottom: 5px;
-  margin-bottom: 20px;
-  text-align: right;
-}
-.resumo-titulo {
-  font-size: 12pt;
-  font-weight: bold;
-  text-align: center;
-  margin-bottom: 15px;
-  line-height: 1.15;
-}
-.resumo-autores {
-  font-size: 12pt;
-  font-weight: bold;
-  text-align: center;
-  margin-bottom: 10px;
-}
-.resumo-afils {
-  font-size: 10pt;
-  text-align: justify;
-  margin-bottom: 20px;
-  color: #000;
-}
-.resumo-corpo {
-  font-size: 12pt;
-  text-align: justify;
-  text-indent: 0;
-  line-height: 1.0;
-  margin-bottom: 15px;
-}
-.resumo-corpo p {
-  margin-bottom: 10px;
-}
-.resumo-corpo img {
-  max-width: 100%;
-  max-height: 180mm;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  margin: 10px auto;
-}
-.resumo-ack {
-  font-size: 11pt;
-  text-align: justify;
-  margin-bottom: 10px;
-}
-.resumo-kws {
-  font-size: 11pt;
-  margin-top: 15px;
-}
-/* Item 10 – Rodapé fixo na parte inferior via margin-top:auto (flex) */
-/* Item 10 – Removida a palavra "Página" do rodapé (feito no PHP) */
-.resumo-footer {
-  position: absolute;
-  bottom: var(--margin-interna);
-  right: var(--margin-interna);
-  font-size: 10pt;
-  color: #999;
-  text-align: right;
-  font-family: var(--f-sans);
-}
-</style>
-        <?php
+    /**
+     * Count PDF pages with Ghostscript, passing the path safely.
+     *
+     * @param string $pdf_path
+     * @return int
+     */
+    private function count_pdf_pages($pdf_path)
+    {
+        // Escape for a PostScript string, then for the shell.
+        $ps_path = str_replace(array('\\', '(', ')'), array('\\\\', '\\(', '\\)'), $pdf_path);
+        $ps = sprintf('(%s) (r) file runpdfbegin pdfpagecount = quit', $ps_path);
+        $cmd = 'gs -q -dNODISPLAY -dSAFER ' . escapeshellarg('--permit-file-read=' . $pdf_path) . ' -c ' . escapeshellarg($ps) . ' 2>/dev/null';
+        $out = shell_exec($cmd); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions
+        return (int) trim((string) $out);
     }
 }

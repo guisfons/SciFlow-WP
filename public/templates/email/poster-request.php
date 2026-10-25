@@ -4,6 +4,8 @@
  */
 if (!defined('ABSPATH'))
     exit;
+$brand = SciFlow_Branding::email();
+$header_text = $brand['contrast'];
 ?>
 <!DOCTYPE html>
 <html>
@@ -12,11 +14,12 @@ if (!defined('ABSPATH'))
     <meta charset="UTF-8">
 </head>
 
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f7fa;">
+<body style="margin:0;padding:0;font-family:<?php echo esc_attr($brand['font']); ?>;background:#f4f7fa;">
     <div
         style="max-width:600px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-        <div style="background:linear-gradient(135deg,#27ae60,#2ecc71);padding:30px;text-align:center;">
-            <h1 style="color:#fff;margin:0;font-size:22px;">🎉
+        <?php if ($brand['logo_url']) : ?><div style="background:#ffffff;padding:18px 30px;text-align:center;border-bottom:1px solid #eeeeee;"><img src="<?php echo esc_url($brand['logo_url']); ?>" alt="<?php echo esc_attr($site_name); ?>" style="display:inline-block;max-height:56px;max-width:240px;"></div><?php endif; ?>
+        <div style="background:<?php echo esc_attr($brand['primary']); ?>;padding:30px;text-align:center;">
+            <h1 style="color:<?php echo esc_attr($header_text); ?>;margin:0;font-size:22px;">🎉
                 <?php esc_html_e('Trabalho Aprovado!', 'sciflow-wp'); ?>
             </h1>
         </div>
@@ -55,7 +58,7 @@ if (!defined('ABSPATH'))
             <?php if (!empty($is_request)) : ?>
             <div style="text-align:center;margin:20px 0 10px;">
                 <a href="<?php echo esc_url($link); ?>"
-                    style="display:inline-block;padding:12px 30px;background:#27ae60;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
+                    style="display:inline-block;padding:12px 30px;background:<?php echo esc_attr($brand['primary']); ?>;color:<?php echo esc_attr($brand['contrast']); ?>;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
                     <?php esc_html_e('Enviar Pôster', 'sciflow-wp'); ?>
                 </a>
             </div>

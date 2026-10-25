@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin template: Técnicos Epagri management page.
+ * Admin template: partner technicians management page.
  *
  * Lists all users with role sciflow_tecnico_epagri and allows
  * promoting them to reviewer (Enfrute/Semco) and/or speaker.
@@ -18,14 +18,14 @@ $tecnicos = get_users(array(
 ));
 ?>
 <div class="wrap">
-    <h1><?php esc_html_e('Técnicos Epagri', 'sciflow-wp'); ?></h1>
+    <h1><?php echo esc_html(SciFlow_Settings::get('tecnico_label', __('Técnicos', 'sciflow-wp'))); ?></h1>
     <p class="description" style="margin-bottom: 20px;">
-        <?php esc_html_e('Gerencie os papéis adicionais dos Técnicos Epagri. Ative os toggles para conceder acesso de Revisor Enfrute, Revisor Semco e/ou Palestrante. O papel de Técnico Epagri é mantido em todos os casos.', 'sciflow-wp'); ?>
+        <?php echo esc_html(sprintf(__('Gerencie os papéis adicionais de quem tem o perfil "%1$s". Ative os seletores para conceder acesso de Revisor %2$s, Revisor %3$s e/ou Palestrante. O perfil "%1$s" é mantido em todos os casos.', 'sciflow-wp'), SciFlow_Settings::get('tecnico_label', __('Técnico', 'sciflow-wp')), SciFlow_Events::label('enfrute'), SciFlow_Events::label('semco'))); ?>
     </p>
 
-    <div style="margin-bottom: 20px; padding: 15px; background: #fff8e5; border-left: 4px solid #f0ad4e; border-radius: 3px;">
+    <div class="notice notice-warning inline" style="margin: 0 0 20px; padding: 12px 16px;">
         <strong><?php esc_html_e('Inscritos anteriores', 'sciflow-wp'); ?>:</strong>
-        <?php esc_html_e('Clique no botão abaixo para atribuir o papel de Técnico Epagri a todos os usuários que já possuem pedidos concluídos com esse produto (não afeta usuários que já têm o papel).', 'sciflow-wp'); ?>
+        <?php echo esc_html(sprintf(__('Atribui o perfil "%s" a todos os usuários com pedidos concluídos do produto de técnico (não afeta quem já tem o perfil).', 'sciflow-wp'), SciFlow_Settings::get('tecnico_label', __('Técnico', 'sciflow-wp')))); ?>
         <br><br>
         <button type="button" id="sciflow-backfill-btn" class="button button-primary">
             <?php esc_html_e('Reprocessar pedidos históricos', 'sciflow-wp'); ?>
@@ -36,15 +36,15 @@ $tecnicos = get_users(array(
     <div id="sciflow-tecnico-notice" style="display:none; margin-bottom:15px;"></div>
 
     <?php if (empty($tecnicos)) : ?>
-        <p><?php esc_html_e('Nenhum Técnico Epagri cadastrado ainda.', 'sciflow-wp'); ?></p>
+        <p><?php echo esc_html(sprintf(__('Ninguém com o perfil "%s" ainda.', 'sciflow-wp'), SciFlow_Settings::get('tecnico_label', __('Técnico', 'sciflow-wp')))); ?></p>
     <?php else : ?>
         <table class="wp-list-table widefat fixed striped" id="sciflow-tecnicos-table">
             <thead>
                 <tr>
                     <th style="width: 25%"><?php esc_html_e('Nome', 'sciflow-wp'); ?></th>
                     <th style="width: 25%"><?php esc_html_e('E-mail', 'sciflow-wp'); ?></th>
-                    <th style="width: 16%; text-align:center;"><?php esc_html_e('Revisor Enfrute', 'sciflow-wp'); ?></th>
-                    <th style="width: 16%; text-align:center;"><?php esc_html_e('Revisor Semco', 'sciflow-wp'); ?></th>
+                    <th style="width: 16%; text-align:center;"><?php echo esc_html(sprintf(__('Revisor %s', 'sciflow-wp'), SciFlow_Events::label('enfrute'))); ?></th>
+                    <th style="width: 16%; text-align:center;"><?php echo esc_html(sprintf(__('Revisor %s', 'sciflow-wp'), SciFlow_Events::label('semco'))); ?></th>
                     <th style="width: 16%; text-align:center;"><?php esc_html_e('Palestrante', 'sciflow-wp'); ?></th>
                 </tr>
             </thead>
@@ -63,7 +63,7 @@ $tecnicos = get_users(array(
 
                     <!-- Revisor Enfrute -->
                     <td style="text-align:center;">
-                        <label class="sciflow-toggle" title="<?php esc_attr_e('Revisor Enfrute', 'sciflow-wp'); ?>">
+                        <label class="sciflow-toggle" title="<?php echo esc_attr(sprintf(__('Revisor %s', 'sciflow-wp'), SciFlow_Events::label('enfrute'))); ?>">
                             <input type="checkbox"
                                 class="sciflow-role-toggle"
                                 data-user-id="<?php echo esc_attr($tecnico->ID); ?>"
@@ -75,7 +75,7 @@ $tecnicos = get_users(array(
 
                     <!-- Revisor Semco -->
                     <td style="text-align:center;">
-                        <label class="sciflow-toggle" title="<?php esc_attr_e('Revisor Semco', 'sciflow-wp'); ?>">
+                        <label class="sciflow-toggle" title="<?php echo esc_attr(sprintf(__('Revisor %s', 'sciflow-wp'), SciFlow_Events::label('semco'))); ?>">
                             <input type="checkbox"
                                 class="sciflow-role-toggle"
                                 data-user-id="<?php echo esc_attr($tecnico->ID); ?>"

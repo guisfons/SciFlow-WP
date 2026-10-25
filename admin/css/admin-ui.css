@@ -1,0 +1,162 @@
+/* SciFlow admin UI — scoped to body.sciflow-admin.
+   Layout: top bar + centred content column; sections as cards; settings
+   with a grouped side menu and a sticky save bar. Accent = event brand. */
+
+.sciflow-admin {
+  --sfa-accent: #1f6f78;
+  --sfa-accent-dark: #17545b;
+  --sfa-accent-soft: #e4eeef;
+  --sfa-accent-contrast: #ffffff;
+  --sfa-ink: #1d2327;
+  --sfa-muted: #646970;
+  --sfa-line: #dcdcde;
+  --sfa-soft: #f6f7f7;
+  --sfa-surface: #ffffff;
+  --sfa-radius: 10px;
+  --sfa-ok: #00792b;
+  --sfa-warn: #8a5a00;
+  --sfa-err: #b32d2e;
+  --sfa-info: #135e96;
+}
+.sciflow-admin #wpcontent { padding-left: 0; }
+.sciflow-admin #wpbody-content { padding-bottom: 80px; }
+.sciflow-admin #wpbody-content > .wrap,
+.sciflow-admin #wpbody-content > .notice,
+.sciflow-admin #wpbody-content > .update-nag { margin-left: 24px; margin-right: 24px; }
+.sciflow-admin .wrap { max-width: 1240px; color: var(--sfa-ink); }
+
+/* ── Top bar ─────────────────────────────────────────────────────── */
+.sfa-topbar {
+  display: flex; align-items: center; gap: 18px; flex-wrap: nowrap;
+  padding: 10px 24px; background: var(--sfa-surface); border-bottom: 1px solid var(--sfa-line);
+  position: sticky; top: 32px; z-index: 50;
+}
+@media screen and (max-width: 782px) { .sfa-topbar { top: 46px; position: static; } }
+.sfa-topbar-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sfa-topbar-brand img { max-height: 32px; max-width: 120px; width: auto; }
+.sfa-topbar-brand strong { display: block; font-size: 14px; line-height: 1.2; }
+.sfa-topbar-brand small { display: block; color: var(--sfa-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.sfa-mark { width: 32px; height: 32px; font-size: 20px; line-height: 32px; text-align: center; border-radius: 8px; background: var(--sfa-accent); color: var(--sfa-accent-contrast); }
+.sfa-topbar-nav { display: flex; gap: 2px; flex-wrap: nowrap; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.sfa-topbar-nav a {
+  padding: 6px 10px; border-radius: 6px; color: var(--sfa-ink); text-decoration: none; font-size: 13px; white-space: nowrap;
+}
+.sfa-topbar-nav a:hover { background: var(--sfa-soft); color: var(--sfa-accent-dark); }
+.sfa-topbar-nav a.is-active { background: var(--sfa-accent-soft); color: var(--sfa-accent-dark); font-weight: 600; }
+.sfa-topbar-nav a:focus-visible, .sfa-status:focus-visible { outline: 2px solid var(--sfa-accent); outline-offset: 1px; box-shadow: none; }
+.sfa-status {
+  display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px 5px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap;
+}
+.sfa-status .dashicons { font-size: 16px; width: 16px; height: 16px; }
+.sfa-status.is-ok { background: #e6f4ea; color: var(--sfa-ok); }
+.sfa-status.is-error { background: #fcf0f1; color: var(--sfa-err); }
+
+/* ── Page heading ───────────────────────────────────────────────── */
+.sciflow-admin .wrap > h1 { font-size: 23px; font-weight: 600; line-height: 1.3; margin: 24px 0 6px; padding: 0; }
+.sciflow-admin .wrap > h1 + p,
+.sciflow-admin .wrap > h1 + .description,
+.sciflow-admin .wrap > p.description:first-of-type { color: var(--sfa-muted); font-size: 14px; max-width: 820px; margin: 0 0 20px; }
+
+/* ── Cards ──────────────────────────────────────────────────────── */
+.sciflow-admin .card,
+.sciflow-admin .sf-card,
+.sciflow-admin .sciflow-card {
+  max-width: none; background: var(--sfa-surface); border: 1px solid var(--sfa-line); border-radius: var(--sfa-radius);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04) !important; padding: 22px 24px !important; margin: 0 0 20px !important; max-width: none !important; border-radius: var(--sfa-radius) !important;
+}
+.sciflow-admin .card h2:first-child, .sciflow-admin .sf-card h2:first-child { margin-top: 0; }
+.sciflow-admin .card h2, .sciflow-admin .sf-card h2 { font-size: 16px; font-weight: 600; }
+
+/* ── Forms ──────────────────────────────────────────────────────── */
+.sciflow-admin .form-table { margin-top: 4px; }
+.sciflow-admin .form-table th { width: 240px; padding: 16px 20px 16px 0; font-weight: 600; color: var(--sfa-ink); vertical-align: top; }
+.sciflow-admin .form-table td { padding: 12px 0; }
+.sciflow-admin .form-table tr + tr th, .sciflow-admin .form-table tr + tr td { border-top: 1px solid #f0f0f1; }
+.sciflow-admin .form-table .regular-text { width: 100%; max-width: 460px; }
+.sciflow-admin .form-table .large-text { max-width: 720px; }
+.sciflow-admin input[type="text"], .sciflow-admin input[type="email"], .sciflow-admin input[type="url"],
+.sciflow-admin input[type="number"], .sciflow-admin input[type="password"], .sciflow-admin input[type="datetime-local"],
+.sciflow-admin select, .sciflow-admin textarea {
+  border-color: #c3c4c7; border-radius: 6px; min-height: 34px;
+}
+.sciflow-admin input:focus, .sciflow-admin select:focus, .sciflow-admin textarea:focus {
+  border-color: var(--sfa-accent); box-shadow: 0 0 0 1px var(--sfa-accent);
+}
+.sciflow-admin .description, .sciflow-admin p.description { color: var(--sfa-muted); font-size: 13px; margin-top: 6px; }
+.sciflow-admin input[type="checkbox"]:checked::before { content: none; }
+.sciflow-admin input[type="checkbox"]:checked { background: var(--sfa-accent); border-color: var(--sfa-accent); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%23fff' d='M8.1 13.3 4.6 9.8l1.4-1.4 2.1 2.1 5.9-5.9 1.4 1.4z'/%3E%3C/svg%3E"); background-size: 100%; }
+.sciflow-admin input[type="radio"]:checked::before { background-color: var(--sfa-accent); }
+
+/* ── Buttons ────────────────────────────────────────────────────── */
+.sciflow-admin .button { border-radius: 6px; }
+.sciflow-admin .button-primary {
+  background: var(--sfa-accent); border-color: var(--sfa-accent); color: var(--sfa-accent-contrast);
+}
+.sciflow-admin .button-primary:hover, .sciflow-admin .button-primary:focus {
+  background: var(--sfa-accent-dark); border-color: var(--sfa-accent-dark); color: var(--sfa-accent-contrast);
+}
+.sciflow-admin .button-primary:focus { box-shadow: 0 0 0 1px #fff, 0 0 0 3px var(--sfa-accent); }
+.sciflow-admin .button:not(.button-primary):not(.button-link) { color: var(--sfa-accent-dark); border-color: var(--sfa-accent); }
+.sciflow-admin .button-link { color: var(--sfa-accent-dark); }
+
+/* ── Tables ─────────────────────────────────────────────────────── */
+.sciflow-admin .widefat { border: 1px solid var(--sfa-line); border-radius: var(--sfa-radius); overflow: hidden; box-shadow: none; }
+.sciflow-admin .widefat thead th, .sciflow-admin .widefat thead td { background: var(--sfa-soft); font-weight: 600; border-bottom: 1px solid var(--sfa-line); }
+.sciflow-admin .widefat td, .sciflow-admin .widefat th { padding: 10px 12px; }
+
+/* ── Notices inside the content column ──────────────────────────── */
+.sciflow-admin .notice { border-radius: 6px; }
+
+/* ── Inner tabs (ranking, notifications…) as segmented control ─── */
+.sciflow-admin .nav-tab-wrapper:not(.sf-settings-nav) { border-bottom: 0; display: inline-flex; gap: 2px; padding: 3px; background: var(--sfa-soft); border-radius: 8px; margin: 0 0 16px; }
+.sciflow-admin .nav-tab-wrapper:not(.sf-settings-nav) .nav-tab { border: 0; background: transparent; margin: 0; border-radius: 6px; font-size: 13px; padding: 6px 12px; color: var(--sfa-ink); }
+.sciflow-admin .nav-tab-wrapper:not(.sf-settings-nav) .nav-tab-active { background: var(--sfa-surface); box-shadow: 0 1px 2px rgba(0,0,0,.08); color: var(--sfa-accent-dark); }
+
+/* ── Settings: side menu + content ──────────────────────────────── */
+.sf-settings-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 24px; align-items: start; margin-top: 18px; }
+@media (max-width: 960px) { .sf-settings-layout { grid-template-columns: 1fr; } }
+.sf-settings-nav { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 2px; border: 0 !important; margin: 0 !important; padding: 0 !important; }
+@media (max-width: 960px) { .sf-settings-nav { position: static; flex-direction: row; flex-wrap: wrap; } }
+.sf-settings-nav .sf-nav-group { margin: 14px 0 4px 10px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--sfa-muted); }
+.sf-settings-nav .sf-nav-group:first-child { margin-top: 0; }
+.sf-settings-nav .nav-tab {
+  float: none; display: block; margin: 0 !important; border: 0; border-radius: 6px; background: transparent;
+  padding: 7px 10px; font-size: 13px; font-weight: 500; color: var(--sfa-ink); line-height: 1.4;
+}
+.sf-settings-nav .nav-tab:hover { background: var(--sfa-soft); color: var(--sfa-accent-dark); }
+.sf-settings-nav .nav-tab.nav-tab-active { background: var(--sfa-accent-soft); color: var(--sfa-accent-dark); font-weight: 600; box-shadow: inset 3px 0 0 var(--sfa-accent); }
+.sf-settings-form .sciflow-tab-content {
+  background: var(--sfa-surface); border: 1px solid var(--sfa-line); border-radius: var(--sfa-radius); padding: 6px 26px 18px;
+}
+.sf-settings-form .sciflow-tab-content > h2 { font-size: 17px; font-weight: 600; margin: 20px 0 4px; padding-top: 18px; border-top: 1px solid #f0f0f1; }
+.sf-settings-form .sciflow-tab-content > h2:first-child { border-top: 0; padding-top: 0; }
+.sf-settings-form .sciflow-tab-content > p.description { margin-top: 0; }
+.sf-settings-form p.submit, .sf-savebar {
+  position: sticky; bottom: 0; z-index: 20; margin: 18px 0 0; padding: 12px 16px;
+  background: rgba(255,255,255,.96); border: 1px solid var(--sfa-line); border-radius: var(--sfa-radius);
+  box-shadow: 0 -4px 16px rgba(0,0,0,.06); display: flex; align-items: center; gap: 12px;
+}
+.sf-savebar-hint { color: var(--sfa-muted); font-size: 12px; }
+
+/* ── Diagnostics status column ──────────────────────────────────── */
+.sciflow-admin .sfa-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px 2px 6px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.sciflow-admin .sfa-pill .dashicons { font-size: 15px; width: 15px; height: 15px; }
+.sciflow-admin .sfa-pill.is-ok { background: #e6f4ea; color: var(--sfa-ok); }
+.sciflow-admin .sfa-pill.is-warning { background: #fcf9e8; color: var(--sfa-warn); }
+.sciflow-admin .sfa-pill.is-error { background: #fcf0f1; color: var(--sfa-err); }
+.sciflow-admin .sfa-pill.is-info { background: #f0f6fc; color: var(--sfa-info); }
+
+/* ── Wizard ─────────────────────────────────────────────────────── */
+.sciflow-admin .sf-wizard { max-width: 920px; }
+.sciflow-admin .sf-steps li { background: var(--sfa-soft) !important; color: var(--sfa-muted) !important; border-radius: 8px !important; }
+.sciflow-admin .sf-steps li.is-done { background: var(--sfa-accent-soft) !important; color: var(--sfa-accent-dark) !important; }
+.sciflow-admin .sf-steps li.is-current { background: var(--sfa-accent) !important; color: var(--sfa-accent-contrast) !important; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .sfa-topbar-nav a, .sf-settings-nav .nav-tab, .sciflow-admin .button { transition: background-color .15s, color .15s, border-color .15s; }
+}
+
+/* Ranking tables and lists inside the content column */
+.sciflow-admin .sciflow-tab-content:not(.sf-settings-form .sciflow-tab-content) { background: var(--sfa-surface); border: 1px solid var(--sfa-line); border-radius: var(--sfa-radius); padding: 16px 20px; }
+@media (max-width: 960px) { .sfa-topbar { flex-wrap: wrap; } }

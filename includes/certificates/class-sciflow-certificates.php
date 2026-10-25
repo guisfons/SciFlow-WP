@@ -30,10 +30,8 @@ class SciFlow_Certificates
         $upload_dir = wp_upload_dir();
         $cert_dir = trailingslashit($upload_dir['basedir']) . 'certificados/';
 
-        if (!file_exists($cert_dir)) {
-            wp_mkdir_p($cert_dir);
-            @file_put_contents($cert_dir . 'index.php', '<?php // Silence is golden.');
-        }
+        // Personal data: deny direct HTTP access to the directory.
+        SciFlow_Security::protect_directory($cert_dir);
 
         $email_clean = strtolower(trim($input_email));
         $raw_email   = trim($input_email);
@@ -86,11 +84,27 @@ class SciFlow_Certificates
             exit;
         }
 
-        $input_email = sanitize_email($_POST['sciflow_cert_email'] ?? '');
+        $access = (string) SciFlow_Settings::get('certificate_access', 'logged_in');
+        if ('logged_in' === $access) {
+            if (!is_user_logged_in()) {
+                wp_safe_redirect(add_query_arg('cert_status', 'login_required', wp_get_referer() ?: home_url()));
+                exit;
+            }
+            // Logged-in mode: only the account's own certificate.
+            $input_email = wp_get_current_user()->user_email;
+        } else {
+            $input_email = sanitize_email(wp_unslash($_POST['sciflow_cert_email'] ?? ''));
+        }
+
+        // Limit lookups per IP (prevents e-mail enumeration).
+        if (!SciFlow_Security::rate_limit('cert_download', (int) SciFlow_Settings::get('certificate_rate_limit', 20), 10 * MINUTE_IN_SECONDS)) {
+            wp_safe_redirect(add_query_arg('cert_status', 'rate_limited', wp_get_referer() ?: home_url()));
+            exit;
+        }
+
         if (empty($input_email) || !is_email($input_email)) {
             $redirect = add_query_arg(array(
                 'cert_status' => 'invalid_email',
-                'cert_email'  => rawurlencode($input_email),
             ), wp_get_referer() ?: home_url());
             wp_safe_redirect($redirect);
             exit;
@@ -115,7 +129,6 @@ class SciFlow_Certificates
         } else {
             $redirect = add_query_arg(array(
                 'cert_status' => 'not_found',
-                'cert_email'  => rawurlencode($input_email),
             ), wp_get_referer() ?: home_url());
             wp_safe_redirect($redirect);
             exit;
@@ -149,9 +162,8 @@ class SciFlow_Certificates
         ), $atts, 'baixar_certificado');
 
         $email = '';
-        if (isset($_GET['cert_email'])) {
-            $email = sanitize_email(urldecode($_GET['cert_email']));
-        } elseif (is_user_logged_in()) {
+        $login_only = 'logged_in' === (string) SciFlow_Settings::get('certificate_access', 'logged_in');
+        if (is_user_logged_in()) {
             $current_user = wp_get_current_user();
             $email = $current_user->user_email;
         }
@@ -169,6 +181,10 @@ class SciFlow_Certificates
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                 <span>' . esc_html__('Por favor, insira um endereço de e-mail válido.', 'sciflow-wp') . '</span>
             </div>';
+        } elseif ($status === 'rate_limited') {
+            $alert_html = '<div class="sciflow-cert-alert sciflow-cert-alert--warning" role="alert"><span>' . esc_html__('Muitas tentativas. Aguarde alguns minutos e tente novamente.', 'sciflow-wp') . '</span></div>';
+        } elseif ($status === 'login_required') {
+            $alert_html = '<div class="sciflow-cert-alert sciflow-cert-alert--warning" role="alert"><span>' . esc_html__('Faça login para baixar o seu certificado.', 'sciflow-wp') . '</span></div>';
         } elseif ($status === 'expired') {
             $alert_html = '<div class="sciflow-cert-alert sciflow-cert-alert--warning" role="alert">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -201,10 +217,10 @@ class SciFlow_Certificates
                     width: 60px;
                     height: 60px;
                     border-radius: 50%;
-                    background: #f0fdf4;
-                    color: #16a34a;
+                    background: var(--brand-primary-light, #e9f1f2);
+                    color: var(--brand-primary, #1f6f78);
                     margin-bottom: 18px;
-                    border: 1px solid #dcfce7;
+                    border: 1px solid rgba(var(--brand-primary-rgb, 31, 111, 120), 0.2);
                 }
                 .sciflow-cert-title {
                     font-size: 1.4rem;
@@ -270,8 +286,8 @@ class SciFlow_Certificates
                 }
                 .sciflow-cert-input:focus {
                     background: #ffffff !important;
-                    border-color: #16a34a !important;
-                    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15) !important;
+                    border-color: var(--brand-primary, #1f6f78) !important;
+                    box-shadow: 0 0 0 3px rgba(var(--brand-primary-rgb, 31, 111, 120), 0.15) !important;
                 }
                 .sciflow-cert-hint {
                     display: block;
@@ -286,7 +302,7 @@ class SciFlow_Certificates
                     font-size: 1rem !important;
                     font-weight: 600 !important;
                     color: #ffffff !important;
-                    background: #16a34a !important;
+                    background: var(--brand-primary, #1f6f78) !important;
                     border: none !important;
                     border-radius: 10px !important;
                     cursor: pointer !important;
@@ -296,12 +312,12 @@ class SciFlow_Certificates
                     justify-content: center !important;
                     gap: 8px !important;
                     text-decoration: none !important;
-                    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25) !important;
+                    box-shadow: 0 4px 12px rgba(var(--brand-primary-rgb, 31, 111, 120), 0.25) !important;
                 }
                 .sciflow-cert-btn:hover {
-                    background: #15803d !important;
+                    background: var(--brand-primary-dark, #17545b) !important;
                     transform: translateY(-1px) !important;
-                    box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35) !important;
+                    box-shadow: 0 6px 16px rgba(var(--brand-primary-rgb, 31, 111, 120), 0.35) !important;
                 }
                 .sciflow-cert-btn:active {
                     transform: translateY(0) !important;
@@ -330,6 +346,11 @@ class SciFlow_Certificates
                 <form method="post" action="" class="sciflow-cert-form">
                     <?php wp_nonce_field('sciflow_download_cert_action', 'sciflow_cert_nonce'); ?>
                     
+                    <?php if ($login_only && !is_user_logged_in()) : ?>
+                        <p><a class="sciflow-cert-btn" href="<?php echo esc_url(wp_login_url(get_permalink())); ?>"><?php esc_html_e('Fazer login', 'sciflow-wp'); ?></a></p>
+                    <?php elseif ($login_only) : ?>
+                        <p class="sciflow-cert-hint"><?php echo esc_html(sprintf(__('Certificado da conta: %s', 'sciflow-wp'), $email)); ?></p>
+                    <?php else : ?>
                     <div class="sciflow-cert-form-group">
                         <label for="sciflow_cert_email" class="sciflow-cert-label">
                             <?php esc_html_e('E-mail cadastrado no evento:', 'sciflow-wp'); ?>
@@ -346,7 +367,9 @@ class SciFlow_Certificates
                             <?php esc_html_e('O certificado é localizado utilizando exatamente o e-mail da sua inscrição.', 'sciflow-wp'); ?>
                         </span>
                     </div>
+                    <?php endif; ?>
 
+                    <?php if (!$login_only || is_user_logged_in()) : ?>
                     <button type="submit" name="sciflow_download_cert_submit" class="sciflow-cert-btn">
                         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -355,6 +378,7 @@ class SciFlow_Certificates
                         </svg>
                         <span><?php echo esc_html($atts['btn_text']); ?></span>
                     </button>
+                    <?php endif; ?>
                 </form>
 
                 <div class="sciflow-cert-footer">
@@ -402,16 +426,12 @@ class SciFlow_Certificates
         $event = get_post_meta($post_id, '_sciflow_event', true);
         $coauthors = get_post_meta($post_id, '_sciflow_coauthors', true);
 
-        $event_labels = array(
-            'enfrute' => 'Enfrute — Encontro Nacional sobre Fruticultura de Clima Temperado',
-            'semco' => 'Semco — Seminário Catarinense de Olericultura',
-        );
 
         $html = $this->render_certificate_html(array(
             'title' => $post->post_title,
             'author_name' => $author ? $author->display_name : __('Autor Desconhecido', 'sciflow-wp'),
             'coauthors' => $coauthors ?: array(),
-            'event' => $event_labels[$event] ?? $event,
+            'event' => SciFlow_Events::full_label($event),
             'date' => wp_date('d/m/Y'),
             'site_name' => get_bloginfo('name'),
         ));
@@ -420,12 +440,7 @@ class SciFlow_Certificates
         $upload_dir = wp_upload_dir();
         $cert_dir = $upload_dir['basedir'] . '/sciflow-certificates/';
 
-        if (!file_exists($cert_dir)) {
-            wp_mkdir_p($cert_dir);
-            // Protect directory.
-            file_put_contents($cert_dir . '.htaccess', 'Deny from all');
-            file_put_contents($cert_dir . 'index.php', '<?php // Silence is golden.');
-        }
+        SciFlow_Security::protect_directory($cert_dir);
 
         $filename = 'certificado-' . $post_id . '-' . time() . '.pdf';
         $filepath = $cert_dir . $filename;
@@ -468,7 +483,8 @@ class SciFlow_Certificates
             }
         }
 
-        return '<!DOCTYPE html>
+        $brand = SciFlow_Branding::get();
+        return str_replace(array('#2c5530', '#1a3a1e'), array($brand['primary'], $brand['primary_dark']), '<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8">
 <style>
@@ -505,7 +521,7 @@ class SciFlow_Certificates
     <p class="date">' . esc_html($vars['date']) . '</p>
 </div>
 </body>
-</html>';
+</html>');
     }
 
     /**

@@ -78,7 +78,7 @@ if ($article_id && $token) {
     <?php if ($success): ?>
         <div style="text-align:center;">
             <div style="font-size:64px;margin-bottom:16px;">✅</div>
-            <h1 style="color:#2c5530;margin-bottom:8px;"><?php esc_html_e('Apresentação Confirmada!', 'sciflow-wp'); ?></h1>
+            <h1 style="color:var(--brand-primary, #1f6f78);margin-bottom:8px;"><?php esc_html_e('Apresentação Confirmada!', 'sciflow-wp'); ?></h1>
             <p style="font-size:16px;color:#555;margin-bottom:16px;">
                 <?php esc_html_e('Sua participação foi registrada com sucesso.', 'sciflow-wp'); ?>
             </p>
@@ -86,7 +86,7 @@ if ($article_id && $token) {
             <p style="font-weight:bold;font-size:15px;"><?php echo esc_html($post_title); ?></p>
             <?php endif; ?>
             <?php if ($pdate): ?>
-            <p style="font-size:15px;color:#2c5530;font-weight:bold;">📅 <?php echo esc_html($pdate); ?></p>
+            <p style="font-size:15px;color:var(--brand-primary, #1f6f78);font-weight:bold;">📅 <?php echo esc_html($pdate); ?></p>
             <?php endif; ?>
             <p style="color:#777;margin-top:20px;font-size:13px;">
                 <?php esc_html_e('Aguardamos você no evento. Em caso de dúvidas, entre em contato com a organização.', 'sciflow-wp'); ?>
@@ -96,12 +96,12 @@ if ($article_id && $token) {
     <?php elseif ($already): ?>
         <div style="text-align:center;">
             <div style="font-size:64px;margin-bottom:16px;">✅</div>
-            <h1 style="color:#2c5530;margin-bottom:8px;"><?php esc_html_e('Apresentação já confirmada!', 'sciflow-wp'); ?></h1>
+            <h1 style="color:var(--brand-primary, #1f6f78);margin-bottom:8px;"><?php esc_html_e('Apresentação já confirmada!', 'sciflow-wp'); ?></h1>
             <?php if ($post_title): ?>
             <p style="font-weight:bold;font-size:15px;"><?php echo esc_html($post_title); ?></p>
             <?php endif; ?>
             <?php if ($pdate): ?>
-            <p style="font-size:15px;color:#2c5530;font-weight:bold;">📅 <?php echo esc_html($pdate); ?></p>
+            <p style="font-size:15px;color:var(--brand-primary, #1f6f78);font-weight:bold;">📅 <?php echo esc_html($pdate); ?></p>
             <?php endif; ?>
             <p style="color:#777;margin-top:20px;font-size:13px;">
                 <?php esc_html_e('Sua confirmação já foi registrada anteriormente. Não é necessária nenhuma ação adicional.', 'sciflow-wp'); ?>
@@ -118,7 +118,7 @@ if ($article_id && $token) {
     <?php else: ?>
         <div style="text-align:center;">
             <div style="font-size:64px;margin-bottom:16px;">📅</div>
-            <h1 style="color:#2c5530;margin-bottom:8px;"><?php esc_html_e('Confirmar Apresentação', 'sciflow-wp'); ?></h1>
+            <h1 style="color:var(--brand-primary, #1f6f78);margin-bottom:8px;"><?php esc_html_e('Confirmar Apresentação', 'sciflow-wp'); ?></h1>
             <p style="color:#555;"><?php esc_html_e('Use o link enviado por e-mail para confirmar sua apresentação.', 'sciflow-wp'); ?></p>
         </div>
     <?php endif; ?>

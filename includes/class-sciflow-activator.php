@@ -1,6 +1,6 @@
 <?php
 /**
- * Runs on plugin activation.
+ * Runs on plugin activation (kept for backwards compatibility).
  */
 
 if (!defined('ABSPATH')) {
@@ -9,25 +9,8 @@ if (!defined('ABSPATH')) {
 
 class SciFlow_Activator
 {
-
     public function activate()
     {
-        // Register roles and capabilities.
-        $roles = new SciFlow_Roles();
-        $roles->add_roles();
-        $roles->add_caps();
-
-        // Flush rewrite rules so CPT permalinks work.
-        $enfrute = new SciFlow_Enfrute_CPT();
-        $enfrute->register();
-        $semco = new SciFlow_Semco_CPT();
-        $semco->register();
-        $palestra = new SciFlow_Palestra_CPT();
-        $palestra->register();
-        
-        flush_rewrite_rules();
-
-        // Store version for future upgrades.
-        update_option('sciflow_version', SCIFLOW_VERSION);
+        SciFlow_Installer::activate(false);
     }
 }

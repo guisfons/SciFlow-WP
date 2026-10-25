@@ -29,9 +29,8 @@ class SciFlow_Review
     public function submit_review($post_id, $data)
     {
         $user_id = get_current_user_id();
-        $reviewer = (int) get_post_meta($post_id, '_sciflow_reviewer_id', true);
 
-        if ($user_id !== $reviewer) {
+        if (!SciFlow_Security::is_assigned_reviewer($post_id, $user_id)) {
             return new WP_Error('unauthorized', __('Você não é o revisor designado.', 'sciflow-wp'));
         }
 

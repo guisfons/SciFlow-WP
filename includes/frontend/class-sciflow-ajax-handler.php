@@ -116,7 +116,7 @@ class SciFlow_Ajax_Handler
             'message' => $is_draft ? __('Rascunho salvo com sucesso!', 'sciflow-wp') : __('Trabalho submetido com sucesso! Redirecionando...', 'sciflow-wp'),
             'post_id' => $result,
             'is_draft' => $is_draft,
-            'redirect_url' => home_url('/meus-artigos/')
+            'redirect_url' => SciFlow_Pages::url('author_dashboard')
         ));
     }
 
@@ -143,23 +143,22 @@ class SciFlow_Ajax_Handler
 
         $file = $_FILES['speaker_file'];
 
-        if ($file['error'] !== UPLOAD_ERR_OK) {
-            wp_send_json_error(array('message' => sprintf(__('Erro no upload do arquivo (Erro %s).', 'sciflow-wp'), $file['error'])));
-        }
-
-        if ($file['size'] > 52428800) {
-            wp_send_json_error(array('message' => __('O arquivo excede o limite de 50 MB.', 'sciflow-wp')));
-        }
-
-        // Validate file type (Word)
+        // Validate file type (Word) using content sniffing, not only the name.
         $allowed_mimes = array(
             'doc'  => 'application/msword',
             'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         );
-        $file_info = wp_check_filetype(basename($file['name']), $allowed_mimes);
+        $max_bytes = (int) SciFlow_Settings::get('speaker_max_mb', 50) * MB_IN_BYTES;
+        $valid = SciFlow_Security::validate_upload($file, $allowed_mimes, $max_bytes);
+        if (is_wp_error($valid)) {
+            $message = 'invalid_file' === $valid->get_error_code()
+                ? __('Apenas arquivos Word (.doc, .docx) são aceitos.', 'sciflow-wp')
+                : $valid->get_error_message();
+            wp_send_json_error(array('message' => $message));
+        }
 
-        if (!$file_info['ext']) {
-            wp_send_json_error(array('message' => __('Apenas arquivos Word (.doc, .docx) são aceitos.', 'sciflow-wp')));
+        if ($event && (!SciFlow_Events::exists($event))) {
+            wp_send_json_error(array('message' => __('Evento inválido.', 'sciflow-wp')));
         }
 
         // Link blocking only applies to title.
@@ -191,7 +190,7 @@ class SciFlow_Ajax_Handler
             require_once ABSPATH . 'wp-admin/includes/media.php';
         }
 
-        $upload = wp_handle_upload($file, array('test_form' => false));
+        $upload = wp_handle_upload($file, array('test_form' => false, 'mimes' => $allowed_mimes));
 
         if (isset($upload['error'])) {
             wp_delete_post($post_id, true);
@@ -218,7 +217,7 @@ class SciFlow_Ajax_Handler
             update_post_meta($post_id, '_sciflow_event', $event);
         }
 
-        $duration = sanitize_text_field($_POST['duration'] ?? '40');
+        $duration = (string) absint($_POST['duration'] ?? 40);
         update_post_meta($post_id, '_sciflow_duration', $duration);
 
         // Generate and assign visual ID immediately
@@ -275,7 +274,6 @@ class SciFlow_Ajax_Handler
         $result = $this->submission->resubmit($post_id, $data);
 
         if (is_wp_error($result)) {
-            error_log('SciFlow Resubmit Error: ' . $result->get_error_message());
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
@@ -285,10 +283,9 @@ class SciFlow_Ajax_Handler
             $this->editorial->add_message($post_id, 'autor', $author_message);
         }
 
-        error_log('SciFlow Resubmit Success. Post ID: ' . $post_id);
         wp_send_json_success(array(
             'message' => __('Trabalho reenviado com sucesso! Redirecionando...', 'sciflow-wp'),
-            'redirect_url' => home_url('/meus-artigos/')
+            'redirect_url' => SciFlow_Pages::url('author_dashboard')
         ));
     }
 
@@ -399,11 +396,10 @@ class SciFlow_Ajax_Handler
     {
         $this->verify_request();
 
-        if (!current_user_can('manage_sciflow')) {
+        $post_id  = absint($_POST['post_id'] ?? 0);
+        if (!SciFlow_Security::can_manage_submission($post_id)) {
             wp_send_json_error(array('message' => __('Permissão insuficiente.', 'sciflow-wp')));
         }
-
-        $post_id  = absint($_POST['post_id'] ?? 0);
         $decision = sanitize_text_field($_POST['decision'] ?? '');
         $notes    = wp_kses_post($_POST['notes'] ?? '');
 
@@ -424,6 +420,9 @@ class SciFlow_Ajax_Handler
         $this->verify_request();
 
         $post_id = absint($_POST['post_id'] ?? 0);
+        if (!SciFlow_Security::is_author($post_id) && !SciFlow_Security::can_manage_submission($post_id)) {
+            wp_send_json_error(array('message' => __('Você não tem permissão para este trabalho.', 'sciflow-wp')));
+        }
         $amount = $this->payment->get_amount();
 
         $result = $this->payment->create_charge($amount, array('post_id' => $post_id));
@@ -443,6 +442,9 @@ class SciFlow_Ajax_Handler
         $this->verify_request();
 
         $post_id = absint($_POST['post_id'] ?? 0);
+        if (!SciFlow_Security::is_author($post_id) && !SciFlow_Security::can_manage_submission($post_id)) {
+            wp_send_json_error(array('message' => __('Você não tem permissão para este trabalho.', 'sciflow-wp')));
+        }
         $txid = get_post_meta($post_id, '_sciflow_payment_id', true);
 
         if (!$txid) {
@@ -473,11 +475,10 @@ class SciFlow_Ajax_Handler
     {
         $this->verify_request();
 
-        if (!current_user_can('administrator')) {
+        $post_id = absint($_POST['post_id'] ?? 0);
+        if (!current_user_can('manage_options') || !SciFlow_Security::is_submission($post_id)) {
             wp_send_json_error(array('message' => __('Permissão insuficiente. Somente administradores podem confirmar pagamentos manualmente.', 'sciflow-wp')));
         }
-
-        $post_id = absint($_POST['post_id'] ?? 0);
         $current_payment = get_post_meta($post_id, '_sciflow_payment_status', true);
 
         if ($current_payment !== 'confirmed') {
@@ -521,8 +522,7 @@ class SciFlow_Ajax_Handler
         }
 
         // Ownership check.
-        $author_id = (int) get_post_meta($post_id, '_sciflow_author_id', true);
-        if (get_current_user_id() !== $author_id) {
+        if (!SciFlow_Security::is_author($post_id)) {
             wp_send_json_error(array('message' => __('Você não tem permissão para editar este trabalho.', 'sciflow-wp')));
         }
 

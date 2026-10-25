@@ -122,8 +122,8 @@ $status_manager = new SciFlow_Status_Manager();
             <div class="col-12 col-md-2">
                 <select name="sciflow_evento" class="form-select form-select-sm fw-medium text-secondary shadow-none">
                     <option value="">Todos Eventos</option>
-                    <option value="enfrute" <?php selected($filter_evento, 'enfrute'); ?>>Enfrute</option>
-                    <option value="semco" <?php selected($filter_evento, 'semco'); ?>>Semco</option>
+                    <option value="enfrute" <?php selected($filter_evento, 'enfrute'); ?>><?php echo esc_html(SciFlow_Events::label('enfrute')); ?></option>
+                    <option value="semco" <?php selected($filter_evento, 'semco'); ?>><?php echo esc_html(SciFlow_Events::label('semco')); ?></option>
                 </select>
             </div>
             <div class="col-12 col-md-3">

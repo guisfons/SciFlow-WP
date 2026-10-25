@@ -24,7 +24,7 @@ class SciFlow_Editorial
      */
     public function assign_reviewer($post_id, $reviewer_id)
     {
-        if (!current_user_can('assign_sciflow_reviewers')) {
+        if (!current_user_can('assign_sciflow_reviewers') || !SciFlow_Security::can_manage_submission($post_id)) {
             return new WP_Error('unauthorized', __('Permissão insuficiente.', 'sciflow-wp'));
         }
 
@@ -69,7 +69,7 @@ class SciFlow_Editorial
      */
     public function make_decision($post_id, $decision, $notes = '')
     {
-        if (!current_user_can('manage_sciflow')) {
+        if (!SciFlow_Security::can_manage_submission($post_id)) {
             return new WP_Error('unauthorized', __('Permissão insuficiente.', 'sciflow-wp'));
         }
 
@@ -128,7 +128,7 @@ class SciFlow_Editorial
      */
     public function make_poster_decision($post_id, $decision, $notes = '')
     {
-        if (!current_user_can('manage_sciflow')) {
+        if (!SciFlow_Security::can_manage_submission($post_id)) {
             return new WP_Error('unauthorized', __('Permissão insuficiente.', 'sciflow-wp'));
         }
 

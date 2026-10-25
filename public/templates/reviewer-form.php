@@ -49,8 +49,8 @@ $criteria = array(
                 <select class="sciflow-filter-input sciflow-filter-event-reviewer"
                     style="padding:6px; border:1px solid #ccc; border-radius:4px;">
                     <option value=""><?php esc_html_e('Todos', 'sciflow-wp'); ?></option>
-                    <option value="enfrute">Enfrute</option>
-                    <option value="semco">Semco</option>
+                    <option value="enfrute"><?php echo esc_html(SciFlow_Events::label('enfrute')); ?></option>
+                    <option value="semco"><?php echo esc_html(SciFlow_Events::label('semco')); ?></option>
                 </select>
             </div>
             <div class="sciflow-filter-group">
@@ -318,7 +318,7 @@ $criteria = array(
                                         <tfoot>
                                             <tr style="font-weight:bold; font-size:14px;">
                                                 <td colspan="3" style="padding:8px 0;"><?php esc_html_e('Nota Final (Média Ponderada):', 'sciflow-wp'); ?></td>
-                                                <td style="padding:8px 0; text-align:right; color:#2c5530;">
+                                                <td style="padding:8px 0; text-align:right; color:var(--brand-primary, #1f6f78);">
                                                     <?php 
                                                     $final = $total_weight > 0 ? ($total_weighted / $total_weight) : 0;
                                                     echo number_format($final, 2, ',', ''); 

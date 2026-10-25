@@ -15,7 +15,7 @@ class SciFlow_Submission
     private $email;
     private $woocommerce;
 
-    public function __construct(SciFlow_Status_Manager $status_manager, SciFlow_Email $email, SciFlow_WooCommerce $woocommerce = null)
+    public function __construct(SciFlow_Status_Manager $status_manager, SciFlow_Email $email, ?SciFlow_WooCommerce $woocommerce = null)
     {
         $this->status_manager = $status_manager;
         $this->email = $email;
@@ -61,7 +61,8 @@ class SciFlow_Submission
         // Validate event.
         $event = sanitize_text_field($data['event'] ?? '');
         $post_type = SciFlow_Status_Manager::get_post_type_for_event($event);
-        if (!$post_type) {
+        $enabled_events = SciFlow_Events::enabled();
+        if (!$post_type || (empty($data['post_id']) && !isset($enabled_events[$event]))) {
             return new WP_Error('invalid_event', __('Evento inválido.', 'sciflow-wp'));
         }
 
@@ -160,7 +161,7 @@ class SciFlow_Submission
 
         if (!empty($data['post_id'])) {
             $existing_post = get_post($data['post_id']);
-            if (!$existing_post || (int) $existing_post->post_author !== (int) $user_id) {
+            if (!$existing_post || (int) $existing_post->post_author !== (int) $user_id || !SciFlow_Security::is_submission($existing_post->ID)) {
                 return new WP_Error('invalid_post', __('Você não tem permissão para editar este trabalho.', 'sciflow-wp'));
             }
 
@@ -270,10 +271,7 @@ class SciFlow_Submission
      */
     public function resubmit($post_id, $data)
     {
-        $user_id = get_current_user_id();
-        $author = get_post_meta($post_id, '_sciflow_author_id', true);
-
-        if ((int) $user_id !== (int) $author) {
+        if (!SciFlow_Security::is_author($post_id)) {
             return new WP_Error('unauthorized', __('Apenas o autor pode reenviar.', 'sciflow-wp'));
         }
 
@@ -366,12 +364,15 @@ class SciFlow_Submission
             update_post_meta($post_id, '_sciflow_knowledge_area', sanitize_text_field($data['knowledge_area']));
         }
 
-        if (isset($data['event'])) {
-            update_post_meta($post_id, '_sciflow_event', sanitize_text_field($data['event']));
+        // The event is bound to the post type and cannot change on resubmission.
+        $event = SciFlow_Status_Manager::get_event_from_post_type(get_post_type($post_id));
+        if ($event) {
+            update_post_meta($post_id, '_sciflow_event', $event);
         }
 
         if (isset($data['language'])) {
-            update_post_meta($post_id, '_sciflow_language', sanitize_text_field($data['language']));
+            $language = in_array($data['language'], array('pt', 'en', 'es'), true) ? $data['language'] : 'pt';
+            update_post_meta($post_id, '_sciflow_language', $language);
         }
 
         // Acknowledgements (optional, max 250 chars).

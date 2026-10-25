@@ -75,8 +75,13 @@ class SciFlow_Roles
 
     /**
      * Assign capabilities to each role.
+     *
+     * @param bool $gestor_defaults Also (re)grant the Gestor Técnico default
+     *                              WooCommerce/user capabilities. Upgrades pass
+     *                              false so customizations made on the
+     *                              "Permissões Gestor" screen are preserved.
      */
-    public function add_caps()
+    public function add_caps($gestor_defaults = true)
     {
         // ---------- Inscrito ----------
         $inscrito = get_role('sciflow_inscrito');
@@ -144,7 +149,10 @@ class SciFlow_Roles
 
         // ---------- Gestor Técnico SciFlow ----------
         $gestor_tecnico = get_role('sciflow_tecnico_admin');
-        if ($gestor_tecnico) {
+        if ($gestor_tecnico && !$gestor_defaults) {
+            $gestor_tecnico->add_cap('read');
+            $gestor_tecnico->add_cap('manage_sciflow_tecnicos');
+        } elseif ($gestor_tecnico) {
             $gestor_tecnico->add_cap('manage_sciflow_tecnicos');
             $gestor_tecnico->add_cap('read');
             $gestor_tecnico->add_cap('upload_files');
@@ -317,12 +325,51 @@ class SciFlow_Roles
         );
     }
     /**
-     * Refresh roles and capabilities.
-     * Use this if new roles or caps are added but don't show up in DB.
+     * Make sure every role exists and holds the SciFlow core capabilities,
+     * without touching customizations of the Gestor Técnico role.
      */
-    public function refresh_roles() {
-        $this->remove_roles();
+    public function ensure_core_caps()
+    {
         $this->add_roles();
-        $this->add_caps();
+        $this->add_caps(false);
+    }
+
+    /**
+     * Refresh roles and capabilities.
+     *
+     * Kept for backwards compatibility. It no longer removes the roles first,
+     * which used to wipe the Gestor Técnico permissions on every update.
+     */
+    public function refresh_roles()
+    {
+        $this->ensure_core_caps();
+    }
+
+    /**
+     * Display names follow the event labels configured in the settings.
+     * Hooked to `wp_roles_init`; only the in-memory names change.
+     *
+     * @param WP_Roles $wp_roles
+     */
+    public static function localize_role_names($wp_roles)
+    {
+        if (!class_exists('SciFlow_Events')) {
+            return;
+        }
+        // Plain strings on purpose: roles may be initialised before `init`,
+        // when translations must not be loaded yet (WP 6.7+).
+        $names = array(
+            'sciflow_enfrute_editor'  => sprintf('Editor %s (SciFlow)', SciFlow_Events::label('enfrute')),
+            'sciflow_enfrute_revisor' => sprintf('Revisor %s (SciFlow)', SciFlow_Events::label('enfrute')),
+            'sciflow_semco_editor'    => sprintf('Editor %s (SciFlow)', SciFlow_Events::label('semco')),
+            'sciflow_semco_revisor'   => sprintf('Revisor %s (SciFlow)', SciFlow_Events::label('semco')),
+            'sciflow_tecnico_epagri'  => sprintf('%s (SciFlow)', SciFlow_Settings::get('tecnico_label', 'Técnico Conveniado')),
+        );
+        foreach ($names as $slug => $name) {
+            if (isset($wp_roles->roles[$slug])) {
+                $wp_roles->roles[$slug]['name'] = $name;
+                $wp_roles->role_names[$slug] = $name;
+            }
+        }
     }
 }

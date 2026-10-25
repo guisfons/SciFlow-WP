@@ -3,10 +3,8 @@
    ======================================== */
 
 :root {
-    --sciflow-primary: #2c5530;
-    --sciflow-primary-light: #4a8f4f;
-    --sciflow-primary-dark: #1a3a1e;
-    --sciflow-secondary: #1a4a6e;
+    /* Brand tokens (--sciflow-primary, --sciflow-font, --sciflow-radius…) come from
+       the 'sciflow-brand' stylesheet generated from SciFlow → Identidade visual. */
     --sciflow-success: #27ae60;
     --sciflow-warning: #f39c12;
     --sciflow-danger: #c0392b;
@@ -18,12 +16,10 @@
     --sciflow-gray-500: #6b7280;
     --sciflow-gray-700: #374151;
     --sciflow-gray-900: #111827;
-    --sciflow-radius: 8px;
     --sciflow-radius-lg: 12px;
     --sciflow-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
     --sciflow-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     --sciflow-transition: 0.2s ease;
-    --sciflow-font: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 /* ── Base ── */
@@ -115,7 +111,7 @@
 .sciflow-field__textarea:focus {
     outline: none;
     border-color: var(--sciflow-primary);
-    box-shadow: 0 0 0 3px rgba(44, 85, 48, 0.15);
+    box-shadow: 0 0 0 3px rgba(var(--brand-primary-rgb, 31, 111, 120), 0.15);
 }
 
 .sciflow-field__input--score {

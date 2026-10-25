@@ -101,23 +101,20 @@ class SciFlow_Mass_Email
     public function send_individual_mail($user_data, $subject, $content)
     {
         $placeholders = array(
-            '{{name}}'       => $user_data['name'],
-            '{{first_name}}' => explode(' ', $user_data['name'])[0],
-            '{{site_url}}'   => home_url(),
-            '{{login_url}}'  => wp_login_url(),
-            '{{email}}'      => $user_data['email'],
+            '{{name}}'       => esc_html($user_data['name']),
+            '{{first_name}}' => esc_html(explode(' ', (string) $user_data['name'])[0]),
+            '{{site_url}}'   => esc_url(home_url()),
+            '{{login_url}}'  => esc_url(wp_login_url()),
+            '{{email}}'      => esc_html($user_data['email']),
         );
 
-        $final_subject = str_replace(array_keys($placeholders), array_values($placeholders), $subject);
+        $final_subject = wp_specialchars_decode(str_replace(array_keys($placeholders), array_values($placeholders), $subject), ENT_QUOTES);
         $final_content = str_replace(array_keys($placeholders), array_values($placeholders), $content);
 
         // Wrap in site styling
         $html = $this->wrap_content($final_content);
 
-        $headers = array(
-            'Content-Type: text/html; charset=UTF-8',
-            'From: ' . get_bloginfo('name') . ' <' . get_option('admin_email') . '>',
-        );
+        $headers = SciFlow_Email::get_headers();
 
         return wp_mail($user_data['email'], $final_subject, $html, $headers);
     }
@@ -128,6 +125,7 @@ class SciFlow_Mass_Email
     private function wrap_content($content)
     {
         $site_name = get_bloginfo('name');
+        $brand = SciFlow_Branding::email();
         ob_start();
         ?>
         <!DOCTYPE html>
@@ -135,21 +133,22 @@ class SciFlow_Mass_Email
         <head>
             <meta charset="UTF-8">
             <style>
-                body { font-family: sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                body { font-family: <?php echo esc_html($brand['font']); ?>; line-height: 1.6; color: #333; margin: 0; padding: 0; }
                 .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #eee; border-radius: 8px; }
-                .header { border-bottom: 2px solid #2c5530; margin-bottom: 20px; padding-bottom: 10px; }
+                .header { border-bottom: 2px solid <?php echo esc_html($brand['primary']); ?>; margin-bottom: 20px; padding-bottom: 10px; }
                 .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #eee; font-size: 12px; color: #888; text-align: center; }
-                h1, h2, h3 { color: #2c5530; }
-                .button { display: inline-block; padding: 10px 20px; background-color: #2c5530; color: #fff; text-decoration: none; border-radius: 5px; }
+                h1, h2, h3 { color: <?php echo esc_html($brand['primary']); ?>; }
+                .button { display: inline-block; padding: 10px 20px; background-color: <?php echo esc_html($brand['primary']); ?>; color: <?php echo esc_html($brand['contrast']); ?>; text-decoration: none; border-radius: 5px; }
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
+                    <?php if ($brand['logo_url']) : ?><img src="<?php echo esc_url($brand['logo_url']); ?>" alt="" style="max-height:56px;max-width:220px;display:block;margin-bottom:8px;"><?php endif; ?>
                     <h2><?php echo esc_html($site_name); ?></h2>
                 </div>
                 <div class="content">
-                    <?php echo $content; ?>
+                    <?php echo wp_kses_post($content); ?>
                 </div>
                 <div class="footer">
                     <p>&copy; <?php echo date('Y'); ?> <?php echo esc_html($site_name); ?>. Todos os direitos reservados.</p>

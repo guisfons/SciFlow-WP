@@ -12,8 +12,8 @@ if (!defined('ABSPATH'))
 
 $reviewers = $editorial->get_reviewers();
 $events = array(
-    'enfrute' => 'Enfrute',
-    'semco' => 'Semco',
+    'enfrute' => SciFlow_Events::label('enfrute'),
+    'semco' => SciFlow_Events::label('semco'),
 );
 ?>
 

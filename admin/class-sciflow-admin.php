@@ -117,8 +117,8 @@ class SciFlow_Admin
 
         add_submenu_page(
             'sciflow-settings',
-            __('Técnicos Epagri', 'sciflow-wp'),
-            __('Técnicos Epagri', 'sciflow-wp'),
+            SciFlow_Settings::get('tecnico_label', __('Técnicos', 'sciflow-wp')),
+            SciFlow_Settings::get('tecnico_label', __('Técnicos', 'sciflow-wp')),
             'manage_sciflow_tecnicos',
             'sciflow-tecnicos',
             array($this, 'render_tecnicos_page')
@@ -158,7 +158,7 @@ class SciFlow_Admin
     public function register_settings()
     {
         register_setting('sciflow_settings_group', 'sciflow_settings', array(
-            'sanitize_callback' => array($this, 'sanitize_settings'),
+            'sanitize_callback' => array('SciFlow_Settings', 'sanitize'),
         ));
     }
 
@@ -167,59 +167,7 @@ class SciFlow_Admin
      */
     public function sanitize_settings($input)
     {
-        $clean = array();
-
-        // Editor emails (multiple supported separated by comma).
-        $clean['enfrute_editor_email'] = $this->sanitize_multiple_emails($input['enfrute_editor_email'] ?? '');
-        $clean['semco_editor_email'] = $this->sanitize_multiple_emails($input['semco_editor_email'] ?? '');
-
-        // Dashboard URLs.
-        $clean['dashboard_url'] = esc_url_raw($input['dashboard_url'] ?? '');
-        $clean['editor_dashboard_url'] = esc_url_raw($input['editor_dashboard_url'] ?? '');
-        $clean['reviewer_dashboard_url'] = esc_url_raw($input['reviewer_dashboard_url'] ?? '');
-        $clean['poster_template_url'] = esc_url_raw($input['poster_template_url'] ?? '');
-        $clean['lgpd_consent_text'] = wp_kses_post($input['lgpd_consent_text'] ?? '');
-
-        // PayGo settings.
-        $clean['paygo_integration_key'] = sanitize_text_field($input['paygo_integration_key'] ?? '');
-        $clean['paygo_token'] = sanitize_text_field($input['paygo_token'] ?? '');
-        $clean['paygo_pix_key'] = sanitize_text_field($input['paygo_pix_key'] ?? '');
-        $clean['paygo_ambiente'] = in_array($input['paygo_ambiente'] ?? '', array('sandbox', 'producao'))
-            ? $input['paygo_ambiente'] : 'sandbox';
-        $clean['submission_price'] = floatval($input['submission_price'] ?? 50);
-
-        // Ranking weights.
-        $criteria = array('originalidade', 'objetividade', 'organizacao', 'metodologia', 'aderencia');
-        foreach ($criteria as $key) {
-            $w_val = $input['ranking_weights'][$key] ?? 1;
-            if (is_string($w_val)) {
-                $w_val = str_replace(',', '.', $w_val);
-            }
-            $clean['ranking_weights'][$key] = floatval($w_val);
-        }
-
-        // WooCommerce product IDs.
-        $clean['woo_product_ids'] = sanitize_text_field($input['woo_product_ids'] ?? '');
-        $clean['woo_speaker_product_ids'] = sanitize_text_field($input['woo_speaker_product_ids'] ?? '');
-        $clean['woo_tecnico_epagri_product_ids'] = sanitize_text_field($input['woo_tecnico_epagri_product_ids'] ?? '');
-
-        $clean['article_submission_deadline'] = sanitize_text_field($input['article_submission_deadline'] ?? '');
-        $clean['corrections_deadline'] = sanitize_text_field($input['corrections_deadline'] ?? '');
-        $clean['poster_submission_deadline'] = sanitize_text_field($input['poster_submission_deadline'] ?? '');
-        $clean['registration_deadline'] = sanitize_text_field($input['registration_deadline'] ?? '');
-
-        $clean['forgotten_article_email_text'] = wp_kses_post($input['forgotten_article_email_text'] ?? '');
-        $clean['forgotten_poster_email_text'] = wp_kses_post($input['forgotten_poster_email_text'] ?? '');
-        $clean['unsubmitted_poster_email_text'] = wp_kses_post($input['unsubmitted_poster_email_text'] ?? '');
-        $clean['ranking_email_text'] = wp_kses_post($input['ranking_email_text'] ?? '');
-
-        $clean['excluded_ranking_emails'] = sanitize_textarea_field($input['excluded_ranking_emails'] ?? '');
-
-        $clean['selected_date_email_text'] = wp_kses_post($input['selected_date_email_text'] ?? '');
-        $clean['selected_date_btn_text'] = sanitize_text_field($input['selected_date_btn_text'] ?? '');
-        $clean['confirm_presentation_page_url'] = esc_url_raw($input['confirm_presentation_page_url'] ?? '');
-
-        return $clean;
+        return SciFlow_Settings::sanitize($input);
     }
 
     /**
@@ -260,59 +208,78 @@ class SciFlow_Admin
         if (!current_user_can('manage_sciflow')) {
             wp_die(__('Você não tem permissão para acessar esta página.', 'sciflow-wp'));
         }
-        $settings = get_option('sciflow_settings', array());
-        
+        $settings = SciFlow_Settings::all();
+        $can_save = current_user_can('manage_options');
+
+        if (!$can_save) {
+            echo '<div class="notice notice-info"><p>' . esc_html__('Somente administradores podem salvar as configurações. As ações de envio de e-mail desta tela continuam disponíveis.', 'sciflow-wp') . '</p></div>';
+        }
+        settings_errors('sciflow_settings');
+
         if (isset($_GET['sciflow_notified'])) {
             $count = absint($_GET['sciflow_notified']);
             echo '<div class="notice notice-success is-dismissible"><p>' . sprintf(esc_html__('Foram notificados %d trabalhos com sucesso.', 'sciflow-wp'), $count) . '</p></div>';
         }
         ?>
         <div class="wrap">
-            <h1>
-                <?php esc_html_e('SciFlow — Configurações', 'sciflow-wp'); ?>
-            </h1>
+            <h1><?php esc_html_e('Configurações', 'sciflow-wp'); ?></h1>
+            <p class="description"><?php esc_html_e('Tudo o que o sistema precisa para funcionar: evento, identidade visual, páginas, inscrição, prazos, comunicação e publicação.', 'sciflow-wp'); ?></p>
 
-            <h2 class="nav-tab-wrapper sciflow-nav-tabs">
+            <div class="sf-settings-layout">
+            <nav class="nav-tab-wrapper sciflow-nav-tabs sf-settings-nav" aria-label="<?php esc_attr_e('Seções', 'sciflow-wp'); ?>">
+                <span class="sf-nav-group"><?php esc_html_e('Evento', 'sciflow-wp'); ?></span>
                 <a href="#tab-geral" class="nav-tab nav-tab-active"><?php esc_html_e('Geral', 'sciflow-wp'); ?></a>
+                <a href="#tab-eventos" class="nav-tab"><?php esc_html_e('Eventos', 'sciflow-wp'); ?></a>
+                <a href="#tab-identidade" class="nav-tab"><?php esc_html_e('Identidade visual', 'sciflow-wp'); ?></a>
+                <a href="#tab-paginas" class="nav-tab"><?php esc_html_e('Páginas', 'sciflow-wp'); ?></a>
+                <span class="sf-nav-group"><?php esc_html_e('Inscrição e prazos', 'sciflow-wp'); ?></span>
+                <a href="#tab-inscricao" class="nav-tab"><?php esc_html_e('Inscrição', 'sciflow-wp'); ?></a>
                 <a href="#tab-prazos" class="nav-tab"><?php esc_html_e('Prazos', 'sciflow-wp'); ?></a>
                 <a href="#tab-pagamento" class="nav-tab"><?php esc_html_e('Pagamento', 'sciflow-wp'); ?></a>
-                <a href="#tab-ranking" class="nav-tab"><?php esc_html_e('Ranking', 'sciflow-wp'); ?></a>
+                <span class="sf-nav-group"><?php esc_html_e('Comunicação', 'sciflow-wp'); ?></span>
+                <a href="#tab-email" class="nav-tab"><?php esc_html_e('E-mail', 'sciflow-wp'); ?></a>
                 <a href="#tab-notificacoes" class="nav-tab"><?php esc_html_e('Notificações', 'sciflow-wp'); ?></a>
-            </h2>
+                <span class="sf-nav-group"><?php esc_html_e('Avaliação e publicação', 'sciflow-wp'); ?></span>
+                <a href="#tab-ranking" class="nav-tab"><?php esc_html_e('Ranking', 'sciflow-wp'); ?></a>
+                <a href="#tab-certificados" class="nav-tab"><?php esc_html_e('Certificados & Anais', 'sciflow-wp'); ?></a>
+                <span class="sf-nav-group"><?php esc_html_e('Sistema', 'sciflow-wp'); ?></span>
+                <a href="#tab-avancado" class="nav-tab"><?php esc_html_e('Avançado', 'sciflow-wp'); ?></a>
+            </nav>
 
-            <form method="post" action="options.php" novalidate="novalidate">
+            <form method="post" action="options.php" novalidate="novalidate" class="sf-settings-form">
                 <?php settings_fields('sciflow_settings_group'); ?>
 
                 <div id="tab-geral" class="sciflow-tab-content">
                     <h2>
-                        <?php esc_html_e('Editores por Evento', 'sciflow-wp'); ?>
+                        <?php esc_html_e('Destinatários extras por evento', 'sciflow-wp'); ?>
                     </h2>
                     <table class="form-table">
                         <tr>
                             <th scope="row">
-                                <?php esc_html_e('E-mail do Editor Enfrute', 'sciflow-wp'); ?>
+                                <?php echo esc_html(sprintf(__('Editores de %s', 'sciflow-wp'), SciFlow_Events::label('enfrute'))); ?>
                             </th>
                             <td>
                                 <input type="text" name="sciflow_settings[enfrute_editor_email]"
                                     value="<?php echo esc_attr($settings['enfrute_editor_email'] ?? ''); ?>" class="regular-text">
-                                <p class="description"><?php esc_html_e('Separe múltiplos e-mails por vírgula.', 'sciflow-wp'); ?>
+                                <p class="description"><?php esc_html_e('Recebem aviso de novas submissões, além dos usuários com papel de editor. Separe por vírgula.', 'sciflow-wp'); ?>
                                 </p>
                             </td>
                         </tr>
                         <tr>
                             <th scope="row">
-                                <?php esc_html_e('E-mail do Editor Semco', 'sciflow-wp'); ?>
+                                <?php echo esc_html(sprintf(__('Editores de %s', 'sciflow-wp'), SciFlow_Events::label('semco'))); ?>
                             </th>
                             <td>
                                 <input type="text" name="sciflow_settings[semco_editor_email]"
                                     value="<?php echo esc_attr($settings['semco_editor_email'] ?? ''); ?>" class="regular-text">
-                                <p class="description"><?php esc_html_e('Separe múltiplos e-mails por vírgula.', 'sciflow-wp'); ?>
+                                <p class="description"><?php esc_html_e('Recebem aviso de novas submissões, além dos usuários com papel de editor. Separe por vírgula.', 'sciflow-wp'); ?>
                                 </p>
                             </td>
                         </tr>
+                        <tr><td colspan="2" style="padding-bottom:0;"><p class="description"><?php esc_html_e('Os campos de URL abaixo só são usados quando a página correspondente não está definida na seção Páginas. Prefira configurar lá.', 'sciflow-wp'); ?></p></td></tr>
                         <tr>
                             <th scope="row">
-                                <?php esc_html_e('URL do Painel do Autor', 'sciflow-wp'); ?>
+                                <?php esc_html_e('URL do Painel do Autor (legado)', 'sciflow-wp'); ?>
                             </th>
                             <td><input type="url" name="sciflow_settings[dashboard_url]"
                                     value="<?php echo esc_attr($settings['dashboard_url'] ?? ''); ?>" class="regular-text"
@@ -320,7 +287,7 @@ class SciFlow_Admin
                         </tr>
                         <tr>
                             <th scope="row">
-                                <?php esc_html_e('URL do Painel do Editor', 'sciflow-wp'); ?>
+                                <?php esc_html_e('URL do Painel do Editor (legado)', 'sciflow-wp'); ?>
                             </th>
                             <td><input type="url" name="sciflow_settings[editor_dashboard_url]"
                                     value="<?php echo esc_attr($settings['editor_dashboard_url'] ?? ''); ?>" class="regular-text"
@@ -328,7 +295,7 @@ class SciFlow_Admin
                         </tr>
                         <tr>
                             <th scope="row">
-                                <?php esc_html_e('URL do Painel do Revisor', 'sciflow-wp'); ?>
+                                <?php esc_html_e('URL do Painel do Revisor (legado)', 'sciflow-wp'); ?>
                             </th>
                             <td><input type="url" name="sciflow_settings[reviewer_dashboard_url]"
                                     value="<?php echo esc_attr($settings['reviewer_dashboard_url'] ?? ''); ?>" class="regular-text"
@@ -391,14 +358,14 @@ class SciFlow_Admin
                         </tr>
                         <tr>
                             <th scope="row">
-                                <?php esc_html_e('ID(s) do Produto/Variação de Técnico Epagri', 'sciflow-wp'); ?>
+                                <?php esc_html_e('ID(s) do Produto/Variação de Técnico', 'sciflow-wp'); ?>
                             </th>
                             <td>
                                 <input type="text" name="sciflow_settings[woo_tecnico_epagri_product_ids]"
                                     value="<?php echo esc_attr($settings['woo_tecnico_epagri_product_ids'] ?? ''); ?>" class="regular-text"
                                     placeholder="ex: 321 ou 321,654">
                                 <p class="description">
-                                    <?php esc_html_e('ID(s) do produto ou variação WooCommerce que atribui o cargo de Técnico Epagri. Técnicos podem ser promovidos a Revisor e/ou Palestrante na página "Técnicos Epagri".', 'sciflow-wp'); ?>
+                                    <?php esc_html_e('ID(s) do produto ou variação WooCommerce que atribui o perfil de técnico. Técnicos podem ser promovidos a Revisor e/ou Palestrante na página de técnicos.', 'sciflow-wp'); ?>
                                 </p>
                             </td>
                         </tr>
@@ -475,16 +442,37 @@ class SciFlow_Admin
                         <?php esc_html_e('Pagamento PayGo (Pix)', 'sciflow-wp'); ?>
                     </h2>
                     <table class="form-table">
+                        <?php
+                        $secret_fields = array(
+                            'paygo_integration_key' => __('Chave de Integração (Integration Key)', 'sciflow-wp'),
+                            'paygo_token'           => __('Token / Senha', 'sciflow-wp'),
+                            'paygo_webhook_secret'  => __('Segredo do Webhook', 'sciflow-wp'),
+                        );
+                        foreach ($secret_fields as $secret_key => $secret_label) :
+                            $external = SciFlow_Settings::is_externally_defined($secret_key);
+                            $stored = (string) ($settings[$secret_key] ?? '');
+                            ?>
                         <tr>
-                            <th scope="row">Chave de Integração (Integration Key)</th>
-                            <td><input type="text" name="sciflow_settings[paygo_integration_key]"
-                                    value="<?php echo esc_attr($settings['paygo_integration_key'] ?? ''); ?>" class="regular-text">
+                            <th scope="row"><?php echo esc_html($secret_label); ?></th>
+                            <td>
+                                <?php if ($external) : ?>
+                                    <p><code><?php echo esc_html(SciFlow_Settings::SECRET_OVERRIDES[$secret_key]); ?></code> — <?php esc_html_e('definido no servidor (wp-config.php ou variável de ambiente).', 'sciflow-wp'); ?></p>
+                                <?php else : ?>
+                                    <input type="password" name="sciflow_settings[<?php echo esc_attr($secret_key); ?>]" value="" class="regular-text" autocomplete="new-password"
+                                        placeholder="<?php echo esc_attr('' !== $stored ? SciFlow_Settings::mask($stored) : ''); ?>">
+                                    <?php if ('' !== $stored) : ?>
+                                        <label><input type="checkbox" name="sciflow_settings[<?php echo esc_attr($secret_key); ?>_clear]" value="1"> <?php esc_html_e('Remover valor salvo', 'sciflow-wp'); ?></label>
+                                    <?php endif; ?>
+                                    <p class="description"><?php esc_html_e('Deixe em branco para manter o valor atual. O valor salvo nunca é exibido. Recomendado: defina a constante no wp-config.php.', 'sciflow-wp'); ?>
+                                        <code><?php echo esc_html("define('" . SciFlow_Settings::SECRET_OVERRIDES[$secret_key] . "', '...');"); ?></code></p>
+                                <?php endif; ?>
                             </td>
                         </tr>
+                        <?php endforeach; ?>
                         <tr>
-                            <th scope="row">Token / Senha</th>
-                            <td><input type="password" name="sciflow_settings[paygo_token]"
-                                    value="<?php echo esc_attr($settings['paygo_token'] ?? ''); ?>" class="regular-text">
+                            <th scope="row"><?php esc_html_e('URL do Webhook', 'sciflow-wp'); ?></th>
+                            <td><code><?php echo esc_html(rest_url('sciflow/v1/payment-webhook')); ?></code>
+                                <p class="description"><?php esc_html_e('Com segredo definido, a PayGo deve chamar esta URL com ?token=SEGREDO (incluído automaticamente nas cobranças criadas pelo SciFlow). Toda notificação é confirmada na API PayGo antes de aprovar o pagamento.', 'sciflow-wp'); ?></p>
                             </td>
                         </tr>
                         <tr>
@@ -723,8 +711,16 @@ class SciFlow_Admin
                 </div>
 
 
-                <?php submit_button(); ?>
+                <?php include SCIFLOW_PATH . 'admin/templates/settings-extra-tabs.php'; ?>
+
+                <?php if ($can_save) : ?>
+                    <div class="sf-savebar">
+                        <?php submit_button(__('Salvar configurações', 'sciflow-wp'), 'primary', 'submit', false); ?>
+                        <span class="sf-savebar-hint"><?php esc_html_e('As alterações de todas as seções são salvas juntas.', 'sciflow-wp'); ?></span>
+                    </div>
+                <?php endif; ?>
             </form>
+            </div>
 
             <script>
             jQuery(document).ready(function($) {
@@ -991,7 +987,7 @@ class SciFlow_Admin
             }
             ?>
 
-            <div style="display:flex; gap:20px; align-items: flex-start; margin-bottom:20px; margin-top:20px;">
+            <div class="sf-card" style="display:flex; flex-wrap:wrap; gap:20px; align-items: flex-start;">
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:0;">
                     <input type="hidden" name="action" value="sciflow_select_top">
                     <?php wp_nonce_field('sciflow_select_top'); ?>
@@ -1568,6 +1564,9 @@ class SciFlow_Admin
     public function handle_manual_confirm()
     {
         $post_id = absint($_POST['post_id'] ?? 0);
+        if (!SciFlow_Security::can_manage_submission($post_id)) {
+            wp_die(esc_html__('Permissão insuficiente.', 'sciflow-wp'), 403);
+        }
         check_admin_referer('sciflow_manual_confirm_' . $post_id);
 
         $this->payment->manual_confirm($post_id);
@@ -1581,6 +1580,9 @@ class SciFlow_Admin
      */
     public function handle_select_top()
     {
+        if (!current_user_can('manage_sciflow')) {
+            wp_die(esc_html__('Permissão insuficiente.', 'sciflow-wp'), 403);
+        }
         check_admin_referer('sciflow_select_top');
 
         $ranking = new SciFlow_Ranking();
@@ -1595,6 +1597,9 @@ class SciFlow_Admin
      */
     public function handle_send_ranking_notifications()
     {
+        if (!current_user_can('manage_sciflow')) {
+            wp_die(esc_html__('Permissão insuficiente.', 'sciflow-wp'), 403);
+        }
         check_admin_referer('sciflow_send_ranking_notifications');
 
         $notified_count = 0;
@@ -2057,7 +2062,7 @@ class SciFlow_Admin
         $product_ids = array_filter(array_map('absint', explode(',', $raw)));
 
         if (empty($product_ids)) {
-            wp_send_json_error('Nenhum ID de produto Técnico Epagri configurado nas settings.');
+            wp_send_json_error(__('Nenhum produto de técnico configurado.', 'sciflow-wp'));
         }
 
         $orders = wc_get_orders(array(
@@ -2135,7 +2140,7 @@ class SciFlow_Admin
 
         $user = get_userdata($user_id);
         if (!$user || !$user->has_cap('sciflow_tecnico_epagri')) {
-            wp_send_json_error('Usuário não é um Técnico Epagri.');
+            wp_send_json_error(__('O usuário não tem o perfil de técnico.', 'sciflow-wp'));
         }
 
         if ($action === 'add') {

@@ -25,7 +25,7 @@ class SciFlow_Shortcodes
         SciFlow_Ranking $ranking,
         SciFlow_Poster_Upload $poster_upload,
         SciFlow_PayGo_Gateway $payment,
-        SciFlow_WooCommerce $woocommerce = null
+        ?SciFlow_WooCommerce $woocommerce = null
     ) {
         $this->submission = $submission;
         $this->review = $review;
@@ -63,8 +63,7 @@ class SciFlow_Shortcodes
 
         $user_id = get_current_user_id();
         if ($this->woocommerce && !$this->woocommerce->has_paid_registration($user_id)) {
-            $registration_page = get_pages(array('meta_key' => '_wp_page_template', 'meta_value' => 'page-templates/template-home-inscription.php'));
-            $registration_url = !empty($registration_page) ? get_permalink($registration_page[0]->ID) : home_url('/inscricao');
+            $registration_url = SciFlow_Pages::url('registration_home');
 
             return '<div class="sciflow-notice sciflow-notice--error">'
                 . __('Você precisa ter uma inscrição paga para submeter um trabalho.', 'sciflow-wp')

@@ -129,8 +129,10 @@ $acknowledgement = $edit_post ? get_post_meta($post_id, '_sciflow_acknowledgemen
             </label>
             <select id="sciflow-event" name="event" required class="sciflow-field__select">
                 <option value=""><?php esc_html_e( 'Selecione o evento', 'sciflow-wp' ); ?></option>
-                <option value="enfrute" <?php selected($event, 'enfrute'); ?>>Enfrute — Encontro Nacional sobre Fruticultura de Clima Temperado</option>
-                <option value="semco" <?php selected($event, 'semco'); ?>>Semco — Seminário Catarinense de Olericultura</option>
+                <?php foreach (SciFlow_Events::all() as $sf_slug => $sf_event) : ?>
+                    <?php if (!$sf_event['enabled'] && $event !== $sf_slug) { continue; } ?>
+                    <option value="<?php echo esc_attr($sf_slug); ?>" <?php selected($event, $sf_slug); ?>><?php echo esc_html($sf_event['full_label']); ?></option>
+                <?php endforeach; ?>
             </select>
         </div>
 

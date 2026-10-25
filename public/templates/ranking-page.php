@@ -19,10 +19,10 @@ if (!defined('ABSPATH'))
     <div class="sciflow-tabs sciflow-ranking-tabs">
         <button class="sciflow-tab <?php echo $event === 'enfrute' || $event === 'all' ? 'sciflow-tab--active' : ''; ?>"
             data-ranking="enfrute">
-            Enfrute
+            <?php echo esc_html(SciFlow_Events::label('enfrute')); ?>
         </button>
         <button class="sciflow-tab <?php echo $event === 'semco' ? 'sciflow-tab--active' : ''; ?>" data-ranking="semco">
-            Semco
+            <?php echo esc_html(SciFlow_Events::label('semco')); ?>
         </button>
         <button class="sciflow-tab <?php echo $event === 'geral' ? 'sciflow-tab--active' : ''; ?>" data-ranking="geral">
             <?php esc_html_e('Geral', 'sciflow-wp'); ?>
@@ -32,7 +32,7 @@ if (!defined('ABSPATH'))
     <!-- Enfrute ranking -->
     <div class="sciflow-ranking-content" id="ranking-enfrute"
         style="<?php echo ($event !== 'enfrute' && $event !== 'all') ? 'display:none;' : ''; ?>">
-        <h3>Ranking Enfrute</h3>
+        <h3><?php echo esc_html(sprintf(__('Ranking %s', 'sciflow-wp'), SciFlow_Events::label('enfrute'))); ?></h3>
         <?php
         $enfrute_ranking = $ranking->get_event_ranking('enfrute');
         sciflow_render_ranking_table($enfrute_ranking, $status_manager);
@@ -42,7 +42,7 @@ if (!defined('ABSPATH'))
     <!-- Semco ranking -->
     <div class="sciflow-ranking-content" id="ranking-semco"
         style="<?php echo $event !== 'semco' ? 'display:none;' : ''; ?>">
-        <h3>Ranking Semco</h3>
+        <h3><?php echo esc_html(sprintf(__('Ranking %s', 'sciflow-wp'), SciFlow_Events::label('semco'))); ?></h3>
         <?php
         $semco_ranking = $ranking->get_event_ranking('semco');
         sciflow_render_ranking_table($semco_ranking, $status_manager);

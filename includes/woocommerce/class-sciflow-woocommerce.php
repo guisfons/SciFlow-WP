@@ -10,8 +10,14 @@ if (!defined('ABSPATH')) {
 class SciFlow_WooCommerce
 {
 
-    public function __construct()
+    /**
+     * @param bool $register_hooks Pass false to use only the helper methods.
+     */
+    public function __construct($register_hooks = true)
     {
+        if (!$register_hooks) {
+            return;
+        }
         // Assign role when order status changes to completed or processing.
         add_action('woocommerce_order_status_completed', array($this, 'assign_role_on_purchase'));
         add_action('woocommerce_order_status_processing', array($this, 'assign_role_on_purchase'));
@@ -158,6 +164,10 @@ class SciFlow_WooCommerce
     {
         if (!$user_id) {
             return false;
+        }
+
+        if ('1' !== (string) SciFlow_Settings::get('require_paid_registration', '1')) {
+            return true;
         }
 
         // Admin, Editor, Reviewer, Speaker and Tecnico Epagri roles bypass the payment requirement

@@ -6,6 +6,8 @@
  */
 if (!defined('ABSPATH'))
     exit;
+$brand = SciFlow_Branding::email();
+$header_text = $brand['contrast'];
 ?>
 <!DOCTYPE html>
 <html>
@@ -14,14 +16,15 @@ if (!defined('ABSPATH'))
     <meta charset="UTF-8">
 </head>
 
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f7fa;">
+<body style="margin:0;padding:0;font-family:<?php echo esc_attr($brand['font']); ?>;background:#f4f7fa;">
     <div
         style="max-width:600px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-        <div style="background:linear-gradient(135deg,#2c5530,#4a8f4f);padding:30px;text-align:center;">
-            <h1 style="color:#fff;margin:0;font-size:22px;">
+        <?php if ($brand['logo_url']) : ?><div style="background:#ffffff;padding:18px 30px;text-align:center;border-bottom:1px solid #eeeeee;"><img src="<?php echo esc_url($brand['logo_url']); ?>" alt="<?php echo esc_attr($site_name); ?>" style="display:inline-block;max-height:56px;max-width:240px;"></div><?php endif; ?>
+        <div style="background:<?php echo esc_attr($brand['primary']); ?>;padding:30px;text-align:center;">
+            <h1 style="color:<?php echo esc_attr($header_text); ?>;margin:0;font-size:22px;">
                 <?php echo esc_html($site_name); ?>
             </h1>
-            <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">
+            <p style="color:<?php echo esc_attr($header_text); ?>;opacity:.85;margin:8px 0 0;font-size:14px;">
                 <?php echo esc_html($headline ?? __('Novo Trabalho Submetido', 'sciflow-wp')); ?>
             </p>
         </div>
@@ -57,7 +60,7 @@ if (!defined('ABSPATH'))
             </table>
             <div style="text-align:center;margin:30px 0 10px;">
                 <a href="<?php echo esc_url($link); ?>" target="_blank"
-                    style="display:inline-block;padding:12px 30px;background:#2c5530;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
+                    style="display:inline-block;padding:12px 30px;background:<?php echo esc_attr($brand['primary']); ?>;color:<?php echo esc_attr($brand['contrast']); ?>;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
                     <?php esc_html_e('Acessar Painel', 'sciflow-wp'); ?>
                 </a>
             </div>

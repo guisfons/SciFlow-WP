@@ -2,20 +2,25 @@
 /**
  * Plugin Name:       SciFlow WP
  * Plugin URI:        https://github.com/guisfons/SciFlow-WP
- * Description:       Plugin de submissão e avaliação de artigos científicos para Enfrute e Semco.
- * Version:           1.0.6
+ * Description:       Submissão, avaliação por pares, ranking, pôsteres, certificados e anais para eventos científicos.
+ * Version:           1.1.0
  * Author:            Doppio
+ * License:           MIT
+ * License URI:       https://opensource.org/licenses/MIT
  * Text Domain:       sciflow-wp
  * Domain Path:       /languages
  * Requires at least: 6.0
+ * Tested up to:      7.1
  * Requires PHP:      7.4
+ * Update URI:        false
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SCIFLOW_VERSION', '1.0.6');
+define('SCIFLOW_VERSION', '1.1.0');
+define('SCIFLOW_FILE', __FILE__);
 define('SCIFLOW_PATH', plugin_dir_path(__FILE__));
 define('SCIFLOW_URL', plugin_dir_url(__FILE__));
 define('SCIFLOW_BASENAME', plugin_basename(__FILE__));
@@ -52,7 +57,6 @@ spl_autoload_register(function ($class) {
         'admin/',
     );
 
-
     foreach ($directories as $dir) {
         $file = SCIFLOW_PATH . $dir . $class_file;
         if (file_exists($file)) {
@@ -62,25 +66,48 @@ spl_autoload_register(function ($class) {
     }
 });
 
+require_once SCIFLOW_PATH . 'includes/sciflow-functions.php';
+
 /**
- * Plugin activation.
+ * Plugin activation (supports multisite network activation).
+ *
+ * @param bool $network_wide
  */
-function sciflow_activate()
+function sciflow_activate($network_wide = false)
 {
-    $activator = new SciFlow_Activator();
-    $activator->activate();
+    SciFlow_Installer::activate($network_wide);
 }
 register_activation_hook(__FILE__, 'sciflow_activate');
 
 /**
- * Plugin deactivation.
+ * Plugin deactivation. Data is preserved.
  */
 function sciflow_deactivate()
 {
-    $deactivator = new SciFlow_Deactivator();
-    $deactivator->deactivate();
+    SciFlow_Installer::deactivate();
 }
 register_deactivation_hook(__FILE__, 'sciflow_deactivate');
+
+/**
+ * New sites created on a network where SciFlow is network-active.
+ *
+ * @param WP_Site $site
+ */
+add_action('wp_initialize_site', function ($site) {
+    if (!function_exists('is_plugin_active_for_network')) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
+    if (is_plugin_active_for_network(SCIFLOW_BASENAME)) {
+        switch_to_blog($site->blog_id);
+        SciFlow_Installer::install_site();
+        restore_current_blog();
+    }
+}, 20);
+
+// Security hooks must run in every context (front, admin, REST, AJAX).
+SciFlow_Security::init();
+SciFlow_Branding::init();
+add_action('wp_roles_init', array('SciFlow_Roles', 'localize_role_names'));
 
 /**
  * Bootstrap the plugin.
@@ -89,16 +116,11 @@ function sciflow_init()
 {
     $loader = new SciFlow_Loader();
     $loader->run();
-
-    // Check for version upgrade and refresh roles.
-    $installed_ver = get_option('sciflow_version');
-    if ($installed_ver !== SCIFLOW_VERSION) {
-        $roles = new SciFlow_Roles();
-        $roles->refresh_roles();
-        update_option('sciflow_version', SCIFLOW_VERSION);
-    }
 }
 add_action('plugins_loaded', 'sciflow_init');
+
+// Upgrades run on init (after translations are available) and before CPTs register.
+add_action('init', array('SciFlow_Installer', 'maybe_upgrade'), 1);
 
 /**
  * Register plugin-side page templates so they appear in the WordPress

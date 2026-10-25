@@ -29,7 +29,7 @@ $events = array(
 ?>
 
 <div class="wrap sciflow-mass-email-wrap">
-    <h1><?php esc_html_e('SciFlow — Disparo de E-mail em Massa', 'sciflow-wp'); ?></h1>
+    <h1><?php esc_html_e('Disparo de E-mail em Massa', 'sciflow-wp'); ?></h1>
     
     <div id="sciflow-mass-email-form" class="card" style="max-width: 1000px; padding: 20px; margin-top: 20px;">
         <p class="description">
@@ -102,7 +102,7 @@ $events = array(
         <div id="dispatch-progress" style="display:none; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
             <h3><?php esc_html_e('Progresso do Envio', 'sciflow-wp'); ?></h3>
             <div class="progress-bar-wrapper" style="background: #eee; border: 1px solid #ccc; height: 25px; border-radius: 4px; overflow: hidden; position: relative; margin-bottom: 10px;">
-                <div id="progress-fill" style="background: #2c5530; width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+                <div id="progress-fill" style="background: var(--sfa-accent, #1f6f78); width: 0%; height: 100%; transition: width 0.3s ease;"></div>
                 <div id="progress-text" style="position: absolute; width: 100%; text-align: center; top: 0; line-height: 25px; font-weight: bold; color: #000; mix-blend-mode: difference;">0%</div>
             </div>
             <p id="progress-status"></p>

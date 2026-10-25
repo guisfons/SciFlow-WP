@@ -51,6 +51,14 @@ class SciFlow_Email
             }
         }
 
+        // Additional recipients configured in SciFlow → Configurações.
+        $configured = (string) SciFlow_Settings::get($event . '_editor_email', '');
+        foreach (array_filter(array_map('trim', explode(',', $configured))) as $email) {
+            if (is_email($email) && !in_array($email, $emails, true)) {
+                $emails[] = $email;
+            }
+        }
+
         // Final fallback: use admin_email if still empty.
         if (empty($emails)) {
             $emails[] = get_option('admin_email');
@@ -64,11 +72,43 @@ class SciFlow_Email
      */
     private function get_event_label($event)
     {
-        $labels = array(
-            'enfrute' => 'Enfrute — Encontro Nacional sobre Fruticultura de Clima Temperado',
-            'semco' => 'Semco — Seminário Catarinense de Olericultura',
+        return SciFlow_Events::full_label($event);
+    }
+
+    /**
+     * Sender address (settings → admin e-mail).
+     */
+    public static function get_from_address()
+    {
+        $from = (string) SciFlow_Settings::get('email_from_address', '');
+        return is_email($from) ? $from : (string) get_option('admin_email');
+    }
+
+    /**
+     * Sender name (settings → organizer → site name).
+     */
+    public static function get_from_name()
+    {
+        $name = trim((string) SciFlow_Settings::get('email_from_name', ''));
+        if ('' === $name) {
+            $name = trim((string) SciFlow_Settings::get('organizer_name', ''));
+        }
+        if ('' === $name) {
+            $name = wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES);
+        }
+        // Header injection guard.
+        return str_replace(array("\r", "\n", '<', '>', '"'), '', $name);
+    }
+
+    /**
+     * Standard headers for HTML e-mails.
+     */
+    public static function get_headers()
+    {
+        return array(
+            'Content-Type: text/html; charset=UTF-8',
+            sprintf('From: %s <%s>', self::get_from_name(), self::get_from_address()),
         );
-        return $labels[$event] ?? $event;
     }
 
     /**
@@ -79,7 +119,9 @@ class SciFlow_Email
         $base_url = home_url('/');
         $settings = get_option('sciflow_settings', array());
 
-        if (!empty($settings['dashboard_url'])) {
+        if (SciFlow_Pages::exists('author_dashboard')) {
+            $base_url = SciFlow_Pages::url('author_dashboard');
+        } elseif (!empty($settings['dashboard_url'])) {
             $base_url = $settings['dashboard_url'];
         } elseif (function_exists('wc_get_page_id')) {
             // Fallback to WooCommerce my account page if it exists
@@ -91,9 +133,8 @@ class SciFlow_Email
 
         // Include the article_id parameter if a post_id is provided
         if ($post_id > 0) {
-            $detail_page = get_pages(array('meta_key' => '_wp_page_template', 'meta_value' => 'page-templates/template-article-detail.php'));
-            if (!empty($detail_page)) {
-                $base_url = get_permalink($detail_page[0]->ID);
+            if (SciFlow_Pages::exists('article_detail')) {
+                $base_url = SciFlow_Pages::url('article_detail');
             }
             return add_query_arg('article_id', $post_id, $base_url);
         }
@@ -161,10 +202,7 @@ class SciFlow_Email
     {
         $html = $this->render_template($template, $vars);
 
-        $headers = array(
-            'Content-Type: text/html; charset=UTF-8',
-            'From: ' . get_bloginfo('name') . ' <' . get_option('admin_email') . '>',
-        );
+        $headers = self::get_headers();
 
         // Capture wp_mail errors for debugging
         $mail_error_data = null;
@@ -182,11 +220,11 @@ class SciFlow_Email
             $error_msg = $mail_error_data ? $mail_error_data->get_error_message() : 'wp_mail returned false';
             if (function_exists('wc_get_logger')) {
                 wc_get_logger()->error(
-                    "SciFlow Email Failed. To: [{$to_str}] Subject: [{$subject}] Error: {$error_msg}",
+                    "SciFlow Email Failed. Recipients: " . count((array) $to) . " Error: {$error_msg}",
                     array('source' => 'sciflow_email')
                 );
             } elseif (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-                error_log("SciFlow Email Failed. To: [{$to_str}] Subject: [{$subject}] Error: {$error_msg}");
+                error_log("SciFlow Email Failed. Recipients: " . count((array) $to) . " Error: {$error_msg}");
             }
         }
 
@@ -216,8 +254,12 @@ class SciFlow_Email
      */
     private function render_fallback($vars)
     {
-        $html = '<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">';
-        $html .= '<h2 style="color:#2c5530;">' . esc_html($vars['site_name']) . '</h2>';
+        $brand = SciFlow_Branding::email();
+        $html = '<div style="font-family:' . esc_attr($brand['font']) . ';max-width:600px;margin:0 auto;padding:20px;color:' . esc_attr($brand['text']) . ';">';
+        if ($brand['logo_url']) {
+            $html .= '<p><img src="' . esc_url($brand['logo_url']) . '" alt="" style="max-height:56px;max-width:220px;"></p>';
+        }
+        $html .= '<h2 style="color:' . esc_attr($brand['primary']) . ';">' . esc_html($vars['site_name']) . '</h2>';
         $html .= '<p><strong>Trabalho:</strong> ' . esc_html($vars['titulo']) . '</p>';
         $html .= '<p><strong>Evento:</strong> ' . esc_html($vars['evento']) . '</p>';
         $html .= '<p><strong>Status:</strong> ' . esc_html($vars['status']) . '</p>';
@@ -227,9 +269,9 @@ class SciFlow_Email
 
         // Custom button (e.g. for presentation-date confirmation emails).
         if (!empty($vars['btn_url']) && !empty($vars['btn_text'])) {
-            $html .= '<p><a href="' . esc_url($vars['btn_url']) . '" style="display:inline-block;padding:12px 24px;background-color:#2c5530;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;">' . esc_html($vars['btn_text']) . '</a></p>';
+            $html .= '<p><a href="' . esc_url($vars['btn_url']) . '" style="display:inline-block;padding:12px 24px;background-color:' . esc_attr($brand['primary']) . ';color:' . esc_attr($brand['contrast']) . ';text-decoration:none;border-radius:5px;font-weight:bold;">' . esc_html($vars['btn_text']) . '</a></p>';
         } else {
-            $html .= '<p><a href="' . esc_url($vars['link']) . '" style="display:inline-block;padding:10px 20px;background-color:#2c5530;color:#fff;text-decoration:none;border-radius:5px;">Acessar Área Logada</a></p>';
+            $html .= '<p><a href="' . esc_url($vars['link']) . '" style="display:inline-block;padding:10px 20px;background-color:' . esc_attr($brand['primary']) . ';color:' . esc_attr($brand['contrast']) . ';text-decoration:none;border-radius:5px;">Acessar Área Logada</a></p>';
         }
 
         $html .= '</div>';
@@ -263,8 +305,7 @@ class SciFlow_Email
     private function get_all_editor_emails()
     {
         $all_emails = array();
-        $events = array('enfrute', 'semco');
-        foreach ($events as $event) {
+        foreach (array_keys(SciFlow_Events::all()) as $event) {
             $emails = $this->get_editor_email($event);
             $all_emails = array_merge($all_emails, $emails);
         }
@@ -458,15 +499,8 @@ class SciFlow_Email
      */
     private function get_poster_upload_url()
     {
-        $pages = get_pages(array(
-            'meta_key' => '_wp_page_template',
-            'meta_value' => 'template-poster-upload.php',
-            'number' => 1,
-            'post_status' => 'publish'
-        ));
-
-        if (!empty($pages)) {
-            return get_permalink($pages[0]->ID);
+        if (SciFlow_Pages::exists('poster_upload')) {
+            return SciFlow_Pages::url('poster_upload');
         }
 
         // Fallback to dashboard

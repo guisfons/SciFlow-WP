@@ -52,6 +52,7 @@ class SciFlow_Status_Manager
     {
         return array(
             'rascunho' => array('submetido'), // Draft -> Submetido
+            'aguardando_pagamento' => array('submetido'), // Pix confirmed -> Submetido
             'submetido' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aguardando_decisao', 'em_correcao', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao', 'poster_reenviado'),
             'em_avaliacao' => array('aguardando_decisao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao', 'poster_reenviado'),
             'aguardando_decisao' => array('em_avaliacao', 'em_revisao', 'aprovado', 'reprovado', 'aprovado_com_consideracoes', 'em_correcao', 'poster_enviado', 'poster_aprovado', 'poster_reprovado', 'poster_em_correcao', 'poster_reenviado'),
@@ -177,10 +178,7 @@ class SciFlow_Status_Manager
      */
     public static function get_post_type_for_event($event)
     {
-        $map = array(
-            'enfrute' => 'enfrute_trabalhos',
-            'semco' => 'semco_trabalhos',
-        );
+        $map = SciFlow_Events::SLOTS;
         return isset($map[$event]) ? $map[$event] : false;
     }
 

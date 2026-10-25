@@ -17,9 +17,12 @@ class SciFlow_Enfrute_CPT
 
     public function register()
     {
+        $event_label = class_exists('SciFlow_Events') ? SciFlow_Events::label('enfrute') : 'Enfrute';
         $labels = array(
-            'name' => __('Trabalhos Enfrute', 'sciflow-wp'),
-            'singular_name' => __('Trabalho Enfrute', 'sciflow-wp'),
+            /* translators: %s: event name */
+            'name' => sprintf(__('Trabalhos %s', 'sciflow-wp'), $event_label),
+            /* translators: %s: event name */
+            'singular_name' => sprintf(__('Trabalho %s', 'sciflow-wp'), $event_label),
             'add_new' => __('Adicionar Novo', 'sciflow-wp'),
             'add_new_item' => __('Adicionar Novo Trabalho', 'sciflow-wp'),
             'edit_item' => __('Editar Trabalho', 'sciflow-wp'),
@@ -29,7 +32,7 @@ class SciFlow_Enfrute_CPT
             'not_found' => __('Nenhum trabalho encontrado', 'sciflow-wp'),
             'not_found_in_trash' => __('Nenhum trabalho na lixeira', 'sciflow-wp'),
             'all_items' => __('Todos os Trabalhos', 'sciflow-wp'),
-            'menu_name' => __('Enfrute', 'sciflow-wp'),
+            'menu_name' => $event_label,
         );
 
         $args = array(
