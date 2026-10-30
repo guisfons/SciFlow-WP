@@ -16,6 +16,11 @@ class SciFlow_Certificates
     const ROOT_TYPE = 'participacao';
 
     /**
+     * WooCommerce "Minha conta" tab: /minha-conta/certificados/.
+     */
+    const ACCOUNT_ENDPOINT = 'certificados';
+
+    /**
      * Certificates found by an e-mail lookup, shown by the shortcode when
      * there is more than one to choose from.
      *
@@ -27,8 +32,17 @@ class SciFlow_Certificates
     {
         add_action('template_redirect', array($this, 'handle_shortcode_download'));
         add_action('admin_post_sciflow_download_certificate', array($this, 'handle_admin_download'));
-        add_filter('woocommerce_account_menu_items', array($this, 'account_menu_item'));
-        add_filter('woocommerce_get_endpoint_url', array($this, 'account_menu_url'), 10, 2);
+
+        // Participant area: "Minha conta" → Certificados.
+        if (class_exists('WooCommerce')) {
+            add_filter('woocommerce_get_query_vars', array($this, 'account_query_var'));
+            add_action('init', array($this, 'maybe_flush_account_endpoint'), 99);
+            add_filter('woocommerce_account_menu_items', array($this, 'account_menu_item'));
+            add_filter('woocommerce_endpoint_' . self::ACCOUNT_ENDPOINT . '_title', array($this, 'account_endpoint_title'));
+            add_action('woocommerce_account_' . self::ACCOUNT_ENDPOINT . '_endpoint', array($this, 'render_account_endpoint'));
+            add_action('woocommerce_account_dashboard', array($this, 'account_dashboard_notice'));
+            add_action('template_redirect', array($this, 'redirect_page_to_account'), 20);
+        }
     }
 
     /**
@@ -308,6 +322,30 @@ class SciFlow_Certificates
     }
 
     /**
+     * Register /minha-conta/certificados/ (WooCommerce adds the rewrite endpoint).
+     *
+     * @param array $vars
+     * @return array
+     */
+    public function account_query_var($vars)
+    {
+        $vars[self::ACCOUNT_ENDPOINT] = self::ACCOUNT_ENDPOINT;
+        return $vars;
+    }
+
+    /**
+     * New endpoints only resolve after the rewrite rules are rebuilt: do it
+     * once per plugin version, after WooCommerce registered its endpoints.
+     */
+    public function maybe_flush_account_endpoint()
+    {
+        if (get_option('sciflow_account_endpoint_version') !== SCIFLOW_VERSION) {
+            flush_rewrite_rules(false);
+            update_option('sciflow_account_endpoint_version', SCIFLOW_VERSION, false);
+        }
+    }
+
+    /**
      * WooCommerce "Minha conta": add a "Certificados" entry before "Sair".
      *
      * @param array $items
@@ -315,28 +353,80 @@ class SciFlow_Certificates
      */
     public function account_menu_item($items)
     {
-        if (!SciFlow_Pages::exists('certificates')) {
-            return $items;
-        }
         $logout = isset($items['customer-logout']) ? array('customer-logout' => $items['customer-logout']) : array();
         unset($items['customer-logout']);
-        $items['sciflow-certificados'] = __('Certificados', 'sciflow-wp');
+        $items[self::ACCOUNT_ENDPOINT] = __('Certificados', 'sciflow-wp');
         return $items + $logout;
     }
 
     /**
-     * Point the "Certificados" account entry to the certificates page.
+     * Title of the "Certificados" tab.
      *
-     * @param string $url
-     * @param string $endpoint
      * @return string
      */
-    public function account_menu_url($url, $endpoint)
+    public function account_endpoint_title()
     {
-        if ('sciflow-certificados' === $endpoint) {
-            return SciFlow_Pages::url('certificates');
+        return __('Certificados', 'sciflow-wp');
+    }
+
+    /**
+     * Content of /minha-conta/certificados/: the participant's certificates,
+     * inside the participant area.
+     */
+    public function render_account_endpoint()
+    {
+        echo self::render_shortcode(array(
+            'title'    => __('Meus certificados', 'sciflow-wp'),
+            'subtitle' => __('Estes são os certificados emitidos para você. Baixe cada um em PDF.', 'sciflow-wp'),
+        )); // phpcs:ignore WordPress.Security.EscapeOutput -- escaped in render_shortcode().
+    }
+
+    /**
+     * "Minha conta" dashboard: tell the participant how many certificates are ready.
+     */
+    public function account_dashboard_notice()
+    {
+        $count = count(self::find_certificates(self::current_user_emails()));
+        if (!$count) {
+            return;
         }
-        return $url;
+        printf(
+            '<p class="sciflow-account-certificates">%s <a href="%s">%s</a></p>',
+            esc_html(sprintf(_n('Você tem %d certificado disponível.', 'Você tem %d certificados disponíveis.', $count, 'sciflow-wp'), $count)),
+            esc_url(self::account_url()),
+            esc_html__('Ver e baixar certificados', 'sciflow-wp')
+        );
+    }
+
+    /**
+     * URL of the certificates tab in "Minha conta" ('' without WooCommerce).
+     *
+     * @return string
+     */
+    public static function account_url()
+    {
+        if (!function_exists('wc_get_account_endpoint_url') || wc_get_page_id('myaccount') <= 0) {
+            return '';
+        }
+        return wc_get_account_endpoint_url(self::ACCOUNT_ENDPOINT);
+    }
+
+    /**
+     * With "logged in only" access the certificates live in the participant
+     * area: the standalone certificates page sends visitors there (WooCommerce
+     * asks for login first and returns to the tab).
+     */
+    public function redirect_page_to_account()
+    {
+        if ('GET' !== ($_SERVER['REQUEST_METHOD'] ?? 'GET') || 'logged_in' !== (string) SciFlow_Settings::get('certificate_access', 'logged_in')) {
+            return;
+        }
+        $page_id = SciFlow_Pages::get_id('certificates');
+        $target = self::account_url();
+        if ($page_id && '' !== $target && is_page($page_id)) {
+            wp_safe_redirect($target);
+            exit;
+        }
     }
 
     /**
