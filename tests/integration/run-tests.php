@@ -304,6 +304,49 @@ $t->ok(false === SciFlow_Security::remove_tree(ABSPATH . 'wp-includes'), 'remove
 
 
 /* ------------------------------------------------------------------ */
+$t->section('Certificados por tipo');
+$cert_base = SciFlow_Certificates::base_dir();
+$cert_mail = 'teste-cert-' . strtolower(wp_generate_password(6, false)) . '@exemplo.com';
+$cert_files = array(
+    $cert_base . $cert_mail . '.pdf',
+    $cert_base . 'poster/' . strtoupper($cert_mail) . '.PDF',
+    $cert_base . 'poster/' . $cert_mail . '-2.pdf',
+    $cert_base . 'palestrante/' . $cert_mail . '.pdf',
+    $cert_base . 'palestrante/outro-' . $cert_mail . '.pdf',
+    $cert_base . 'Pasta Invalida/' . $cert_mail . '.pdf',
+);
+foreach ($cert_files as $f) {
+    wp_mkdir_p(dirname($f));
+    file_put_contents($f, '%PDF-1.4 teste');
+}
+$types = SciFlow_Certificates::types();
+$t->ok(array_slice(array_keys($types), 0, 2) === array('participacao', 'poster') && isset($types['palestrante']) && !isset($types['Pasta Invalida']), 'tipos vêm das subpastas, na ordem do evento, ignorando nomes inválidos');
+$found = SciFlow_Certificates::find_certificates($cert_mail);
+$t->ok(4 === count($found), 'encontra os 4 certificados da pessoa em todos os tipos (' . count($found) . ')');
+$t->ok(array('Participação', 'Pôster 1', 'Pôster 2', 'Palestrante') === wp_list_pluck($found, 'label'), 'rótulos numerados quando há mais de um do mesmo tipo');
+$t->ok(!in_array('palestrante/outro-' . $cert_mail . '.pdf', wp_list_pluck($found, 'key'), true), 'arquivo de outro e-mail com o mesmo final não é incluído');
+$t->ok($cert_files[0] === SciFlow_Certificates::find_certificate_file($cert_mail), 'find_certificate_file() continua devolvendo o de participação');
+$t->ok(array() === SciFlow_Certificates::find_certificates('../../wp-config.php'), 'entrada que não é e-mail não encontra nada');
+$t->ok(file_exists($cert_base . '.htaccess'), 'pasta raiz dos certificados (e subpastas) protegida');
+$cert_user = wp_insert_user(array('user_login' => 'cert_' . wp_generate_password(6, false), 'user_pass' => wp_generate_password(), 'user_email' => 'conta-' . $cert_mail));
+update_user_meta($cert_user, 'billing_email', strtoupper($cert_mail));
+wp_set_current_user($cert_user);
+$t->ok(4 === count(SciFlow_Certificates::find_certificates(SciFlow_Certificates::current_user_emails())), 'usuário logado vê os certificados do e-mail de cobrança');
+$html = SciFlow_Certificates::render_shortcode();
+$t->ok(4 === substr_count($html, 'name="sciflow_cert_key"') && false !== strpos($html, 'Pôster 2'), 'página lista um botão por certificado');
+$t->ok(false === strpos($html, $cert_base), 'caminho no servidor não aparece na página');
+wp_set_current_user(0);
+require_once ABSPATH . 'wp-admin/includes/user.php';
+wp_delete_user($cert_user);
+foreach ($cert_files as $f) {
+    @unlink($f);
+}
+foreach (array('poster', 'palestrante', 'Pasta Invalida') as $d) {
+    @rmdir($cert_base . $d);
+}
+
+
+/* ------------------------------------------------------------------ */
 $t->section('Anais');
 $anais = new SciFlow_Anais();
 $t->ok('6,3 x 10<sup>5</sup> UFC mL<sup>-1</sup>' === $anais->convert_scientific_notation('6,3 x 10^5 UFC mL^-1'), 'expoentes convertidos (10^5, mL^-1)');
@@ -343,7 +386,7 @@ $t->section('Assistente de configuração');
 wp_set_current_user($admin_id);
 update_option(SciFlow_Setup_Wizard::STATUS_OPTION, 'pending', false);
 delete_option(SciFlow_Setup_Wizard::REDIRECT_OPTION);
-do_action('after_switch_theme', 'twentytwentyfive');
+do_action('after_switch_theme', 'twentytwentyfive', wp_get_theme('twentytwentyfive'));
 $t->ok(!function_exists('inscricao_enfrute_on_activate') || (int) get_option(SciFlow_Setup_Wizard::REDIRECT_OPTION) > 0, 'ativar o tema SciFlow abre o assistente se a configuração está pendente');
 update_option(SciFlow_Setup_Wizard::STATUS_OPTION, 'completed', false);
 delete_option(SciFlow_Setup_Wizard::REDIRECT_OPTION);

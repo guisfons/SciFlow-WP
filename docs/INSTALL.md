@@ -79,7 +79,7 @@ O que **não** muda: dados, status, URLs das páginas existentes, textos dos ana
 | "Você precisa ter uma inscrição paga" | sem pedido concluído/processando do produto | conferir IDs dos produtos e pedido; ou desmarcar a exigência |
 | Prazos não aplicados automaticamente | WP-Cron desativado ou sem visitas | cron do sistema chamando `wp-cron.php` |
 | E-mails não chegam | `wp_mail` sem SMTP | plugin SMTP; veja WooCommerce → Status → Logs (`sciflow_email`) |
-| Certificado "não encontrado" | arquivo ausente ou nome diferente do e-mail | o PDF deve ser `uploads/certificados/<email>.pdf` |
+| Certificado "não encontrado" | arquivo ausente ou nome diferente do e-mail | o PDF deve ser `uploads/certificados/<email>.pdf` (participação) ou `uploads/certificados/<tipo>/<email>.pdf` (veja §7) |
 | PDF consolidado de palestras falha | binários ausentes ou `shell_exec` bloqueado | Diagnóstico → "Ferramentas dos Anais". A prévia para impressão continua funcionando |
 | Papéis ou permissões estranhos | papéis corrompidos | Diagnóstico → **Reparar instalação** |
 | Páginas do tema "indisponíveis" | plugin inativo | ativar o SciFlow WP |
@@ -92,3 +92,22 @@ wp eval-file wp-content/plugins/<pasta>/tests/integration/run-tests.php
 tests/integration/http-smoke.sh http://site admin <senha> <autor> <senha> <id_trabalho>
 ```
 Análise estática: `phpcs --standard=phpcs.xml.dist` (WPCS e PHPCompatibilityWP).
+
+## 7. Certificados
+Os PDFs são enviados por FTP/SFTP (ou gerenciador de arquivos) para `wp-content/uploads/certificados/`, sempre com o nome `<e-mail da inscrição>.pdf`:
+
+```
+uploads/certificados/
+├── fulano@exemplo.com.pdf          ← participação (raiz, como sempre foi)
+├── poster/fulano@exemplo.com.pdf
+├── poster/fulano@exemplo.com-2.pdf ← segundo pôster da mesma pessoa
+├── apresentacao-oral/…
+├── palestrante/…
+└── mediador/…
+```
+
+- Cada subpasta é um tipo; basta criá-la. Nomes em minúsculas, sem acentos nem espaços. Nomes conhecidos ganham rótulo acentuado (`poster` → "Pôster", `apresentacao-oral` → "Apresentação oral", `comissao-organizadora`…); os demais viram "Nome da pasta".
+- A pessoa vê todos os seus certificados na página de certificados (e no menu "Minha conta"). Logada, a busca usa o e-mail da conta e o de cobrança do WooCommerce.
+- Conferência: SciFlow → Diagnóstico → "Certificados enviados" mostra a contagem por tipo.
+- A pasta inteira (com as subpastas) é bloqueada para acesso direto; no Nginx, a regra da §2 já cobre as subpastas.
+

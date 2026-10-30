@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 — 2026-10-30
+### Novidades
+- Certificados de vários tipos por pessoa. Cada subpasta de `uploads/certificados/` é um tipo (`poster/`, `apresentacao-oral/`, `palestrante/`, `mediador/`…); os PDFs da raiz continuam sendo os de participação. A página de certificados lista todos os da pessoa, com um botão de download para cada um. Mais de um do mesmo tipo: `<email>-2.pdf`.
+- Usuários logados veem os próprios certificados direto na página, procurados pelo e-mail da conta e pelo e-mail de cobrança do WooCommerce.
+- Item "Certificados" no menu "Minha conta" do WooCommerce.
+- Diagnóstico mostra quantos certificados há de cada tipo.
+### Correções
+- Depois de um erro no download, a pessoa volta para a página de certificados, e não para a página inicial.
+- Teste do assistente dispara `after_switch_theme` com os dois argumentos (falhava com WooCommerce ativo).
+
+
 ## 1.1.1 — 2026-10-25
 ### Correções
 - build: checksum com nome do arquivo sem caminho

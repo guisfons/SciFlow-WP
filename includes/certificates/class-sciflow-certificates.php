@@ -9,67 +9,213 @@ if (!defined('ABSPATH')) {
 
 class SciFlow_Certificates
 {
+    /**
+     * Certificates in the root of uploads/certificados/ (the original layout)
+     * belong to this type. Every sub-folder is another type.
+     */
+    const ROOT_TYPE = 'participacao';
+
+    /**
+     * Certificates found by an e-mail lookup, shown by the shortcode when
+     * there is more than one to choose from.
+     *
+     * @var array|null
+     */
+    private static $lookup = null;
+
     public function __construct()
     {
         add_action('template_redirect', array($this, 'handle_shortcode_download'));
         add_action('admin_post_sciflow_download_certificate', array($this, 'handle_admin_download'));
+        add_filter('woocommerce_account_menu_items', array($this, 'account_menu_item'));
+        add_filter('woocommerce_get_endpoint_url', array($this, 'account_menu_url'), 10, 2);
     }
 
     /**
-     * Locate certificate file in uploads/certificados/ by email.
+     * Absolute path of uploads/certificados/ (protected against direct access).
      *
+     * @return string
+     */
+    public static function base_dir()
+    {
+        $upload_dir = wp_upload_dir();
+        $cert_dir = trailingslashit($upload_dir['basedir']) . 'certificados/';
+
+        // Personal data: deny direct HTTP access to the directory (Apache
+        // applies the rule to every sub-folder as well).
+        SciFlow_Security::protect_directory($cert_dir);
+
+        return $cert_dir;
+    }
+
+    /**
+     * Certificate types available on disk: slug => label.
+     *
+     * Uploading a new folder (e.g. certificados/palestrante/) is enough to
+     * create a type; folder names must be lowercase slugs.
+     *
+     * @return array
+     */
+    public static function types()
+    {
+        $types = array(self::ROOT_TYPE => self::type_label(self::ROOT_TYPE));
+        $dirs = glob(self::base_dir() . '*', GLOB_ONLYDIR) ?: array();
+        $slugs = array();
+        foreach ($dirs as $dir) {
+            $slug = basename($dir);
+            if (preg_match('/^[a-z0-9][a-z0-9_-]*$/', $slug) && self::ROOT_TYPE !== $slug) {
+                $slugs[] = $slug;
+            }
+        }
+
+        // Known types first, in the usual order of an event; the rest alphabetically.
+        $order = array_keys(self::known_labels());
+        usort($slugs, function ($a, $b) use ($order) {
+            $ia = array_search($a, $order, true);
+            $ib = array_search($b, $order, true);
+            $ia = false === $ia ? PHP_INT_MAX : $ia;
+            $ib = false === $ib ? PHP_INT_MAX : $ib;
+            return $ia === $ib ? strcmp($a, $b) : $ia - $ib;
+        });
+        foreach ($slugs as $slug) {
+            $types[$slug] = self::type_label($slug);
+        }
+
+        return apply_filters('sciflow_certificate_types', $types);
+    }
+
+    /**
+     * Labels for the usual folder names.
+     *
+     * @return array
+     */
+    private static function known_labels()
+    {
+        return array(
+            'participacao'          => __('Participação', 'sciflow-wp'),
+            'poster'                => __('Pôster', 'sciflow-wp'),
+            'apresentacao'          => __('Apresentação', 'sciflow-wp'),
+            'apresentacao-oral'     => __('Apresentação oral', 'sciflow-wp'),
+            'palestrante'           => __('Palestrante', 'sciflow-wp'),
+            'mediador'              => __('Mediador', 'sciflow-wp'),
+            'moderador'             => __('Moderador', 'sciflow-wp'),
+            'avaliador'             => __('Avaliador', 'sciflow-wp'),
+            'comissao-organizadora' => __('Comissão organizadora', 'sciflow-wp'),
+            'comissao-cientifica'   => __('Comissão científica', 'sciflow-wp'),
+            'monitor'               => __('Monitor', 'sciflow-wp'),
+            'ouvinte'               => __('Ouvinte', 'sciflow-wp'),
+        );
+    }
+
+    /**
+     * Human label for a type slug.
+     *
+     * @param string $slug
+     * @return string
+     */
+    public static function type_label($slug)
+    {
+        $known = self::known_labels();
+        if (isset($known[$slug])) {
+            return $known[$slug];
+        }
+        return ucfirst(str_replace(array('-', '_'), ' ', $slug));
+    }
+
+    /**
+     * Every certificate issued to the given e-mail addresses, across all types.
+     *
+     * Matches "<email>.pdf" and numbered copies ("<email>-2.pdf", "<email> (2).pdf")
+     * for people with more than one certificate of the same type, ignoring case.
+     *
+     * @param string|string[] $emails
+     * @return array[] Each item: key, type, label, path.
+     */
+    public static function find_certificates($emails)
+    {
+        $targets = array();
+        foreach ((array) $emails as $email) {
+            $email = strtolower(trim((string) $email));
+            if ('' !== $email && is_email($email)) {
+                $targets[] = preg_quote($email, '/');
+            }
+        }
+        if (!$targets) {
+            return array();
+        }
+        $pattern = '/^(?:' . implode('|', array_unique($targets)) . ')(?:[ _-]*\(?(\d+)\)?)?\.pdf$/';
+
+        $base = self::base_dir();
+        $found = array();
+        foreach (self::types() as $type => $label) {
+            $dirs = self::ROOT_TYPE === $type ? array($base, $base . self::ROOT_TYPE . '/') : array($base . $type . '/');
+            foreach ($dirs as $dir) {
+                $files = is_dir($dir) ? scandir($dir) : array();
+                foreach ($files ?: array() as $file) {
+                    if (!preg_match($pattern, strtolower($file)) || !is_file($dir . $file)) {
+                        continue;
+                    }
+                    $key = $type . '/' . $file;
+                    $found[$key] = array(
+                        'key'   => $key,
+                        'type'  => $type,
+                        'label' => $label,
+                        'path'  => $dir . $file,
+                    );
+                }
+            }
+        }
+
+        // Number repeated types ("Pôster 1", "Pôster 2").
+        $counts = array_count_values(wp_list_pluck($found, 'type'));
+        $seen = array();
+        foreach ($found as &$item) {
+            if ($counts[$item['type']] > 1) {
+                $seen[$item['type']] = ($seen[$item['type']] ?? 0) + 1;
+                $item['label'] .= ' ' . $seen[$item['type']];
+            }
+        }
+        unset($item);
+
+        return array_values($found);
+    }
+
+    /**
+     * Locate a certificate file by email (first match, any type).
+     *
+     * @deprecated 1.1.2 Use find_certificates(): a person may have several.
      * @param string $input_email
      * @return string|false
      */
     public static function find_certificate_file($input_email)
     {
-        if (empty($input_email) || !is_email($input_email)) {
-            return false;
+        $found = self::find_certificates($input_email);
+        return $found ? $found[0]['path'] : false;
+    }
+
+    /**
+     * E-mail addresses that identify the logged-in user's certificates:
+     * the account e-mail and the WooCommerce billing e-mail.
+     *
+     * @return string[]
+     */
+    public static function current_user_emails()
+    {
+        if (!is_user_logged_in()) {
+            return array();
         }
-
-        $upload_dir = wp_upload_dir();
-        $cert_dir = trailingslashit($upload_dir['basedir']) . 'certificados/';
-
-        // Personal data: deny direct HTTP access to the directory.
-        SciFlow_Security::protect_directory($cert_dir);
-
-        $email_clean = strtolower(trim($input_email));
-        $raw_email   = trim($input_email);
-
-        $candidates = array(
-            $cert_dir . $email_clean . '.pdf',
-            $cert_dir . $email_clean . '.PDF',
-            $cert_dir . $raw_email . '.pdf',
-            $cert_dir . $raw_email . '.PDF',
-        );
-
-        foreach ($candidates as $file) {
-            if (file_exists($file) && is_file($file)) {
-                return $file;
-            }
-        }
-
-        // Case-insensitive scan fallback
-        if (is_dir($cert_dir)) {
-            $files = scandir($cert_dir);
-            if ($files) {
-                $target = $email_clean . '.pdf';
-                foreach ($files as $f) {
-                    if (strtolower($f) === $target) {
-                        $matched = $cert_dir . $f;
-                        if (is_file($matched)) {
-                            return $matched;
-                        }
-                    }
-                }
-            }
-        }
-
-        return false;
+        $user = wp_get_current_user();
+        $emails = array($user->user_email, get_user_meta($user->ID, 'billing_email', true));
+        return array_values(array_unique(array_filter(array_map('strtolower', array_map('trim', $emails)), 'is_email')));
     }
 
     /**
      * Handle download submission from the frontend shortcode.
+     *
+     * Logged-in users always get their own certificates. Visitors may look
+     * up an e-mail only when the "email" access mode is enabled. With a
+     * single certificate the download starts right away; with several the
+     * shortcode lists them (one button per certificate).
      */
     public function handle_shortcode_download()
     {
@@ -77,62 +223,120 @@ class SciFlow_Certificates
             return;
         }
 
+        $back = wp_get_referer() ?: (is_singular() ? get_permalink() : home_url());
+
         $nonce = $_POST['sciflow_cert_nonce'] ?? '';
         if (!wp_verify_nonce($nonce, 'sciflow_download_cert_action')) {
-            $redirect = add_query_arg('cert_status', 'expired', wp_get_referer() ?: home_url());
-            wp_safe_redirect($redirect);
+            wp_safe_redirect(add_query_arg('cert_status', 'expired', $back));
             exit;
         }
 
-        $access = (string) SciFlow_Settings::get('certificate_access', 'logged_in');
-        if ('logged_in' === $access) {
-            if (!is_user_logged_in()) {
-                wp_safe_redirect(add_query_arg('cert_status', 'login_required', wp_get_referer() ?: home_url()));
-                exit;
-            }
-            // Logged-in mode: only the account's own certificate.
-            $input_email = wp_get_current_user()->user_email;
+        $by_email = 'email' === (string) SciFlow_Settings::get('certificate_access', 'logged_in');
+        $typed = $by_email ? sanitize_email(wp_unslash($_POST['sciflow_cert_email'] ?? '')) : '';
+        if ($by_email && ('' !== $typed || !is_user_logged_in())) {
+            $emails = array($typed);
+        } elseif (is_user_logged_in()) {
+            $emails = self::current_user_emails();
         } else {
-            $input_email = sanitize_email(wp_unslash($_POST['sciflow_cert_email'] ?? ''));
+            wp_safe_redirect(add_query_arg('cert_status', 'login_required', $back));
+            exit;
         }
 
         // Limit lookups per IP (prevents e-mail enumeration).
         if (!SciFlow_Security::rate_limit('cert_download', (int) SciFlow_Settings::get('certificate_rate_limit', 20), 10 * MINUTE_IN_SECONDS)) {
-            wp_safe_redirect(add_query_arg('cert_status', 'rate_limited', wp_get_referer() ?: home_url()));
+            wp_safe_redirect(add_query_arg('cert_status', 'rate_limited', $back));
             exit;
         }
 
-        if (empty($input_email) || !is_email($input_email)) {
-            $redirect = add_query_arg(array(
-                'cert_status' => 'invalid_email',
-            ), wp_get_referer() ?: home_url());
-            wp_safe_redirect($redirect);
+        if (!array_filter($emails, 'is_email')) {
+            wp_safe_redirect(add_query_arg('cert_status', 'invalid_email', $back));
             exit;
         }
 
-        $file_path = self::find_certificate_file($input_email);
+        $found = self::find_certificates($emails);
+        if (!$found) {
+            wp_safe_redirect(add_query_arg('cert_status', 'not_found', $back));
+            exit;
+        }
 
-        if ($file_path && file_exists($file_path)) {
-            while (ob_get_level()) {
-                ob_end_clean();
+        // The key is only compared against the files found for this person,
+        // never used to build a path.
+        $key = sanitize_text_field(wp_unslash($_POST['sciflow_cert_key'] ?? ''));
+        if ('' !== $key) {
+            $match = wp_list_filter($found, array('key' => $key));
+            if (!$match) {
+                wp_safe_redirect(add_query_arg('cert_status', 'not_found', $back));
+                exit;
             }
-
-            header('Content-Description: File Transfer');
-            header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="' . basename($file_path) . '"');
-            header('Expires: 0');
-            header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-            header('Pragma: public');
-            header('Content-Length: ' . filesize($file_path));
-            readfile($file_path);
-            exit;
-        } else {
-            $redirect = add_query_arg(array(
-                'cert_status' => 'not_found',
-            ), wp_get_referer() ?: home_url());
-            wp_safe_redirect($redirect);
-            exit;
+            self::send_pdf(reset($match));
         }
+
+        if (1 === count($found)) {
+            self::send_pdf($found[0]);
+        }
+
+        // Several certificates: let the shortcode render the list.
+        self::$lookup = array(
+            'email' => $typed,
+            'items' => $found,
+        );
+    }
+
+    /**
+     * Stream a certificate PDF and stop.
+     *
+     * @param array $item Item from find_certificates().
+     */
+    private static function send_pdf($item)
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $filename = 'certificado-' . sanitize_file_name(remove_accents(strtolower(str_replace(' ', '-', $item['label'])))) . '.pdf';
+
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Expires: 0');
+        header('Cache-Control: private, no-store, must-revalidate');
+        header('Pragma: public');
+        header('X-Robots-Tag: noindex');
+        header('Content-Length: ' . filesize($item['path']));
+        readfile($item['path']);
+        exit;
+    }
+
+    /**
+     * WooCommerce "Minha conta": add a "Certificados" entry before "Sair".
+     *
+     * @param array $items
+     * @return array
+     */
+    public function account_menu_item($items)
+    {
+        if (!SciFlow_Pages::exists('certificates')) {
+            return $items;
+        }
+        $logout = isset($items['customer-logout']) ? array('customer-logout' => $items['customer-logout']) : array();
+        unset($items['customer-logout']);
+        $items['sciflow-certificados'] = __('Certificados', 'sciflow-wp');
+        return $items + $logout;
+    }
+
+    /**
+     * Point the "Certificados" account entry to the certificates page.
+     *
+     * @param string $url
+     * @param string $endpoint
+     * @return string
+     */
+    public function account_menu_url($url, $endpoint)
+    {
+        if ('sciflow-certificados' === $endpoint) {
+            return SciFlow_Pages::url('certificates');
+        }
+        return $url;
     }
 
     /**
@@ -163,9 +367,19 @@ class SciFlow_Certificates
 
         $email = '';
         $login_only = 'logged_in' === (string) SciFlow_Settings::get('certificate_access', 'logged_in');
-        if (is_user_logged_in()) {
-            $current_user = wp_get_current_user();
-            $email = $current_user->user_email;
+
+        // null = show the search form; array = list of certificates.
+        $items = null;
+        $lookup_email = '';
+        if (null !== self::$lookup) {
+            $items = self::$lookup['items'];
+            $lookup_email = self::$lookup['email'];
+        } elseif (is_user_logged_in()) {
+            $email = wp_get_current_user()->user_email;
+            $items = self::find_certificates(self::current_user_emails());
+        }
+        if (null !== $items && __('Informe o e-mail utilizado na sua inscrição para localizar e baixar seu certificado em PDF.', 'sciflow-wp') === $atts['subtitle']) {
+            $atts['subtitle'] = __('Estes são os certificados emitidos para você. Baixe cada um em PDF.', 'sciflow-wp');
         }
 
         $status = isset($_GET['cert_status']) ? sanitize_text_field($_GET['cert_status']) : '';
@@ -322,6 +536,36 @@ class SciFlow_Certificates
                 .sciflow-cert-btn:active {
                     transform: translateY(0) !important;
                 }
+                .sciflow-cert-list {
+                    list-style: none;
+                    margin: 0 0 18px;
+                    padding: 0;
+                    text-align: left;
+                }
+                .sciflow-cert-item {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                    padding: 12px 0;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                .sciflow-cert-item:last-child {
+                    border-bottom: none;
+                }
+                .sciflow-cert-item form {
+                    margin: 0;
+                    flex-shrink: 0;
+                }
+                .sciflow-cert-item-label {
+                    font-weight: 600;
+                    color: #1e293b;
+                }
+                .sciflow-cert-btn.sciflow-cert-btn--small {
+                    width: auto !important;
+                    padding: 8px 16px !important;
+                    font-size: 0.88rem !important;
+                }
                 .sciflow-cert-footer {
                     margin-top: 18px;
                     font-size: 0.78rem;
@@ -343,13 +587,47 @@ class SciFlow_Certificates
 
                 <?php echo $alert_html; ?>
 
+                <?php if (null !== $items) : ?>
+                    <?php if ($items) : ?>
+                    <ul class="sciflow-cert-list">
+                        <?php foreach ($items as $item) : ?>
+                        <li class="sciflow-cert-item">
+                            <span class="sciflow-cert-item-label"><?php echo esc_html($item['label']); ?></span>
+                            <form method="post" action="">
+                                <?php wp_nonce_field('sciflow_download_cert_action', 'sciflow_cert_nonce'); ?>
+                                <input type="hidden" name="sciflow_cert_key" value="<?php echo esc_attr($item['key']); ?>">
+                                <?php if ('' !== $lookup_email) : ?>
+                                <input type="hidden" name="sciflow_cert_email" value="<?php echo esc_attr($lookup_email); ?>">
+                                <?php endif; ?>
+                                <button type="submit" name="sciflow_download_cert_submit" class="sciflow-cert-btn sciflow-cert-btn--small" aria-label="<?php echo esc_attr(sprintf(__('Baixar certificado de %s', 'sciflow-wp'), $item['label'])); ?>">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                    <span><?php esc_html_e('PDF', 'sciflow-wp'); ?></span>
+                                </button>
+                            </form>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php else : ?>
+                    <div class="sciflow-cert-alert sciflow-cert-alert--warning" role="status"><span><?php esc_html_e('Ainda não há certificados emitidos para a sua conta.', 'sciflow-wp'); ?></span></div>
+                    <?php endif; ?>
+
+                    <?php if ('' !== $lookup_email) : ?>
+                    <p class="sciflow-cert-hint"><?php echo esc_html(sprintf(__('E-mail: %s', 'sciflow-wp'), $lookup_email)); ?> · <a href="<?php echo esc_url(get_permalink()); ?>"><?php esc_html_e('buscar outro e-mail', 'sciflow-wp'); ?></a></p>
+                    <?php elseif (is_user_logged_in()) : ?>
+                    <p class="sciflow-cert-hint"><?php echo esc_html(sprintf(__('Conta: %s', 'sciflow-wp'), implode(', ', self::current_user_emails()))); ?></p>
+                    <?php endif; ?>
+                <?php endif; ?>
+
+                <?php if (null === $items || (!$items && !$login_only)) : ?>
                 <form method="post" action="" class="sciflow-cert-form">
                     <?php wp_nonce_field('sciflow_download_cert_action', 'sciflow_cert_nonce'); ?>
-                    
+
                     <?php if ($login_only && !is_user_logged_in()) : ?>
                         <p><a class="sciflow-cert-btn" href="<?php echo esc_url(wp_login_url(get_permalink())); ?>"><?php esc_html_e('Fazer login', 'sciflow-wp'); ?></a></p>
-                    <?php elseif ($login_only) : ?>
-                        <p class="sciflow-cert-hint"><?php echo esc_html(sprintf(__('Certificado da conta: %s', 'sciflow-wp'), $email)); ?></p>
                     <?php else : ?>
                     <div class="sciflow-cert-form-group">
                         <label for="sciflow_cert_email" class="sciflow-cert-label">
@@ -380,6 +658,7 @@ class SciFlow_Certificates
                     </button>
                     <?php endif; ?>
                 </form>
+                <?php endif; ?>
 
                 <div class="sciflow-cert-footer">
                     <?php esc_html_e('Arquivos emitidos em formato PDF oficial.', 'sciflow-wp'); ?>
