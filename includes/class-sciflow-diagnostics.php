@@ -128,6 +128,21 @@ class SciFlow_Diagnostics
             $out[] = self::item($g, 'private_dirs', __('Diretórios privados', 'sciflow-wp'), 'ok', __('Protegidos por .htaccess/web.config', 'sciflow-wp'));
         }
 
+        if (is_dir($base . 'certificados') && class_exists('SciFlow_Certificates')) {
+            $counts = array();
+            foreach (SciFlow_Certificates::types() as $type => $label) {
+                $dirs = SciFlow_Certificates::ROOT_TYPE === $type ? array($base . 'certificados/', $base . 'certificados/' . $type . '/') : array($base . 'certificados/' . $type . '/');
+                $n = 0;
+                foreach ($dirs as $dir) {
+                    $n += count(preg_grep('/\.pdf$/i', glob($dir . '*') ?: array()));
+                }
+                if ($n) {
+                    $counts[] = sprintf('%s: %d', $label, $n);
+                }
+            }
+            $out[] = self::item($g, 'certificates', __('Certificados enviados', 'sciflow-wp'), 'info', $counts ? implode(' · ', $counts) : __('Nenhum PDF em uploads/certificados/.', 'sciflow-wp'));
+        }
+
         $missing_cron = array();
         foreach (SciFlow_Installer::CRON_HOOKS as $hook) {
             if (!wp_next_scheduled($hook)) {

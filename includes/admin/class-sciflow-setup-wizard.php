@@ -631,10 +631,10 @@ class SciFlow_Setup_Wizard
             <tr>
                 <th scope="row"><?php esc_html_e('Download de certificados', 'sciflow-wp'); ?></th>
                 <td><fieldset>
-                    <label><input type="radio" name="sciflow_settings[certificate_access]" value="logged_in" <?php checked('logged_in', $s['certificate_access']); ?>> <?php esc_html_e('Somente logado, apenas o próprio certificado (recomendado)', 'sciflow-wp'); ?></label><br>
+                    <label><input type="radio" name="sciflow_settings[certificate_access]" value="logged_in" <?php checked('logged_in', $s['certificate_access']); ?>> <?php esc_html_e('Somente logado, apenas os próprios certificados (recomendado)', 'sciflow-wp'); ?></label><br>
                     <label><input type="radio" name="sciflow_settings[certificate_access]" value="email" <?php checked('email', $s['certificate_access']); ?>> <?php esc_html_e('Qualquer visitante informando um e-mail', 'sciflow-wp'); ?></label>
                 </fieldset>
-                <p class="description"><?php esc_html_e('Os PDFs são enviados para wp-content/uploads/certificados/ com o nome <e-mail>.pdf.', 'sciflow-wp'); ?></p></td>
+                <p class="description"><?php esc_html_e('Os PDFs são enviados para wp-content/uploads/certificados/ com o nome <e-mail>.pdf (participação). Cada outro tipo fica numa subpasta, por exemplo certificados/poster/<e-mail>.pdf; a pessoa vê todos os seus.', 'sciflow-wp'); ?></p></td>
             </tr>
             <?php $this->field_text($s, 'anais_title', __('Título dos Anais', 'sciflow-wp'), array('required' => true, 'class' => 'large-text')); ?>
             <tr>
