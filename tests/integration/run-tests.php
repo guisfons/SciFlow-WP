@@ -336,6 +336,11 @@ $html = SciFlow_Certificates::render_shortcode();
 $t->ok(4 === substr_count($html, 'name="sciflow_cert_key"') && false !== strpos($html, 'Pôster 2'), 'página lista um botão por certificado');
 $t->ok(false === strpos($html, $cert_base), 'caminho no servidor não aparece na página');
 wp_set_current_user(0);
+if (class_exists('WooCommerce') && wc_get_page_id('myaccount') > 0) {
+    $login = wp_login_url(home_url('/baixar-certificado/'));
+    $t->ok(0 === strpos($login, wc_get_page_permalink('myaccount')) && false !== strpos($login, 'redirect_to='), 'login do site vai para "Minha conta", voltando à página de origem');
+    $t->ok(false !== strpos(wp_login_url(admin_url('edit.php')), 'wp-login.php') && false !== strpos(wp_login_url('', true), 'wp-login.php'), 'login para o wp-admin e reautenticação continuam no wp-login.php');
+}
 require_once ABSPATH . 'wp-admin/includes/user.php';
 wp_delete_user($cert_user);
 foreach ($cert_files as $f) {

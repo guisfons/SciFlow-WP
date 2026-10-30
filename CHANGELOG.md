@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 — 2026-10-30
+### Melhorias
+- Os links "fazer login" do site (certificados, submissão, pôster, detalhe do trabalho) levam à tela de login do "Minha conta" do WooCommerce, com o visual do site, em vez da tela do WordPress. Depois do login a pessoa volta à página de origem. O wp-admin e a reautenticação continuam usando o `wp-login.php`.
+
+
 ## 1.2.0 — 2026-10-30
 ### Novidades
 - Certificados de vários tipos por pessoa. Cada subpasta de `uploads/certificados/` é um tipo (`poster/`, `apresentacao-oral/`, `palestrante/`, `mediador/`…); os PDFs da raiz continuam sendo os de participação. A página de certificados lista todos os da pessoa, com um botão de download para cada um. Mais de um do mesmo tipo: `<email>-2.pdf`.

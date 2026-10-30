@@ -3,7 +3,7 @@
  * Plugin Name:       SciFlow WP
  * Plugin URI:        https://github.com/guisfons/SciFlow-WP
  * Description:       Submissão, avaliação por pares, ranking, pôsteres, certificados e anais para eventos científicos.
- * Version:           1.2.0
+ * Version:           1.2.1
  * Author:            Doppio
  * License:           MIT
  * License URI:       https://opensource.org/licenses/MIT
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SCIFLOW_VERSION', '1.2.0');
+define('SCIFLOW_VERSION', '1.2.1');
 define('SCIFLOW_FILE', __FILE__);
 define('SCIFLOW_PATH', plugin_dir_path(__FILE__));
 define('SCIFLOW_URL', plugin_dir_url(__FILE__));

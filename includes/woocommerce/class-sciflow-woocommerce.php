@@ -21,6 +21,33 @@ class SciFlow_WooCommerce
         // Assign role when order status changes to completed or processing.
         add_action('woocommerce_order_status_completed', array($this, 'assign_role_on_purchase'));
         add_action('woocommerce_order_status_processing', array($this, 'assign_role_on_purchase'));
+
+        // Visitors log in on "Minha conta" (same look as the rest of the site), not on wp-login.php.
+        // WooCommerce itself reads ?redirect_to= there and only follows local URLs after login.
+        add_filter('login_url', array($this, 'account_login_url'), 10, 3);
+    }
+
+    /**
+     * Point front-end login links to the WooCommerce "Minha conta" page,
+     * returning to the original page after login. wp-admin, re-authentication
+     * and admin destinations keep the WordPress login screen.
+     *
+     * @param string $login_url
+     * @param string $redirect
+     * @param bool   $force_reauth
+     * @return string
+     */
+    public function account_login_url($login_url, $redirect, $force_reauth)
+    {
+        if ($force_reauth || is_admin() || !function_exists('wc_get_page_id') || wc_get_page_id('myaccount') <= 0) {
+            return $login_url;
+        }
+        if ($redirect && 0 === strpos($redirect, admin_url())) {
+            return $login_url;
+        }
+
+        $account = wc_get_page_permalink('myaccount');
+        return $redirect ? add_query_arg('redirect_to', rawurlencode($redirect), $account) : $account;
     }
 
     /**
