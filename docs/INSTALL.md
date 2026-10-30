@@ -107,7 +107,7 @@ uploads/certificados/
 ```
 
 - Cada subpasta é um tipo; basta criá-la. Nomes em minúsculas, sem acentos nem espaços. Nomes conhecidos ganham rótulo acentuado (`poster` → "Pôster", `apresentacao-oral` → "Apresentação oral", `comissao-organizadora`…); os demais viram "Nome da pasta".
-- A pessoa vê todos os seus certificados na página de certificados (e no menu "Minha conta"). Logada, a busca usa o e-mail da conta e o de cobrança do WooCommerce.
+- A pessoa vê todos os seus certificados na área do participante, em **Minha conta → Certificados** (`/minha-conta/certificados/`). No modo "Somente logado", a página de certificados redireciona para lá; no modo "por e-mail", ela continua aceitando a busca por e-mail. Logada, a busca usa o e-mail da conta e o de cobrança do WooCommerce.
 - Conferência: SciFlow → Diagnóstico → "Certificados enviados" mostra a contagem por tipo.
 - A pasta inteira (com as subpastas) é bloqueada para acesso direto; no Nginx, a regra da §2 já cobre as subpastas.
 

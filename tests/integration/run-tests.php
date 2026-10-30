@@ -335,6 +335,14 @@ $t->ok(4 === count(SciFlow_Certificates::find_certificates(SciFlow_Certificates:
 $html = SciFlow_Certificates::render_shortcode();
 $t->ok(4 === substr_count($html, 'name="sciflow_cert_key"') && false !== strpos($html, 'Pôster 2'), 'página lista um botão por certificado');
 $t->ok(false === strpos($html, $cert_base), 'caminho no servidor não aparece na página');
+if (class_exists('WooCommerce') && wc_get_page_id('myaccount') > 0) {
+    $t->ok(isset(WC()->query->get_query_vars()['certificados']) && isset(wc_get_account_menu_items()['certificados']), 'aba "Certificados" registrada na área do participante (Minha conta)');
+    $t->ok(false !== strpos(SciFlow_Certificates::account_url(), '/certificados'), 'URL da aba: /minha-conta/certificados/');
+    ob_start(); do_action('woocommerce_account_dashboard'); $dash = ob_get_clean();
+    $t->ok(false !== strpos($dash, '4 certificados disponíveis'), 'painel do Minha conta avisa quantos certificados há');
+    ob_start(); do_action('woocommerce_account_certificados_endpoint'); $tab = ob_get_clean();
+    $t->ok(4 === substr_count($tab, 'name="sciflow_cert_key"'), 'aba lista os certificados da pessoa');
+}
 wp_set_current_user(0);
 if (class_exists('WooCommerce') && wc_get_page_id('myaccount') > 0) {
     $login = wp_login_url(home_url('/baixar-certificado/'));

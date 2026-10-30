@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2 — 2026-10-30
+### Melhorias
+- Certificados dentro da área do participante: nova aba **Minha conta → Certificados** (`/minha-conta/certificados/`), com a lista e os downloads. O painel do Minha conta avisa quantos certificados a pessoa tem.
+- Com o acesso "Somente logado", a página avulsa de certificados redireciona para essa aba (o WooCommerce pede o login antes e volta para ela).
+
+
 ## 1.2.1 — 2026-10-30
 ### Melhorias
 - Os links "fazer login" do site (certificados, submissão, pôster, detalhe do trabalho) levam à tela de login do "Minha conta" do WooCommerce, com o visual do site, em vez da tela do WordPress. Depois do login a pessoa volta à página de origem. O wp-admin e a reautenticação continuam usando o `wp-login.php`.
